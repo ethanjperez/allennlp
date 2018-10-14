@@ -102,6 +102,19 @@ def evaluate(model: Model,
         generator_tqdm = Tqdm.tqdm(iterator, total=data_iterator.get_num_batches(instances))
         for batch in generator_tqdm:
             batch = util.move_to_device(batch, cuda_device)
+
+            period_token_no = 5
+            num_sents_reveal = 2
+            sent_idxs = (batch['passage']['tokens'] == 5).cumsum(1) - (batch['passage']['tokens'] == period_token_no).long()
+            num_sents = sent_idxs.max(1)[0]
+            # NB: 'max' is a hack below for examples where you have less than num_sents_reveal! Need to replace those with full original tokens at the end.
+            rand_sent_idxs = torch.stack([torch.multinomial(torch.ones(max(int(num_sents[i]), 2)), num_sents_reveal, False) for i in range(num_sents.size(0))])
+            sent_masks = torch.stack([sent_idxs == rand_sent_idxs[:,i].unsqueeze(1) for i in range(num_sents_reveal)]).sum(0)
+            pad_masks = (batch['passage']['tokens'] != 0).long()
+            batch['passage']['tokens'] = ((batch['passage']['tokens'] * sent_masks) + ((1 - sent_masks) * period_token_no)) * pad_masks
+            batch['passage']['token_characters'] = ((batch['passage']['token_characters'] * sent_masks.unsqueeze(-1)) + ((1 - sent_masks.unsqueeze(-1)) * period_token_no)) * pad_masks.unsqueeze(-1)
+
+
             model(**batch)
             metrics = model.get_metrics()
             if (not _warned_tqdm_ignores_underscores and
