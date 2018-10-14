@@ -158,9 +158,9 @@ def evaluate_from_args(args: argparse.Namespace) -> Dict[str, Any]:
     instances = dataset_reader.read(evaluation_data_path)
 
     iterator_params = config.pop("validation_iterator", None)
-    iterator_params.params['batch_size'] = 1  # NB: Remove for batch evaluation!
     if iterator_params is None:
         iterator_params = config.pop("iterator")
+    iterator_params.params['batch_size'] = 1  # NB: Remove for batch evaluation!
     iterator = DataIterator.from_params(iterator_params)
     iterator.index_with(model.vocab)
 
