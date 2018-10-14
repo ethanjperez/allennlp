@@ -110,13 +110,13 @@ def evaluate(model: Model,
             num_sents = sent_idxs.max(1)[0] + 1
             if num_sents <= 2:
                 # NB: 'max' is a hack below for examples where you have less than num_sents_reveal! Need to replace those with full original tokens at the end.
-                # # rand_sent_idxs = torch.stack([torch.multinomial(torch.ones(max(int(num_sents[i]), num_sents_reveal)), num_sents_reveal, False) for i in range(num_sents.size(0))])
-                # # sent_masks = torch.stack([sent_idxs == rand_sent_idxs[:,i].unsqueeze(1) for i in range(num_sents_reveal)]).sum(0)
-                # pad_masks = (batch['passage']['tokens'] != 0).long()
-                # # batch['passage']['tokens'] = ((batch['passage']['tokens'] * sent_masks) + ((1 - sent_masks) * period_token_no)) * pad_masks
-                # # batch['passage']['token_characters'] = ((batch['passage']['token_characters'] * sent_masks.unsqueeze(-1)) + ((1 - sent_masks.unsqueeze(-1)) * period_token_no)) * pad_masks.unsqueeze(-1)
-                # # batch = util.move_to_device(batch, cuda_device)
-                # # model(**batch)
+                rand_sent_idxs = torch.stack([torch.multinomial(torch.ones(max(int(num_sents[i]), num_sents_reveal)), num_sents_reveal, False) for i in range(num_sents.size(0))])
+                sent_masks = torch.stack([sent_idxs == rand_sent_idxs[:,i].unsqueeze(1) for i in range(num_sents_reveal)]).sum(0)
+                pad_masks = (batch['passage']['tokens'] != 0).long()
+                batch['passage']['tokens'] = ((batch['passage']['tokens'] * sent_masks) + ((1 - sent_masks) * period_token_no)) * pad_masks
+                batch['passage']['token_characters'] = ((batch['passage']['token_characters'] * sent_masks.unsqueeze(-1)) + ((1 - sent_masks.unsqueeze(-1)) * period_token_no)) * pad_masks.unsqueeze(-1)
+                batch = util.move_to_device(batch, cuda_device)
+                model(**batch)
             else:
                 brute_force_metrics = []
                 for a_idx in range(num_sents):
