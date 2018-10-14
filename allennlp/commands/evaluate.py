@@ -121,7 +121,6 @@ def evaluate(model: Model,
                 brute_force_metrics = []
                 batch_passage_tokens = batch['passage']['tokens'].clone()
                 batch_passage_token_characters = batch['passage']['tokens'].clone()
-                import ipdb; ipdb.set_trace()
                 for a_idx in range(num_sents):
                     for b_idx in range(num_sents):
                         ab_sent_idxs = torch.stack([torch.LongTensor((a_idx, b_idx)) for i in range(num_sents.size(0))])
