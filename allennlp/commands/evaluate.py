@@ -125,6 +125,7 @@ def evaluate(model: Model,
                         ab_idxs = torch.Tensor((a_idx, b_idx))
                         sent_masks = torch.stack([ab_idxs for i in range(num_sents.size(0))])
                         pad_masks = (batch_copy['passage']['tokens'] != 0).long()
+                        import ipdb; ipdb.set_trace()
                         batch_copy['passage']['tokens'] = ((batch_copy['passage']['tokens'] * sent_masks) + ((1 - sent_masks) * period_token_no)) * pad_masks
                         batch_copy['passage']['token_characters'] = ((batch_copy['passage']['token_characters'] * sent_masks.unsqueeze(-1)) + ((1 - sent_masks.unsqueeze(-1)) * period_token_no)) * pad_masks.unsqueeze(-1)
                         batch_copy = util.move_to_device(batch_copy, cuda_device)
