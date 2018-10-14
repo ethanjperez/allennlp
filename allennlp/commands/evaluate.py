@@ -34,6 +34,7 @@ and report any metrics calculated by the model.
 """
 from typing import Dict, Any, Iterable
 import argparse
+import copy
 import logging
 import json
 
@@ -107,17 +108,34 @@ def evaluate(model: Model,
 
             sent_idxs = (batch['passage']['tokens'] == 5).cumsum(1) - (batch['passage']['tokens'] == period_token_no).long()
             num_sents = sent_idxs.max(1)[0] + 1
-            if num_sents >= 3:
+            if num_sents <= 2:
+                # NB: 'max' is a hack below for examples where you have less than num_sents_reveal! Need to replace those with full original tokens at the end.
+                # # rand_sent_idxs = torch.stack([torch.multinomial(torch.ones(max(int(num_sents[i]), num_sents_reveal)), num_sents_reveal, False) for i in range(num_sents.size(0))])
+                # # sent_masks = torch.stack([sent_idxs == rand_sent_idxs[:,i].unsqueeze(1) for i in range(num_sents_reveal)]).sum(0)
+                # pad_masks = (batch['passage']['tokens'] != 0).long()
+                # # batch['passage']['tokens'] = ((batch['passage']['tokens'] * sent_masks) + ((1 - sent_masks) * period_token_no)) * pad_masks
+                # # batch['passage']['token_characters'] = ((batch['passage']['token_characters'] * sent_masks.unsqueeze(-1)) + ((1 - sent_masks.unsqueeze(-1)) * period_token_no)) * pad_masks.unsqueeze(-1)
+                # # batch = util.move_to_device(batch, cuda_device)
+                # # model(**batch)
+            else:
+                brute_force_metrics = []
+                for a_idx in range(num_sents):
+                    for b_idx in range(num_sents):
+                        batch_copy = copy.deepcopy(batch)
+                        ab_idxs = torch.Tensor((a_idx, b_idx))
+                        sent_masks = torch.stack([ab_idxs for i in range(num_sents.size(0))])
+                        pad_masks = (batch_copy['passage']['tokens'] != 0).long()
+                        batch_copy['passage']['tokens'] = ((batch_copy['passage']['tokens'] * sent_masks) + ((1 - sent_masks) * period_token_no)) * pad_masks
+                        batch_copy['passage']['token_characters'] = ((batch_copy['passage']['token_characters'] * sent_masks.unsqueeze(-1)) + ((1 - sent_masks.unsqueeze(-1)) * period_token_no)) * pad_masks.unsqueeze(-1)
+                        batch_copy = util.move_to_device(batch_copy, cuda_device)
+                        model(**batch_copy)
+                        brute_force_metrics.append(model.get_metrics())
+                    # Min over b's moves
                 import ipdb; ipdb.set_trace()
-            # NB: 'max' is a hack below for examples where you have less than num_sents_reveal! Need to replace those with full original tokens at the end.
-            rand_sent_idxs = torch.stack([torch.multinomial(torch.ones(max(int(num_sents[i]), num_sents_reveal)), num_sents_reveal, False) for i in range(num_sents.size(0))])
-            sent_masks = torch.stack([sent_idxs == rand_sent_idxs[:,i].unsqueeze(1) for i in range(num_sents_reveal)]).sum(0)
-            pad_masks = (batch['passage']['tokens'] != 0).long()
-            batch['passage']['tokens'] = ((batch['passage']['tokens'] * sent_masks) + ((1 - sent_masks) * period_token_no)) * pad_masks
-            batch['passage']['token_characters'] = ((batch['passage']['token_characters'] * sent_masks.unsqueeze(-1)) + ((1 - sent_masks.unsqueeze(-1)) * period_token_no)) * pad_masks.unsqueeze(-1)
+                print(brute_force_metrics)
+                # Max over a's moves
 
-            batch = util.move_to_device(batch, cuda_device)
-            model(**batch)
+
             metrics = model.get_metrics()
             if (not _warned_tqdm_ignores_underscores and
                         any(metric_name.startswith("_") for metric_name in metrics)):
