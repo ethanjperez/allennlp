@@ -101,9 +101,13 @@ def evaluate(model: Model,
         logger.info("Iterating over dataset")
         generator_tqdm = Tqdm.tqdm(iterator, total=data_iterator.get_num_batches(instances))
         for batch in generator_tqdm:
+            batch_size = len(batch['metadata'])
             period_token_no = 5
             num_sents_reveal = 2
             import ipdb; ipdb.set_trace()
+            # for sample_no in range(batch_size):
+            #     sample = {key: batch[key][sample_no] for key in batch.keys()}
+
             sent_idxs = (batch['passage']['tokens'] == 5).cumsum(1) - (batch['passage']['tokens'] == period_token_no).long()
             num_sents = sent_idxs.max(1)[0]
             # NB: 'max' is a hack below for examples where you have less than num_sents_reveal! Need to replace those with full original tokens at the end.
