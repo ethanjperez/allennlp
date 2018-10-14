@@ -494,9 +494,9 @@ class Trainer(Registrable):
             period_token_no = 5
             num_sents_reveal = 2
             sent_idxs = (batch['passage']['tokens'] == 5).cumsum(1) - (batch['passage']['tokens'] == period_token_no).long()
-            num_sents = sent_idxs.max(1)[0]
+            num_sents = sent_idxs.max(1)[0] + 1
             # NB: 'max' is a hack below for examples where you have less than num_sents_reveal! Need to replace those with full original tokens at the end.
-            rand_sent_idxs = torch.stack([torch.multinomial(torch.ones(max(int(num_sents[i]), 2)), num_sents_reveal, False) for i in range(num_sents.size(0))])
+            rand_sent_idxs = torch.stack([torch.multinomial(torch.ones(max(int(num_sents[i]), num_sents_reveal)), num_sents_reveal, False) for i in range(num_sents.size(0))])
             sent_masks = torch.stack([sent_idxs == rand_sent_idxs[:,i].unsqueeze(1) for i in range(num_sents_reveal)]).sum(0)
             pad_masks = (batch['passage']['tokens'] != 0).long()
             batch['passage']['tokens'] = ((batch['passage']['tokens'] * sent_masks) + ((1 - sent_masks) * period_token_no)) * pad_masks
@@ -722,9 +722,9 @@ class Trainer(Registrable):
             period_token_no = 5
             num_sents_reveal = 2
             sent_idxs = (batch['passage']['tokens'] == 5).cumsum(1) - (batch['passage']['tokens'] == period_token_no).long()
-            num_sents = sent_idxs.max(1)[0]
+            num_sents = sent_idxs.max(1)[0] + 1
             # NB: 'max' is a hack below for examples where you have less than num_sents_reveal! Need to replace those with full original tokens at the end.
-            rand_sent_idxs = torch.stack([torch.multinomial(torch.ones(max(int(num_sents[i]), 2)), num_sents_reveal, False) for i in range(num_sents.size(0))])
+            rand_sent_idxs = torch.stack([torch.multinomial(torch.ones(max(int(num_sents[i]), num_sents_reveal)), num_sents_reveal, False) for i in range(num_sents.size(0))])
             sent_masks = torch.stack([sent_idxs == rand_sent_idxs[:,i].unsqueeze(1) for i in range(num_sents_reveal)]).sum(0)
             pad_masks = (batch['passage']['tokens'] != 0).long()
             batch['passage']['tokens'] = ((batch['passage']['tokens'] * sent_masks) + ((1 - sent_masks) * period_token_no)) * pad_masks

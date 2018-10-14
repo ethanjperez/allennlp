@@ -104,14 +104,13 @@ def evaluate(model: Model,
             batch_size = len(batch['metadata'])
             period_token_no = 5
             num_sents_reveal = 2
-            import ipdb; ipdb.set_trace()
-            # for sample_no in range(batch_size):
-            #     sample = {key: batch[key][sample_no] for key in batch.keys()}
 
             sent_idxs = (batch['passage']['tokens'] == 5).cumsum(1) - (batch['passage']['tokens'] == period_token_no).long()
-            num_sents = sent_idxs.max(1)[0]
+            num_sents = sent_idxs.max(1)[0] + 1
+            if num_sents >= 3:
+                import ipdb; ipdb.set_trace()
             # NB: 'max' is a hack below for examples where you have less than num_sents_reveal! Need to replace those with full original tokens at the end.
-            rand_sent_idxs = torch.stack([torch.multinomial(torch.ones(max(int(num_sents[i]), 2)), num_sents_reveal, False) for i in range(num_sents.size(0))])
+            rand_sent_idxs = torch.stack([torch.multinomial(torch.ones(max(int(num_sents[i]), num_sents_reveal)), num_sents_reveal, False) for i in range(num_sents.size(0))])
             sent_masks = torch.stack([sent_idxs == rand_sent_idxs[:,i].unsqueeze(1) for i in range(num_sents_reveal)]).sum(0)
             pad_masks = (batch['passage']['tokens'] != 0).long()
             batch['passage']['tokens'] = ((batch['passage']['tokens'] * sent_masks) + ((1 - sent_masks) * period_token_no)) * pad_masks
@@ -159,7 +158,7 @@ def evaluate_from_args(args: argparse.Namespace) -> Dict[str, Any]:
     instances = dataset_reader.read(evaluation_data_path)
 
     iterator_params = config.pop("validation_iterator", None)
-    import ipdb; ipdb.set_trace()
+    iterator_params.params['batch_size'] = 1  # NB: Remove for batch evaluation!
     if iterator_params is None:
         iterator_params = config.pop("iterator")
     iterator = DataIterator.from_params(iterator_params)
