@@ -65,7 +65,7 @@ class DataIterator(Registrable):
                  maximum_samples_per_batch: Tuple[str, int] = None) -> None:
         self.vocab: Vocabulary = None
 
-        self._batch_size = 1  # batch_size (NB: Default for batch eval!)
+        self._batch_size = batch_size
         self._max_instances_in_memory = max_instances_in_memory
         self._instances_per_epoch = instances_per_epoch
         self._maximum_samples_per_batch = maximum_samples_per_batch

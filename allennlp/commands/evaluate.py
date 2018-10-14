@@ -159,6 +159,7 @@ def evaluate_from_args(args: argparse.Namespace) -> Dict[str, Any]:
     instances = dataset_reader.read(evaluation_data_path)
 
     iterator_params = config.pop("validation_iterator", None)
+    import ipdb; ipdb.set_trace()
     if iterator_params is None:
         iterator_params = config.pop("iterator")
     iterator = DataIterator.from_params(iterator_params)
