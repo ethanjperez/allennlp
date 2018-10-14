@@ -122,7 +122,7 @@ def evaluate(model: Model,
                 for a_idx in range(num_sents):
                     for b_idx in range(num_sents):
                         batch_copy = copy.deepcopy(batch)
-                        ab_sent_idxs = torch.stack([torch.Tensor((a_idx, b_idx)) for i in range(num_sents.size(0))])
+                        ab_sent_idxs = torch.stack([torch.LongTensor((a_idx, b_idx)) for i in range(num_sents.size(0))])
                         sent_masks = torch.stack([sent_idxs == ab_sent_idxs[:,i].unsqueeze(1) for i in range(num_sents_reveal)]).sum(0)
                         pad_masks = (batch_copy['passage']['tokens'] != 0).long()
                         batch_copy['passage']['tokens'] = ((batch_copy['passage']['tokens'] * sent_masks) + ((1 - sent_masks) * period_token_no)) * pad_masks
