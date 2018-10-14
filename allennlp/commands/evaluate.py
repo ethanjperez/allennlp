@@ -101,8 +101,6 @@ def evaluate(model: Model,
         logger.info("Iterating over dataset")
         generator_tqdm = Tqdm.tqdm(iterator, total=data_iterator.get_num_batches(instances))
         for batch in generator_tqdm:
-            batch = util.move_to_device(batch, cuda_device)
-
             period_token_no = 5
             num_sents_reveal = 2
             sent_idxs = (batch['passage']['tokens'] == 5).cumsum(1) - (batch['passage']['tokens'] == period_token_no).long()
@@ -114,7 +112,7 @@ def evaluate(model: Model,
             batch['passage']['tokens'] = ((batch['passage']['tokens'] * sent_masks) + ((1 - sent_masks) * period_token_no)) * pad_masks
             batch['passage']['token_characters'] = ((batch['passage']['token_characters'] * sent_masks.unsqueeze(-1)) + ((1 - sent_masks.unsqueeze(-1)) * period_token_no)) * pad_masks.unsqueeze(-1)
 
-
+            batch = util.move_to_device(batch, cuda_device)
             model(**batch)
             metrics = model.get_metrics()
             if (not _warned_tqdm_ignores_underscores and
