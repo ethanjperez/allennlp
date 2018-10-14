@@ -36,3 +36,8 @@ __pycache__
 
 .coverage
 .pytest_cache/
+
+# large files
+datasets/
+tmp/
+models/
