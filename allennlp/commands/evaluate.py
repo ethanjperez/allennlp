@@ -119,6 +119,7 @@ def evaluate(model: Model,
                 model(**batch)
             else:
                 brute_force_metrics = []
+                import ipdb; ipdb.set_trace()
                 for a_idx in range(num_sents):
                     for b_idx in range(num_sents):
                         batch_copy = copy.deepcopy(batch)
