@@ -151,7 +151,7 @@ def evaluate(model: Model,
             for k in metrics.keys():
                 for sample_metric in sample_metrics:
                     metrics[k].append(sample_metric[k])
-            metrics = {k: sum(vs) / len(vs) for k, vs in metrics}
+            metrics = {k: sum(vs) / len(vs) for k, vs in metrics.items()}
 
             if (not _warned_tqdm_ignores_underscores and
                         any(metric_name.startswith("_") for metric_name in metrics)):
