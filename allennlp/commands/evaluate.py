@@ -34,7 +34,6 @@ and report any metrics calculated by the model.
 """
 from typing import Dict, Any, Iterable
 import argparse
-import copy
 import logging
 import json
 
@@ -101,16 +100,15 @@ def evaluate(model: Model,
                                  shuffle=False)
         logger.info("Iterating over dataset")
         generator_tqdm = Tqdm.tqdm(iterator, total=data_iterator.get_num_batches(instances))
+        # Debate: Modified evaluation loop for brute force debate
         sample_metrics = []
         for batch in generator_tqdm:
-            batch_size = len(batch['metadata'])
             period_token_no = 5
             num_sents_reveal = 2
-
             sent_idxs = (batch['passage']['tokens'] == 5).cumsum(1) - (batch['passage']['tokens'] == period_token_no).long()
             num_sents = sent_idxs.max(1)[0] + 1
             pad_masks = (batch['passage']['tokens'] != 0).long()
-            if num_sents <= 2:
+            if num_sents <= num_sents_reveal:
                 # NB: 'max' is a hack below for examples where you have less than num_sents_reveal! Need to replace those with full original tokens at the end.
                 rand_sent_idxs = torch.stack([torch.multinomial(torch.ones(max(int(num_sents[i]), num_sents_reveal)), num_sents_reveal, False) for i in range(num_sents.size(0))])
                 sent_masks = torch.stack([sent_idxs == rand_sent_idxs[:,i].unsqueeze(1) for i in range(num_sents_reveal)]).sum(0)
@@ -191,7 +189,7 @@ def evaluate_from_args(args: argparse.Namespace) -> Dict[str, Any]:
     iterator_params = config.pop("validation_iterator", None)
     if iterator_params is None:
         iterator_params = config.pop("iterator")
-    iterator_params.params['batch_size'] = 1  # NB: Remove for batch evaluation!
+    iterator_params.params['batch_size'] = 1  # Debate: Added for simple brute force debate evaluation
     iterator = DataIterator.from_params(iterator_params)
     iterator.index_with(model.vocab)
 

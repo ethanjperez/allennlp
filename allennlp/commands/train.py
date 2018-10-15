@@ -49,7 +49,7 @@ from allennlp.data import Vocabulary
 from allennlp.data.instance import Instance
 from allennlp.data.dataset_readers.dataset_reader import DatasetReader
 from allennlp.data.iterators.data_iterator import DataIterator
-from allennlp.models.archival import archive_model, CONFIG_NAME
+from allennlp.models.archival import archive_model, CONFIG_NAME, load_archive
 from allennlp.models.model import Model, _DEFAULT_WEIGHTS
 from allennlp.training.trainer import Trainer
 
@@ -86,6 +86,12 @@ class Train(Subcommand):
                                default=False,
                                help='outputs tqdm status on separate lines and slows tqdm refresh rate')
 
+        # Debate: Option to load trained judge from archive. In this case, debating agents only will be trained
+        subparser.add_argument('-j', '--judge_archive_file',
+                               type=str,
+                               default=None,
+                               help='path to an archived trained judge model (if training debate agents only)')
+
         subparser.set_defaults(func=train_model_from_args)
 
         return subparser
@@ -98,14 +104,16 @@ def train_model_from_args(args: argparse.Namespace):
                           args.serialization_dir,
                           args.overrides,
                           args.file_friendly_logging,
-                          args.recover)
+                          args.recover,
+                          args.judge_archive_file)
 
 
 def train_model_from_file(parameter_filename: str,
                           serialization_dir: str,
                           overrides: str = "",
                           file_friendly_logging: bool = False,
-                          recover: bool = False) -> Model:
+                          recover: bool = False,
+                          judge_archive_file: str = None) -> Model:
     """
     A wrapper around :func:`train_model` which loads the params from a file.
 
@@ -128,7 +136,7 @@ def train_model_from_file(parameter_filename: str,
     """
     # Load the experiment config from a file and pass it to ``train_model``.
     params = Params.from_file(parameter_filename, overrides)
-    return train_model(params, serialization_dir, file_friendly_logging, recover)
+    return train_model(params, serialization_dir, file_friendly_logging, recover, judge_archive_file)
 
 
 def datasets_from_params(params: Params) -> Dict[str, Iterable[Instance]]:
@@ -224,7 +232,8 @@ def create_serialization_dir(params: Params, serialization_dir: str, recover: bo
 def train_model(params: Params,
                 serialization_dir: str,
                 file_friendly_logging: bool = False,
-                recover: bool = False) -> Model:
+                recover: bool = False,
+                judge_archive_file: str = None) -> Model:
     """
     Trains the model specified in the given :class:`Params` object, using the data and training
     parameters also specified in that object, and saves the results in ``serialization_dir``.
@@ -306,6 +315,16 @@ def train_model(params: Params,
     for name in tunable_parameter_names:
         logger.info(name)
 
+    # Debate: Load judge model from archive (if applicable)
+    judge = None
+    if judge_archive_file is None:
+        # Load from archive (Modified from evaluate.py)
+        archive = load_archive(judge_archive_file, cuda_device=trainer_params["cuda_device"], overrides="", weights_file=None)
+        config = archive.config
+        prepare_environment(config)
+        model = archive.model
+        model.eval()
+
     trainer_choice = trainer_params.pop_choice("type",
                                                Trainer.list_available(),
                                                default_to_first_choice=True)
@@ -315,7 +334,8 @@ def train_model(params: Params,
                                                           train_data=train_data,
                                                           validation_data=validation_data,
                                                           params=trainer_params,
-                                                          validation_iterator=validation_iterator)
+                                                          validation_iterator=validation_iterator,
+                                                          judge=judge)
 
     evaluate_on_test = params.pop_bool("evaluate_on_test", False)
     params.assert_empty('base train command')

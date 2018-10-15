@@ -181,7 +181,8 @@ class Trainer(Registrable):
                  summary_interval: int = 100,
                  histogram_interval: int = None,
                  should_log_parameter_statistics: bool = True,
-                 should_log_learning_rate: bool = False) -> None:
+                 should_log_learning_rate: bool = False,
+                 judge: Model = None) -> None:
         """
         Parameters
         ----------
@@ -268,6 +269,7 @@ class Trainer(Registrable):
             Whether to send parameter specific learning rate to tensorboard.
         """
         self._model = model
+        self._judge = judge
         self._iterator = iterator
         self._validation_iterator = validation_iterator
         self._shuffle = shuffle
@@ -417,16 +419,58 @@ class Trainer(Registrable):
         losses = gather([output['loss'].unsqueeze(0) for output in outputs], used_device_ids[0], 0)
         return {'loss': losses.mean()}
 
-    def _batch_loss(self, batch: torch.Tensor, for_training: bool) -> torch.Tensor:
+    def _model_forward(self, batch):
         """
-        Does a forward pass on the given batch and returns the ``loss`` value in the result.
-        If ``for_training`` is `True` also applies regularization penalty.
+        Does a forward pass on the appropriate device(s) and returns the result.
         """
         if self._multiple_gpu:
             output_dict = self._data_parallel(batch)
         else:
             batch = util.move_to_device(batch, self._cuda_devices[0])
             output_dict = self._model(**batch)
+        return output_dict
+
+    def _batch_loss(self, batch: torch.Tensor, for_training: bool) -> torch.Tensor:
+        """
+        Does a forward pass on the given batch and returns the ``loss`` value in the result.
+        If ``for_training`` is `True` also applies regularization penalty.
+        """
+        # Debate: Special training procedures
+        period_token_no = 5  # NB: Hacky: Fix to get directly from vocab!
+        num_sents_reveal = 2  # NB: Make training_config parameter
+        if self._judge is None:  # Training J on random sentences
+            # Mask sentences
+            sent_idxs = (batch['passage']['tokens'] == 5).cumsum(1) - (batch['passage']['tokens'] == period_token_no).long()
+            num_sents = sent_idxs.max(1)[0] + 1
+            pad_masks = (batch['passage']['tokens'] != 0).long()
+            # NB: 'max' is a hack below for examples where you have less than num_sents_reveal! Need to replace those with full original tokens at the end.
+            rand_sent_idxs = torch.stack([torch.multinomial(torch.ones(max(int(num_sents[i]), num_sents_reveal)), num_sents_reveal, False) for i in range(num_sents.size(0))])
+            sent_masks = torch.stack([sent_idxs == rand_sent_idxs[:,i].unsqueeze(1) for i in range(num_sents_reveal)]).sum(0)
+            batch['passage']['tokens'] = ((batch['passage']['tokens'] * sent_masks) + ((1 - sent_masks) * period_token_no)) * pad_masks
+            batch['passage']['token_characters'] = ((batch['passage']['token_characters'] * sent_masks.unsqueeze(-1)) + ((1 - sent_masks.unsqueeze(-1)) * period_token_no)) * pad_masks.unsqueeze(-1)
+
+            # Normal forward pass
+            output_dict = self._model_forward(batch)
+        else:  # Training A/B
+            import ipdb; ipdb.set_trace()
+            ### Put A/B decisions in loop for multi-turn?
+            # Forward pass with A (model)
+            output_dict = self._model_forward(batch)  # NB: May need to modify / make a separate _data_parallel function for multi-GPU
+
+            # Convert output into distribution over sentence indexes
+
+            # Sample from model's policy distribution
+
+            # Forward pass with B (model) on A's output
+
+            # Convert output into distribution over sentence indexes
+
+            # Sample from model's policy distribution
+
+            # Evaluate with J (eval mode) (Ensure its weights don't change after gradient update)
+
+            # Calculate and set A/B loss
+            loss = 0
 
         try:
             loss = output_dict["loss"]
@@ -490,19 +534,6 @@ class Trainer(Registrable):
                     batch_num_total % self._histogram_interval == 0)
 
             self._optimizer.zero_grad()
-            
-            period_token_no = 5
-            num_sents_reveal = 2
-            sent_idxs = (batch['passage']['tokens'] == 5).cumsum(1) - (batch['passage']['tokens'] == period_token_no).long()
-            num_sents = sent_idxs.max(1)[0] + 1
-            # NB: 'max' is a hack below for examples where you have less than num_sents_reveal! Need to replace those with full original tokens at the end.
-            rand_sent_idxs = torch.stack([torch.multinomial(torch.ones(max(int(num_sents[i]), num_sents_reveal)), num_sents_reveal, False) for i in range(num_sents.size(0))])
-            sent_masks = torch.stack([sent_idxs == rand_sent_idxs[:,i].unsqueeze(1) for i in range(num_sents_reveal)]).sum(0)
-            pad_masks = (batch['passage']['tokens'] != 0).long()
-            batch['passage']['tokens'] = ((batch['passage']['tokens'] * sent_masks) + ((1 - sent_masks) * period_token_no)) * pad_masks
-            batch['passage']['token_characters'] = ((batch['passage']['token_characters'] * sent_masks.unsqueeze(-1)) + ((1 - sent_masks.unsqueeze(-1)) * period_token_no)) * pad_masks.unsqueeze(-1)
-
-
             loss = self._batch_loss(batch, for_training=True)
             loss.backward()
 
@@ -717,19 +748,6 @@ class Trainer(Registrable):
         batches_this_epoch = 0
         val_loss = 0
         for batch in val_generator_tqdm:
-            
-            # NB: Copied from modifications in training loop
-            period_token_no = 5
-            num_sents_reveal = 2
-            sent_idxs = (batch['passage']['tokens'] == 5).cumsum(1) - (batch['passage']['tokens'] == period_token_no).long()
-            num_sents = sent_idxs.max(1)[0] + 1
-            # NB: 'max' is a hack below for examples where you have less than num_sents_reveal! Need to replace those with full original tokens at the end.
-            rand_sent_idxs = torch.stack([torch.multinomial(torch.ones(max(int(num_sents[i]), num_sents_reveal)), num_sents_reveal, False) for i in range(num_sents.size(0))])
-            sent_masks = torch.stack([sent_idxs == rand_sent_idxs[:,i].unsqueeze(1) for i in range(num_sents_reveal)]).sum(0)
-            pad_masks = (batch['passage']['tokens'] != 0).long()
-            batch['passage']['tokens'] = ((batch['passage']['tokens'] * sent_masks) + ((1 - sent_masks) * period_token_no)) * pad_masks
-            batch['passage']['token_characters'] = ((batch['passage']['token_characters'] * sent_masks.unsqueeze(-1)) + ((1 - sent_masks.unsqueeze(-1)) * period_token_no)) * pad_masks.unsqueeze(-1)
-
             loss = self._batch_loss(batch, for_training=False)
             if loss is not None:
                 # You shouldn't necessarily have to compute a loss for validation, so we allow for
