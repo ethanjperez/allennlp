@@ -136,11 +136,9 @@ def evaluate(model: Model,
                         model(**batch)
                         b_metrics.append(model.get_metrics(reset=True))
                     # Min over b's moves
-                    import ipdb; ipdb.set_trace()
                     b_em_scores = [metrics['em'] for metrics in b_metrics]
                     b_argmin = b_em_scores.index(min(b_em_scores))
                     a_metrics.append(b_metrics[b_argmin])
-                import ipdb; ipdb.set_trace()
                 a_em_scores = [metrics['em'] for metrics in a_metrics]
                 a_argmax = a_em_scores.index(max(a_em_scores))
                 sample_metrics.append(b_metrics[a_argmax])
