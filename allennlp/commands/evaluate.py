@@ -101,6 +101,7 @@ def evaluate(model: Model,
                                  shuffle=False)
         logger.info("Iterating over dataset")
         generator_tqdm = Tqdm.tqdm(iterator, total=data_iterator.get_num_batches(instances))
+        sample_metrics = []
         for batch in generator_tqdm:
             batch_size = len(batch['metadata'])
             period_token_no = 5
@@ -117,13 +118,13 @@ def evaluate(model: Model,
                 batch['passage']['token_characters'] = ((batch['passage']['token_characters'] * sent_masks.unsqueeze(-1)) + ((1 - sent_masks.unsqueeze(-1)) * period_token_no)) * pad_masks.unsqueeze(-1)
                 batch = util.move_to_device(batch, cuda_device)
                 model(**batch)
-                metrics = model.get_metrics()
+                sample_metrics.append(model.get_metrics(reset=True))
             else:
-                brute_force_metrics = []
-                b_scores = []
+                b_metrics = []
                 batch_passage_tokens = batch['passage']['tokens'].clone()
                 batch_passage_token_characters = batch['passage']['token_characters'].clone()
                 for a_idx in range(num_sents):
+                    brute_force_metrics = []
                     for b_idx in range(num_sents):
                         ab_sent_idxs = torch.stack([torch.LongTensor((a_idx, b_idx)) for i in range(num_sents.size(0))])
                         sent_masks = torch.stack([sent_idxs == ab_sent_idxs[:,i].unsqueeze(1) for i in range(num_sents_reveal)]).sum(0)
@@ -134,12 +135,24 @@ def evaluate(model: Model,
                         batch['passage']['token_characters'] = ((batch_passage_token_characters * sent_masks.unsqueeze(-1)) + ((1 - sent_masks.unsqueeze(-1)) * period_token_no)) * pad_masks.unsqueeze(-1)
                         batch = util.move_to_device(batch, cuda_device)
                         model(**batch)
-                        brute_force_metrics.append(model.get_metrics())
+                        brute_force_metrics.append(model.get_metrics(reset=True))
                     # Min over b's moves
-                    b_scores.append(min([metrics['em'] for metrics in brute_force_metrics]))
-                a_score = max(b_scores)
+                    import ipdb; ipdb.set_trace()
+                    b_em_scores = [metrics['em'] for metrics in brute_force_metrics]
+                    b_argmin = b_em_scores.index(min(b_em_scores))
+                    b_metrics.append(brute_force_metrics[b_argmin])
                 import ipdb; ipdb.set_trace()
+                a_em_scores = [metrics['em'] for metrics in b_metrics]
+                a_argmax = a_em_scores.index(max(a_em_scores))
+                a_metric = brute_force_metrics[a_argmax]
+                sample_metrics.append(a_metric)
 
+            # Combine sample metrics into global metrics
+            metrics = {k: [] for k in sample_metrics[0]}
+            for k in metrics.keys():
+                for sample_metric in sample_metrics:
+                    metrics[k].append(sample_metric[k])
+            metrics = {k: sum(metrics[k]) / len(metrics[k])}
 
             if (not _warned_tqdm_ignores_underscores and
                         any(metric_name.startswith("_") for metric_name in metrics)):
