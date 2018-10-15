@@ -126,8 +126,8 @@ def evaluate(model: Model,
                 for a_idx in range(num_sents):
                     b_metrics = []
                     for b_idx in range(num_sents):
-                        ab_sent_idxs = torch.stack([torch.Tensor((a_idx, b_idx)) for i in range(num_sents.size(0))])
-                        sent_masks = torch.stack([sent_idxs == ab_sent_idxs[:,i].unsqueeze(1) for i in range(num_sents_reveal)]).sum(0).astype(batch_passage_tokens.type())
+                        ab_sent_idxs = torch.stack([torch.Tensor((a_idx, b_idx)).astype(batch_passage_tokens.type()) for i in range(num_sents.size(0))])
+                        sent_masks = torch.stack([sent_idxs == ab_sent_idxs[:,i].unsqueeze(1) for i in range(num_sents_reveal)]).sum(0)
                         if bool((sent_masks == 2).any()):
                             sent_masks /= 2  # If b decides to not reveal (i.e., to reveal same part as a), then make sure input isn't magnified
                         batch['passage']['tokens'] = ((batch_passage_tokens * sent_masks) + ((1 - sent_masks) * period_token_no)) * pad_masks
