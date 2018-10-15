@@ -120,7 +120,7 @@ def evaluate(model: Model,
                 metrics = model.get_metrics()
             else:
                 brute_force_metrics = []
-                import ipdb; ipdb.set_trace()
+                b_scores = []
                 batch_passage_tokens = batch['passage']['tokens'].clone()
                 batch_passage_token_characters = batch['passage']['token_characters'].clone()
                 for a_idx in range(num_sents):
@@ -136,9 +136,9 @@ def evaluate(model: Model,
                         model(**batch)
                         brute_force_metrics.append(model.get_metrics())
                     # Min over b's moves
+                    b_scores.append(min([metrics['em'] for metrics in brute_force_metrics]))
+                a_score = max(b_scores)
                 import ipdb; ipdb.set_trace()
-                print(brute_force_metrics)
-                # Max over a's moves
 
 
             if (not _warned_tqdm_ignores_underscores and
