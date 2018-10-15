@@ -117,8 +117,10 @@ def evaluate(model: Model,
                 batch['passage']['token_characters'] = ((batch['passage']['token_characters'] * sent_masks.unsqueeze(-1)) + ((1 - sent_masks.unsqueeze(-1)) * period_token_no)) * pad_masks.unsqueeze(-1)
                 batch = util.move_to_device(batch, cuda_device)
                 model(**batch)
+                metrics = model.get_metrics()
             else:
                 brute_force_metrics = []
+                import ipdb; ipdb.set_trace()
                 batch_passage_tokens = batch['passage']['tokens'].clone()
                 batch_passage_token_characters = batch['passage']['tokens'].clone()
                 for a_idx in range(num_sents):
@@ -128,8 +130,8 @@ def evaluate(model: Model,
                         if bool((sent_masks == 2).any()):
                             sent_masks /= 2  # If b decides to not reveal (i.e., to reveal same part as a), then make sure input isn't magnified
                         pad_masks = (batch['passage']['tokens'] != 0).long()
-                        batch['passage']['tokens'] = ((batch_passage_tokens * sent_masks) + ((1 - sent_masks) * period_token_no)) * pad_masks
-                        batch['passage']['token_characters'] = ((batch_passage_token_characters * sent_masks.unsqueeze(-1)) + ((1 - sent_masks.unsqueeze(-1)) * period_token_no)) * pad_masks.unsqueeze(-1)
+                        # batch['passage']['tokens'] = ((batch_passage_tokens * sent_masks) + ((1 - sent_masks) * period_token_no)) * pad_masks
+                        # batch['passage']['token_characters'] = ((batch_passage_token_characters * sent_masks.unsqueeze(-1)) + ((1 - sent_masks.unsqueeze(-1)) * period_token_no)) * pad_masks.unsqueeze(-1)
                         batch = util.move_to_device(batch, cuda_device)
                         model(**batch)
                         brute_force_metrics.append(model.get_metrics())
@@ -139,7 +141,6 @@ def evaluate(model: Model,
                 # Max over a's moves
 
 
-            metrics = model.get_metrics()
             if (not _warned_tqdm_ignores_underscores and
                         any(metric_name.startswith("_") for metric_name in metrics)):
                 logger.warning("Metrics with names beginning with \"_\" will "
