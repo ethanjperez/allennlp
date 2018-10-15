@@ -317,7 +317,7 @@ def train_model(params: Params,
 
     # Debate: Load judge model from archive (if applicable)
     judge = None
-    if judge_archive_file is None:
+    if judge_archive_file is not None:
         # Load from archive (Modified from evaluate.py)
         archive = load_archive(judge_archive_file, cuda_device=trainer_params["cuda_device"], overrides="", weights_file=None)
         config = archive.config

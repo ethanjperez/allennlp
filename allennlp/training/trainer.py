@@ -438,11 +438,11 @@ class Trainer(Registrable):
         # Debate: Special training procedures
         period_token_no = 5  # NB: Hacky: Fix to get directly from vocab!
         num_sents_reveal = 2  # NB: Make training_config parameter
+        sent_idxs = (batch['passage']['tokens'] == 5).cumsum(1) - (batch['passage']['tokens'] == period_token_no).long()
+        num_sents = sent_idxs.max(1)[0] + 1
+        pad_masks = (batch['passage']['tokens'] != 0).long()
         if self._judge is None:  # Training J on random sentences
             # Mask sentences
-            sent_idxs = (batch['passage']['tokens'] == 5).cumsum(1) - (batch['passage']['tokens'] == period_token_no).long()
-            num_sents = sent_idxs.max(1)[0] + 1
-            pad_masks = (batch['passage']['tokens'] != 0).long()
             # NB: 'max' is a hack below for examples where you have less than num_sents_reveal! Need to replace those with full original tokens at the end.
             rand_sent_idxs = torch.stack([torch.multinomial(torch.ones(max(int(num_sents[i]), num_sents_reveal)), num_sents_reveal, False) for i in range(num_sents.size(0))])
             sent_masks = torch.stack([sent_idxs == rand_sent_idxs[:,i].unsqueeze(1) for i in range(num_sents_reveal)]).sum(0)
@@ -458,6 +458,7 @@ class Trainer(Registrable):
             output_dict = self._model_forward(batch)  # NB: May need to modify / make a separate _data_parallel function for multi-GPU
 
             # Convert output into distribution over sentence indexes
+            output_dict['span_start_probs']
 
             # Sample from model's policy distribution
 
@@ -469,8 +470,8 @@ class Trainer(Registrable):
 
             # Evaluate with J (eval mode) (Ensure its weights don't change after gradient update)
 
-            # Calculate and set A/B loss
-            loss = 0
+            # Calculate and set A/B loss (Overwrite existing supervised loss)
+            output_dict['loss'] = 0
 
         try:
             loss = output_dict["loss"]
