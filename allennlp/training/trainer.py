@@ -1049,7 +1049,8 @@ class Trainer(Registrable):
                     train_data: Iterable[Instance],
                     validation_data: Optional[Iterable[Instance]],
                     params: Params,
-                    validation_iterator: DataIterator = None) -> 'Trainer':
+                    validation_iterator: DataIterator = None,
+                    judge: Model = None) -> 'Trainer':
         # pylint: disable=arguments-differ
         patience = params.pop_int("patience", None)
         validation_metric = params.pop("validation_metric", "-loss")
@@ -1098,7 +1099,8 @@ class Trainer(Registrable):
                    summary_interval=summary_interval,
                    histogram_interval=histogram_interval,
                    should_log_parameter_statistics=should_log_parameter_statistics,
-                   should_log_learning_rate=should_log_learning_rate)
+                   should_log_learning_rate=should_log_learning_rate,
+                   judge=judge)
 
 
 Trainer.register("default")(Trainer)
