@@ -100,10 +100,54 @@ def evaluate(model: Model,
                                  shuffle=False)
         logger.info("Iterating over dataset")
         generator_tqdm = Tqdm.tqdm(iterator, total=data_iterator.get_num_batches(instances))
+        # Debate: Modified evaluation loop for brute force debate
+        sample_metrics = []
         for batch in generator_tqdm:
-            batch = util.move_to_device(batch, cuda_device)
-            model(**batch)
-            metrics = model.get_metrics()
+            period_token_no = 5
+            num_sents_reveal = 2
+            sent_idxs = (batch['passage']['tokens'] == 5).cumsum(1) - (batch['passage']['tokens'] == period_token_no).long()
+            num_sents = sent_idxs.max(1)[0] + 1
+            pad_masks = (batch['passage']['tokens'] != 0).long()
+            if num_sents <= num_sents_reveal:
+                # NB: 'max' is a hack below for examples where you have less than num_sents_reveal! Need to replace those with full original tokens at the end.
+                rand_sent_idxs = torch.stack([torch.multinomial(torch.ones(max(int(num_sents[i]), num_sents_reveal)), num_sents_reveal, False) for i in range(num_sents.size(0))])
+                sent_masks = torch.stack([sent_idxs == rand_sent_idxs[:,i].unsqueeze(1) for i in range(num_sents_reveal)]).sum(0)
+                batch['passage']['tokens'] = ((batch['passage']['tokens'] * sent_masks) + ((1 - sent_masks) * period_token_no)) * pad_masks
+                batch['passage']['token_characters'] = ((batch['passage']['token_characters'] * sent_masks.unsqueeze(-1)) + ((1 - sent_masks.unsqueeze(-1)) * period_token_no)) * pad_masks.unsqueeze(-1)
+                batch = util.move_to_device(batch, cuda_device)
+                model(**batch)
+                sample_metrics.append(model.get_metrics(reset=True))
+            else:
+                a_metrics = []
+                batch_passage_tokens = batch['passage']['tokens'].clone()
+                batch_passage_token_characters = batch['passage']['token_characters'].clone()
+                for a_idx in range(num_sents):
+                    b_metrics = []
+                    for b_idx in range(num_sents):
+                        ab_sent_idxs = torch.stack([batch_passage_tokens.new((a_idx, b_idx)) for _ in range(num_sents.size(0))])
+                        sent_masks = torch.stack([sent_idxs == ab_sent_idxs[:,i].unsqueeze(1) for i in range(num_sents_reveal)]).sum(0)
+                        if bool((sent_masks == 2).any()):
+                            sent_masks /= 2  # If b decides to not reveal (i.e., to reveal same part as a), then make sure input isn't magnified
+                        batch['passage']['tokens'] = ((batch_passage_tokens * sent_masks) + ((1 - sent_masks) * period_token_no)) * pad_masks
+                        batch['passage']['token_characters'] = ((batch_passage_token_characters * sent_masks.unsqueeze(-1)) + ((1 - sent_masks.unsqueeze(-1)) * period_token_no)) * pad_masks.unsqueeze(-1)
+                        batch = util.move_to_device(batch, cuda_device)
+                        model(**batch)
+                        b_metrics.append(model.get_metrics(reset=True))
+                    # Min over b's moves
+                    b_em_scores = [metrics['em'] for metrics in b_metrics]
+                    b_argmin = b_em_scores.index(min(b_em_scores))
+                    a_metrics.append(b_metrics[b_argmin])
+                a_em_scores = [metrics['em'] for metrics in a_metrics]
+                a_argmax = a_em_scores.index(max(a_em_scores))
+                sample_metrics.append(b_metrics[a_argmax])
+
+            # Combine sample metrics into global metrics
+            metrics = {k: [] for k in sample_metrics[0]}
+            for k in metrics.keys():
+                for sample_metric in sample_metrics:
+                    metrics[k].append(sample_metric[k])
+            metrics = {k: sum(vs) / len(vs) for k, vs in metrics.items()}
+
             if (not _warned_tqdm_ignores_underscores and
                         any(metric_name.startswith("_") for metric_name in metrics)):
                 logger.warning("Metrics with names beginning with \"_\" will "
@@ -145,6 +189,7 @@ def evaluate_from_args(args: argparse.Namespace) -> Dict[str, Any]:
     iterator_params = config.pop("validation_iterator", None)
     if iterator_params is None:
         iterator_params = config.pop("iterator")
+    iterator_params.params['batch_size'] = 1  # Debate: Added for simple brute force debate evaluation
     iterator = DataIterator.from_params(iterator_params)
     iterator.index_with(model.vocab)
 

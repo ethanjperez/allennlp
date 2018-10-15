@@ -27,7 +27,7 @@
         "token_embedders": {
             "tokens": {
                 "type": "embedding",
-                "pretrained_file": "https://s3-us-west-2.amazonaws.com/allennlp/datasets/glove/glove.6B.100d.txt.gz",
+                "pretrained_file": "datasets/glove/glove.6B.100d.txt.gz",
                 "embedding_dim": 100,
                 "trainable": false
             },
