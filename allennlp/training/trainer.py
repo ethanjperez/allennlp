@@ -454,14 +454,14 @@ class Trainer(Registrable):
         else:  # Training A/B
             import ipdb; ipdb.set_trace()
             ### Put A/B decisions in loop for multi-turn?
-            # Forward pass with A (model)
+            # Forward pass with A (model with agent indicator=0): Get action distribution and value prediction (or fixed as .5 or moving average of past 5 rewards)
             output_dict = self._model_forward(batch)  # NB: May need to modify / make a separate _data_parallel function for multi-GPU
 
             # Convert output into distribution over sentence indexes
 
             # Sample from model's policy distribution
 
-            # Forward pass with B (model) on A's output
+            # Forward pass with B (model with agent indicator=1) (on A's output)
 
             # Convert output into distribution over sentence indexes
 

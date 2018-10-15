@@ -157,7 +157,7 @@ def evaluate(model: Model,
                                      in metrics.items() if not name.startswith("_")]) + " ||"
             generator_tqdm.set_description(description, refresh=False)
 
-        return model.get_metrics(reset=True)
+        return metrics
 
 
 def evaluate_from_args(args: argparse.Namespace) -> Dict[str, Any]:
