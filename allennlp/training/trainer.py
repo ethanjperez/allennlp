@@ -436,6 +436,7 @@ class Trainer(Registrable):
         If ``for_training`` is `True` also applies regularization penalty.
         """
         # Debate: Special training procedures
+        # NB: Move precomputation from CPU to GPU if it's taking too long (time it)
         period_token_no = 5  # NB: Hacky: Fix to get directly from vocab!
         num_turns = 2  # NB: Make training_config parameter
         sent_idxs = (batch['passage']['tokens'] == 5).cumsum(1) - (batch['passage']['tokens'] == period_token_no).long()
@@ -453,32 +454,35 @@ class Trainer(Registrable):
             # Normal forward pass
             output_dict = self._model_forward(batch)
         else:  # Training A/B
-            import ipdb; ipdb.set_trace()
             # Forward pass with A/B
             # NB: May need to modify / make a separate _data_parallel function for multi-GPU
             sent_action_masks = []
             sent_action_probs = []
+            bsz = batch['question']['tokens'].size(0)
+            import ipdb; ipdb.set_trace()
             for turn in range(num_turns):
-                for i in range(len(batch['metadata'])):  # NB: 'metadata' is usually optional. Write code to add in if not present.
-                    batch['metadata'][i]['a_turn'] = (turn % 2) == 0
-                ab_output_dict = self._model_forward(batch)
+                for batch_idx in range(bsz):  # NB: 'metadata' is usually optional. Write code to add in if not present.
+                    batch['metadata'][batch_idx]['a_turn'] = (turn % 2) == 0
+                ab_output_dict = self._model_forward(batch)  # TODO: Add FiLM to BiDAF forward
 
                 # Sample from policy's sentence-level distribution
-                word_action = torch.multinomial(ab_output_dict['span_start_probs'], 1)
-                sent_action = sent_idxs[word_action]
-                sent_action_mask = sent_idxs == sent_action.unsqueeze(1)
-                sent_action_prob = (ab_output_dict['span_start_probs'] * sent_action_mask).sum(0)
+                word_action_dist = ab_output_dict['span_start_probs']
+                word_action = torch.multinomial(word_action_dist, 1)
+                sent_action = sent_idxs.gather(1, word_action.to(sent_idxs.device))
+                sent_action_mask = sent_idxs == sent_action
+                sent_action_prob = (word_action_dist * sent_action_mask.to(word_action_dist)).sum(0)
                 sent_action_masks.append(sent_action_mask)
                 sent_action_probs.append(sent_action_prob)
 
             # Mask J's input based on A/B's actions
+            import ipdb; ipdb.set_trace()
             sent_action_masks = torch.stack(sent_action_masks).sum(0)
             if bool((sent_action_masks == 2).any()):  # TODO: Change this so double reveal is checked separately per sample
                 sent_action_masks /= 2  # If b decides to not reveal (i.e., to reveal same part as a), then make sure input isn't magnified
             batch['passage']['tokens'] = ((batch['passage']['tokens'] * sent_action_masks) + ((1 - sent_action_masks) * period_token_no)) * pad_masks
             batch['passage']['token_characters'] = ((batch['passage']['token_characters'] * sent_action_masks.unsqueeze(-1)) + ((1 - sent_action_masks.unsqueeze(-1)) * period_token_no)) * pad_masks.unsqueeze(-1)
-            for i in range(len(batch['metadata'])):
-                batch['metadata'][i].pop('a_turn')
+            for batch_idx in range(bsz):
+                batch['metadata'][batch_idx].pop('a_turn')
             self._judge(batch)
             a_metrics = self._judge.get_metrics(reset=True)
             baseline = 0.5  # Rough baseline. Can instead do moving average or prediction (A2C).

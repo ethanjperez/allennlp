@@ -320,7 +320,7 @@ def train_model(params: Params,
     import ipdb; ipdb.set_trace()
     if judge_archive_file is not None:
         # Load from archive (Modified from evaluate.py)
-        archive = load_archive(judge_archive_file, cuda_device=trainer_params["cuda_device"], overrides="", weights_file=None)
+        archive = load_archive(judge_archive_file, cuda_device=trainer_params["cuda_device"])
         config = archive.config
         prepare_environment(config)
         judge = archive.model
