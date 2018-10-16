@@ -323,8 +323,8 @@ def train_model(params: Params,
         archive = load_archive(judge_archive_file, cuda_device=trainer_params["cuda_device"], overrides="", weights_file=None)
         config = archive.config
         prepare_environment(config)
-        model = archive.model
-        model.eval()
+        judge = archive.model
+        judge.eval()
 
     trainer_choice = trainer_params.pop_choice("type",
                                                Trainer.list_available(),
