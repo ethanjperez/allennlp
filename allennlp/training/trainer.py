@@ -481,12 +481,15 @@ class Trainer(Registrable):
                 batch['metadata'][i].pop('a_turn')
             self._judge(batch)
             a_metrics = self._judge.get_metrics(reset=True)
-            reward = a_metrics['em'] - 0.5  # 0.5 is a rough baseline. Can instead do moving average or prediction (A2C)
+            baseline = 0.5  # Rough baseline. Can instead do moving average or prediction (A2C).
+            advantage = a_metrics['em'] - baseline
 
             # Calculate and set A/B loss
-            a_loss = -torch.log(sent_action_probs[0]) * reward
-            b_loss = torch.log(sent_action_probs[1]) * reward
-            output_dict = {'loss': a_loss + b_loss}
+            output_dict = {'loss': 0}
+            for turn in range(num_turns):
+                a_turn = (turn % 2) == 0
+                grad_dir = -1 if a_turn else 1
+                output_dict['loss'] += grad_dir * torch.log(sent_action_probs[0]) * advantage
 
         try:
             loss = output_dict["loss"]
