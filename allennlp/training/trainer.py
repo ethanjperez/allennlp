@@ -437,41 +437,56 @@ class Trainer(Registrable):
         """
         # Debate: Special training procedures
         period_token_no = 5  # NB: Hacky: Fix to get directly from vocab!
-        num_sents_reveal = 2  # NB: Make training_config parameter
+        num_turns = 2  # NB: Make training_config parameter
         sent_idxs = (batch['passage']['tokens'] == 5).cumsum(1) - (batch['passage']['tokens'] == period_token_no).long()
         num_sents = sent_idxs.max(1)[0] + 1
         pad_masks = (batch['passage']['tokens'] != 0).long()
         if self._judge is None:  # Training J on random sentences
             # Mask sentences
-            # NB: 'max' is a hack below for examples where you have less than num_sents_reveal! Need to replace those with full original tokens at the end.
-            rand_sent_idxs = torch.stack([torch.multinomial(torch.ones(max(int(num_sents[i]), num_sents_reveal)), num_sents_reveal, False) for i in range(num_sents.size(0))])
-            sent_masks = torch.stack([sent_idxs == rand_sent_idxs[:,i].unsqueeze(1) for i in range(num_sents_reveal)]).sum(0)
-            batch['passage']['tokens'] = ((batch['passage']['tokens'] * sent_masks) + ((1 - sent_masks) * period_token_no)) * pad_masks
-            batch['passage']['token_characters'] = ((batch['passage']['token_characters'] * sent_masks.unsqueeze(-1)) + ((1 - sent_masks.unsqueeze(-1)) * period_token_no)) * pad_masks.unsqueeze(-1)
+            # NB: Could replace for loop with 2-D multinomial input
+            # NB: 'max' is a hack below for examples where you have less than num_turns! Need to replace those with full original tokens at the end.
+            rand_sent_idxs = torch.stack([torch.multinomial(torch.ones(max(int(num_sents[i]), num_turns)), num_turns, False) for i in range(num_sents.size(0))])
+            sent_rand_masks = torch.stack([sent_idxs == rand_sent_idxs[:,i].unsqueeze(1) for i in range(num_turns)]).sum(0)
+            batch['passage']['tokens'] = ((batch['passage']['tokens'] * sent_rand_masks) + ((1 - sent_rand_masks) * period_token_no)) * pad_masks
+            batch['passage']['token_characters'] = ((batch['passage']['token_characters'] * sent_rand_masks.unsqueeze(-1)) + ((1 - sent_rand_masks.unsqueeze(-1)) * period_token_no)) * pad_masks.unsqueeze(-1)
 
             # Normal forward pass
             output_dict = self._model_forward(batch)
         else:  # Training A/B
             import ipdb; ipdb.set_trace()
-            ### Put A/B decisions in loop for multi-turn?
-            # Forward pass with A (model with agent indicator=0): Get action distribution and value prediction (or fixed as .5 or moving average of past 5 rewards)
-            output_dict = self._model_forward(batch)  # NB: May need to modify / make a separate _data_parallel function for multi-GPU
+            # Forward pass with A/B
+            # NB: May need to modify / make a separate _data_parallel function for multi-GPU
+            sent_action_masks = []
+            sent_action_probs = []
+            for turn in range(num_turns):
+                for i in range(len(batch['metadata'])):  # NB: 'metadata' is usually optional. Write code to add in if not present.
+                    batch['metadata'][i]['a_turn'] = (turn % 2) == 0
+                ab_output_dict = self._model_forward(batch)
 
-            # Convert output into distribution over sentence indexes
-            output_dict['span_start_probs']
+                # Sample from policy's sentence-level distribution
+                word_action = torch.multinomial(ab_output_dict['span_start_probs'], 1)
+                sent_action = sent_idxs[word_action]
+                sent_action_mask = sent_idxs == sent_action.unsqueeze(1)
+                sent_action_prob = (ab_output_dict['span_start_probs'] * sent_action_mask).sum(0)
+                sent_action_masks.append(sent_action_mask)
+                sent_action_probs.append(sent_action_prob)
 
-            # Sample from model's policy distribution
+            # Mask J's input based on A/B's actions
+            sent_action_masks = torch.stack(sent_action_masks).sum(0)
+            if bool((sent_action_masks == 2).any()):  # TODO: Change this so double reveal is checked separately per sample
+                sent_action_masks /= 2  # If b decides to not reveal (i.e., to reveal same part as a), then make sure input isn't magnified
+            batch['passage']['tokens'] = ((batch['passage']['tokens'] * sent_action_masks) + ((1 - sent_action_masks) * period_token_no)) * pad_masks
+            batch['passage']['token_characters'] = ((batch['passage']['token_characters'] * sent_action_masks.unsqueeze(-1)) + ((1 - sent_action_masks.unsqueeze(-1)) * period_token_no)) * pad_masks.unsqueeze(-1)
+            for i in range(len(batch['metadata'])):
+                batch['metadata'][i].pop('a_turn')
+            self._judge(batch)
+            a_metrics = self._judge.get_metrics(reset=True)
+            reward = a_metrics['em'] - 0.5  # 0.5 is a rough baseline. Can instead do moving average or prediction (A2C)
 
-            # Forward pass with B (model with agent indicator=1) (on A's output)
-
-            # Convert output into distribution over sentence indexes
-
-            # Sample from model's policy distribution
-
-            # Evaluate with J (eval mode) (Ensure its weights don't change after gradient update)
-
-            # Calculate and set A/B loss (Overwrite existing supervised loss)
-            output_dict['loss'] = 0
+            # Calculate and set A/B loss
+            a_loss = -torch.log(sent_action_probs[0]) * reward
+            b_loss = torch.log(sent_action_probs[1]) * reward
+            output_dict = {'loss': a_loss + b_loss}
 
         try:
             loss = output_dict["loss"]

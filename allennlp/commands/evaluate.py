@@ -104,16 +104,16 @@ def evaluate(model: Model,
         sample_metrics = []
         for batch in generator_tqdm:
             period_token_no = 5
-            num_sents_reveal = 2
+            num_turns = 2
             sent_idxs = (batch['passage']['tokens'] == 5).cumsum(1) - (batch['passage']['tokens'] == period_token_no).long()
             num_sents = sent_idxs.max(1)[0] + 1
             pad_masks = (batch['passage']['tokens'] != 0).long()
-            if num_sents <= num_sents_reveal:
-                # NB: 'max' is a hack below for examples where you have less than num_sents_reveal! Need to replace those with full original tokens at the end.
-                rand_sent_idxs = torch.stack([torch.multinomial(torch.ones(max(int(num_sents[i]), num_sents_reveal)), num_sents_reveal, False) for i in range(num_sents.size(0))])
-                sent_masks = torch.stack([sent_idxs == rand_sent_idxs[:,i].unsqueeze(1) for i in range(num_sents_reveal)]).sum(0)
-                batch['passage']['tokens'] = ((batch['passage']['tokens'] * sent_masks) + ((1 - sent_masks) * period_token_no)) * pad_masks
-                batch['passage']['token_characters'] = ((batch['passage']['token_characters'] * sent_masks.unsqueeze(-1)) + ((1 - sent_masks.unsqueeze(-1)) * period_token_no)) * pad_masks.unsqueeze(-1)
+            if num_sents <= num_turns:
+                # NB: 'max' is a hack below for examples where you have less than num_turns! Need to replace those with full original tokens at the end.
+                rand_sent_idxs = torch.stack([torch.multinomial(torch.ones(max(int(num_sents[i]), num_turns)), num_turns, False) for i in range(num_sents.size(0))])
+                sent_rand_masks = torch.stack([sent_idxs == rand_sent_idxs[:,i].unsqueeze(1) for i in range(num_turns)]).sum(0)
+                batch['passage']['tokens'] = ((batch['passage']['tokens'] * sent_rand_masks) + ((1 - sent_rand_masks) * period_token_no)) * pad_masks
+                batch['passage']['token_characters'] = ((batch['passage']['token_characters'] * sent_rand_masks.unsqueeze(-1)) + ((1 - sent_rand_masks.unsqueeze(-1)) * period_token_no)) * pad_masks.unsqueeze(-1)
                 batch = util.move_to_device(batch, cuda_device)
                 model(**batch)
                 sample_metrics.append(model.get_metrics(reset=True))
@@ -125,11 +125,9 @@ def evaluate(model: Model,
                     b_metrics = []
                     for b_idx in range(num_sents):
                         ab_sent_idxs = torch.stack([batch_passage_tokens.new((a_idx, b_idx)) for _ in range(num_sents.size(0))])
-                        sent_masks = torch.stack([sent_idxs == ab_sent_idxs[:,i].unsqueeze(1) for i in range(num_sents_reveal)]).sum(0)
-                        if bool((sent_masks == 2).any()):
-                            sent_masks /= 2  # If b decides to not reveal (i.e., to reveal same part as a), then make sure input isn't magnified
-                        batch['passage']['tokens'] = ((batch_passage_tokens * sent_masks) + ((1 - sent_masks) * period_token_no)) * pad_masks
-                        batch['passage']['token_characters'] = ((batch_passage_token_characters * sent_masks.unsqueeze(-1)) + ((1 - sent_masks.unsqueeze(-1)) * period_token_no)) * pad_masks.unsqueeze(-1)
+                        sent_rand_masks = torch.clamp(torch.stack([sent_idxs == ab_sent_idxs[:,i].unsqueeze(1) for i in range(num_turns)]).sum(0), max=1)
+                        batch['passage']['tokens'] = ((batch_passage_tokens * sent_rand_masks) + ((1 - sent_rand_masks) * period_token_no)) * pad_masks
+                        batch['passage']['token_characters'] = ((batch_passage_token_characters * sent_rand_masks.unsqueeze(-1)) + ((1 - sent_rand_masks.unsqueeze(-1)) * period_token_no)) * pad_masks.unsqueeze(-1)
                         batch = util.move_to_device(batch, cuda_device)
                         model(**batch)
                         b_metrics.append(model.get_metrics(reset=True))
