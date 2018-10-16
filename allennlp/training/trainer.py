@@ -459,7 +459,6 @@ class Trainer(Registrable):
             sent_action_masks = []
             sent_action_probs = []
             bsz = batch['question']['tokens'].size(0)
-            import ipdb; ipdb.set_trace()
             for turn in range(num_turns):
                 for batch_idx in range(bsz):  # NB: 'metadata' is usually optional. Write code to add in if not present.
                     batch['metadata'][batch_idx]['a_turn'] = (turn % 2) == 0
@@ -475,12 +474,12 @@ class Trainer(Registrable):
                 sent_action_probs.append(sent_action_prob)
 
             # Mask J's input based on A/B's actions
-            import ipdb; ipdb.set_trace()
             sent_action_masks = torch.stack(sent_action_masks).sum(0)
-            if bool((sent_action_masks == 2).any()):  # TODO: Change this so double reveal is checked separately per sample
-                sent_action_masks /= 2  # If b decides to not reveal (i.e., to reveal same part as a), then make sure input isn't magnified
+            # Clamp mask to max value 1. NB: Can just use torch.clamp later, though not sure how it affects gradients.
+            sent_action_masks = torch.where((sent_action_masks.eq(2).sum(1) > 0).unsqueeze(1), sent_action_masks / 2, sent_action_masks)
             batch['passage']['tokens'] = ((batch['passage']['tokens'] * sent_action_masks) + ((1 - sent_action_masks) * period_token_no)) * pad_masks
             batch['passage']['token_characters'] = ((batch['passage']['token_characters'] * sent_action_masks.unsqueeze(-1)) + ((1 - sent_action_masks.unsqueeze(-1)) * period_token_no)) * pad_masks.unsqueeze(-1)
+            import ipdb; ipdb.set_trace()
             for batch_idx in range(bsz):
                 batch['metadata'][batch_idx].pop('a_turn')
             self._judge(batch)
