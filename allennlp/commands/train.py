@@ -324,6 +324,9 @@ def train_model(params: Params,
         prepare_environment(config)
         judge = archive.model
         judge.eval()
+        # Use judge only for black-box reward (no gradient signal)
+        for param in model.parameters():
+            param.requires_grad = False
 
     trainer_choice = trainer_params.pop_choice("type",
                                                Trainer.list_available(),

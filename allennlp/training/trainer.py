@@ -456,7 +456,6 @@ class Trainer(Registrable):
         else:  # Training A/B
             # Forward pass with A/B
             # NB: May need to modify / make a separate _data_parallel function for multi-GPU
-            import ipdb; ipdb.set_trace()
             sent_action_masks = []
             sent_action_probs = []
             bsz = batch['question']['tokens'].size(0)
@@ -560,6 +559,7 @@ class Trainer(Registrable):
 
             self._optimizer.zero_grad()
             loss = self._batch_loss(batch, for_training=True)
+            import ipdb; ipdb.set_trace()
             loss.backward()
 
             train_loss += loss.item()
