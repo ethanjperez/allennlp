@@ -403,7 +403,7 @@ class Trainer(Registrable):
             return sparse_clip_norm(parameters_to_clip, self._grad_norm)
         return None
 
-    def _data_parallel(self, batch):
+    def _data_parallel(self, batch, model):
         """
         Do the forward pass using multiple GPUs.  This is a simplification
         of torch.nn.parallel.data_parallel to support the allennlp model
@@ -411,7 +411,7 @@ class Trainer(Registrable):
         """
         inputs, module_kwargs = scatter_kwargs((), batch, self._cuda_devices, 0)
         used_device_ids = self._cuda_devices[:len(inputs)]
-        replicas = replicate(self._model, used_device_ids)
+        replicas = replicate(model, used_device_ids)
         outputs = parallel_apply(replicas, inputs, module_kwargs, used_device_ids)
 
         # Only the 'loss' is needed.
@@ -419,15 +419,15 @@ class Trainer(Registrable):
         losses = gather([output['loss'].unsqueeze(0) for output in outputs], used_device_ids[0], 0)
         return {'loss': losses.mean()}
 
-    def _model_forward(self, batch):
+    def _forward(self, batch, model):
         """
-        Does a forward pass on the appropriate device(s) and returns the result.
+        Does a forward pass on the appropriate model and device(s) and returns the result.
         """
         if self._multiple_gpu:
             output_dict = self._data_parallel(batch)
         else:
             batch = util.move_to_device(batch, self._cuda_devices[0])
-            output_dict = self._model(**batch)
+            output_dict = model(**batch)
         return output_dict
 
     def _batch_loss(self, batch: torch.Tensor, for_training: bool) -> torch.Tensor:
@@ -452,7 +452,7 @@ class Trainer(Registrable):
             batch['passage']['token_characters'] = ((batch['passage']['token_characters'] * sent_rand_masks.unsqueeze(-1)) + ((1 - sent_rand_masks.unsqueeze(-1)) * period_token_no)) * pad_masks.unsqueeze(-1)
 
             # Normal forward pass
-            output_dict = self._model_forward(batch)
+            output_dict = self._forward(batch, self._model)
         else:  # Training A/B
             # Forward pass with A/B
             # NB: May need to modify / make a separate _data_parallel function for multi-GPU
@@ -462,7 +462,7 @@ class Trainer(Registrable):
             for turn in range(num_turns):
                 for batch_idx in range(bsz):  # NB: 'metadata' is usually optional. Write code to add in if not present.
                     batch['metadata'][batch_idx]['a_turn'] = (turn % 2) == 0
-                ab_output_dict = self._model_forward(batch)  # TODO: Add FiLM to BiDAF forward
+                ab_output_dict = self._forward(batch, self._model)  # TODO: Add FiLM to BiDAF forward
 
                 # Sample from policy's sentence-level distribution
                 word_action_dist = ab_output_dict['span_start_probs']
@@ -479,13 +479,13 @@ class Trainer(Registrable):
             sent_action_masks = torch.where((sent_action_masks.eq(2).sum(1) > 0).unsqueeze(1), sent_action_masks / 2, sent_action_masks)
             batch['passage']['tokens'] = ((batch['passage']['tokens'] * sent_action_masks) + ((1 - sent_action_masks) * period_token_no)) * pad_masks
             batch['passage']['token_characters'] = ((batch['passage']['token_characters'] * sent_action_masks.unsqueeze(-1)) + ((1 - sent_action_masks.unsqueeze(-1)) * period_token_no)) * pad_masks.unsqueeze(-1)
-            import ipdb; ipdb.set_trace()
             for batch_idx in range(bsz):
                 batch['metadata'][batch_idx].pop('a_turn')
-            self._judge(batch)
-            a_metrics = self._judge.get_metrics(reset=True)
+            import ipdb; ipdb.set_trace()
+            j_output_dict = self._forward(batch, self._judge)
+            j_metrics = self._judge.get_metrics(reset=True)
             baseline = 0.5  # Rough baseline. Can instead do moving average or prediction (A2C).
-            advantage = a_metrics['em'] - baseline
+            advantage = j_metrics['em'] - baseline
 
             # Calculate and set A/B loss
             output_dict = {'loss': 0}
