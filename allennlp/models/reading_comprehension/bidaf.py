@@ -186,7 +186,6 @@ class BidirectionalAttentionFlow(Model):
             string from the original passage that the model thinks is the best answer to the
             question.
         """
-        # TODO: Use FiLM to condition model on metadata[i][a_turn] (only if given)!
         embedded_question = self._highway_layer(self._text_field_embedder(question))
         embedded_passage = self._highway_layer(self._text_field_embedder(passage))
         batch_size = embedded_question.size(0)
@@ -233,7 +232,7 @@ class BidirectionalAttentionFlow(Model):
         import ipdb; ipdb.set_trace()
         # Debate: Conditioning on whose turn it is (A/B)
         if metadata is not None and 'a_turn' in metadata[0]:
-            a_turn = torch.tensor([sample_metadata['a_turn'] for sample_metadata in metadata]).unsqueeeze(1)
+            a_turn = torch.tensor([sample_metadata['a_turn'] for sample_metadata in metadata], dtype=final_merged_passage.dtype, device=final_merged_passage.device).unsqueeze(1)
             turn_film_params = self._turn_film_prediction(a_turn)
             turn_gammas, turn_betas = torch.split(turn_film_params, self._modeling_layer.get_input_dim(), dim=-1)
             final_merged_passage = self._film(final_merged_passage, turn_gammas, turn_betas)

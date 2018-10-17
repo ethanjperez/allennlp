@@ -282,6 +282,7 @@ def train_model(params: Params,
              if key in datasets_for_vocab_creation)
     )
 
+    params['model']['is_judge'] = judge_archive_file is None
     model = Model.from_params(vocab=vocab, params=params.pop('model'))
 
     # Initializing the model can have side effect of expanding the vocabulary
