@@ -484,8 +484,8 @@ class Trainer(Registrable):
             j_output_dict = self._forward(batch, self._judge)
             import ipdb; ipdb.set_trace()
             j_metrics = self._judge.get_metrics(reset=True, per_sample=True)
-            j_correct = torch.tensor(j_metrics['em'])
-            baseline = 0.5  # Rough baseline. Can instead do moving average or prediction (A2C).
+            j_correct = torch.tensor(j_metrics['em'], dtype=sent_action_probs[0].dtype, device=sent_action_probs[0].device)
+            baseline = j_correct.mean()  # Rough baseline. Can instead do fixed, moving average, or actor-critic.
             advantage = j_correct - baseline
 
             # Calculate and set A/B loss
@@ -493,7 +493,7 @@ class Trainer(Registrable):
             for turn in range(num_turns):
                 a_turn = (turn % 2) == 0
                 grad_dir = -1 if a_turn else 1
-                output_dict['loss'] += grad_dir * torch.log(sent_action_probs[0]) * advantage
+                output_dict['loss'] += grad_dir * (torch.log(sent_action_probs[turn]) * advantage).sum()
 
         try:
             loss = output_dict["loss"]
