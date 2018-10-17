@@ -22,8 +22,8 @@ class FiLM(torch.nn.Module):
     'FiLM: Visual Reasoning with a General Conditioning Layer'
     """
     def forward(self, x, gammas, betas):
-        gammas = gammas.unsqueeze(2).unsqueeze(3).expand_as(x)
-        betas = betas.unsqueeze(2).unsqueeze(3).expand_as(x)
+        gammas = gammas.unsqueeze(1)
+        betas = betas.unsqueeze(1)
         return (gammas * x) + betas
 
 
@@ -89,14 +89,14 @@ class BidirectionalAttentionFlow(Model):
         super(BidirectionalAttentionFlow, self).__init__(vocab, regularizer)
 
         self._is_judge = is_judge
-        if not self._is_judge:
-            self._film = FiLM()
-            self._turn_film_prediction = torch.nn.Linear(1, 2 * modeling_layer.get_input_dim())
         self._text_field_embedder = text_field_embedder
         self._highway_layer = TimeDistributed(Highway(text_field_embedder.get_output_dim(),
                                                       num_highway_layers))
         self._phrase_layer = phrase_layer
         self._matrix_attention = LegacyMatrixAttention(similarity_function)
+        if not self._is_judge:
+            self._turn_film_gen = torch.nn.Linear(1, 2 * modeling_layer.get_input_dim())
+            self._film = FiLM()
         self._modeling_layer = modeling_layer
         self._span_end_encoder = span_end_encoder
 
@@ -231,11 +231,14 @@ class BidirectionalAttentionFlow(Model):
 
         import ipdb; ipdb.set_trace()
         # Debate: Conditioning on whose turn it is (A/B)
-        if metadata is not None and 'a_turn' in metadata[0]:
-            a_turn = torch.tensor([sample_metadata['a_turn'] for sample_metadata in metadata], dtype=final_merged_passage.dtype, device=final_merged_passage.device).unsqueeze(1)
-            turn_film_params = self._turn_film_prediction(a_turn)
+        if not self._is_judge:
+            assert(metadata is not None and 'a_turn' in metadata[0])
+            a_turn = torch.tensor([sample_metadata['a_turn'] for sample_metadata in metadata],
+                                  dtype=final_merged_passage.dtype, device=final_merged_passage.device).unsqueeze(1)
+            turn_film_params = self._turn_film_gen(a_turn)
             turn_gammas, turn_betas = torch.split(turn_film_params, self._modeling_layer.get_input_dim(), dim=-1)
-            final_merged_passage = self._film(final_merged_passage, turn_gammas, turn_betas)
+            # NB: Add final_merged_passage back because of padding differences in passage_question_vectors
+            final_merged_passage = final_merged_passage + (self._film(final_merged_passage, turn_gammas - 1., turn_betas) * passage_lstm_mask)
         modeled_passage = self._dropout(self._modeling_layer(final_merged_passage, passage_lstm_mask))
         modeling_dim = modeled_passage.size(-1)
 
