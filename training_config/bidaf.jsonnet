@@ -19,7 +19,7 @@
       }
     }
   },
-  "train_data_path": "datasets/squad/squad-dev-v1.1.json",  // TODO: Switch back to 'train' after debugging
+  "train_data_path": "datasets/squad/squad-train-v1.1.json",
   "validation_data_path": "datasets/squad/squad-dev-v1.1.json",
   "model": {
     "type": "bidaf",
