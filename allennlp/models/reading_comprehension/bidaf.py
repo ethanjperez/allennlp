@@ -247,10 +247,10 @@ class BidirectionalAttentionFlow(Model):
         # Shape: (batch_size, passage_length, encoding_dim * 4 + modeling_dim))
         span_start_input_full = torch.cat([final_merged_passage, modeled_passage], dim=-1)
         span_start_input = self._dropout(span_start_input_full)
-        import ipdb; ipdb.set_trace()
         if not self._is_judge:
             critic_input = span_start_input_full.detach()  # NB: Reward prediction should not update main network
             # Shape: (batch_size)
+            # NB: Can add more layers to critic
             value = (self._critic(critic_input).squeeze(-1) * passage_mask).sum(1)
         # Shape: (batch_size, passage_length)
         span_start_logits = self._span_start_predictor(span_start_input).squeeze(-1)

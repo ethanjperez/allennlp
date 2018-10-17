@@ -493,8 +493,6 @@ class Trainer(Registrable):
             for turn in range(num_turns):
                 a_turn = (turn % 2) == 0
                 grad_dir = -1 if a_turn else 1
-
-                import ipdb; ipdb.set_trace()
                 baseline = values[turn].to(j_correct)  # Rougher baseline: j_correct.mean()
                 advantage = j_correct - baseline
                 output_dict['loss'] += grad_dir * (torch.log(sent_action_probs[turn]) * advantage).sum()  # Actor loss
