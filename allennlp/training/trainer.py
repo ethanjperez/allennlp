@@ -483,7 +483,7 @@ class Trainer(Registrable):
                 batch['metadata'][batch_idx].pop('a_turn')
             j_output_dict = self._forward(batch, self._judge)
             import ipdb; ipdb.set_trace()
-            j_metrics = self._judge.get_sample_metrics(reset=True, per_sample=True)
+            j_metrics = self._judge.get_metrics(reset=True, per_sample=True)
             j_correct = torch.tensor(j_metrics['em'])
             baseline = 0.5  # Rough baseline. Can instead do moving average or prediction (A2C).
             advantage = j_correct - baseline
