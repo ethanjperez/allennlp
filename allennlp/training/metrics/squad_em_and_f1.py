@@ -53,6 +53,9 @@ class SquadEmAndF1(Metric):
         if per_sample:
             exact_match = self._ems
             f1_score = self._f1s
+            # Reset per-sample metrics on access
+            self._ems = []
+            self._f1s = []
         else:
             exact_match = self._total_em / self._count if self._count > 0 else 0
             f1_score = self._total_f1 / self._count if self._count > 0 else 0

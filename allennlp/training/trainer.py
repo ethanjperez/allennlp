@@ -456,13 +456,14 @@ class Trainer(Registrable):
         else:  # Training A/B
             # Forward pass with A/B
             # NB: May need to modify / make a separate _data_parallel function for multi-GPU
+            import ipdb; ipdb.set_trace()
             sent_action_masks = []
             sent_action_probs = []
             bsz = batch['question']['tokens'].size(0)
             for turn in range(num_turns):
                 for batch_idx in range(bsz):  # NB: 'metadata' is usually optional. Write code to add in if not present.
                     batch['metadata'][batch_idx]['a_turn'] = (turn % 2) == 0
-                ab_output_dict = self._forward(batch, self._model)  # TODO: Add FiLM to BiDAF forward
+                ab_output_dict = self._forward(batch, self._model)
 
                 # Sample from policy's sentence-level distribution
                 word_action_dist = ab_output_dict['span_start_probs']
@@ -482,8 +483,7 @@ class Trainer(Registrable):
             for batch_idx in range(bsz):
                 batch['metadata'][batch_idx].pop('a_turn')
             j_output_dict = self._forward(batch, self._judge)
-            import ipdb; ipdb.set_trace()
-            j_metrics = self._judge.get_metrics(reset=True, per_sample=True)
+            j_metrics = self._judge.get_metrics(per_sample=True)
             j_correct = torch.tensor(j_metrics['em'], dtype=sent_action_probs[0].dtype, device=sent_action_probs[0].device)
             baseline = j_correct.mean()  # Rough baseline. Can instead do fixed, moving average, or actor-critic.
             advantage = j_correct - baseline
