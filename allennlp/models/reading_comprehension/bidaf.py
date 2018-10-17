@@ -104,6 +104,8 @@ class BidirectionalAttentionFlow(Model):
         modeling_dim = modeling_layer.get_output_dim()
         span_start_input_dim = encoding_dim * 4 + modeling_dim
         self._span_start_predictor = TimeDistributed(torch.nn.Linear(span_start_input_dim, 1))
+        if not self._is_judge:
+            self._critic = TimeDistributed(torch.nn.Linear(span_start_input_dim, 1))
 
         span_end_encoding_dim = span_end_encoder.get_output_dim()
         span_end_input_dim = encoding_dim * 4 + span_end_encoding_dim
@@ -237,14 +239,19 @@ class BidirectionalAttentionFlow(Model):
                                   dtype=final_merged_passage.dtype, device=final_merged_passage.device).unsqueeze(1)
             turn_film_params = self._turn_film_gen(a_turn)
             turn_gammas, turn_betas = torch.split(turn_film_params, self._modeling_layer.get_input_dim(), dim=-1)
-            # NB: Add final_merged_passage back because of padding differences in passage_question_vectors
-            final_merged_passage = final_merged_passage + (
-                    self._film(final_merged_passage, turn_gammas - 1., turn_betas) * passage_lstm_mask.unsqueeze(-1))
+            # NB: Using heuristic to get mask
+            final_merged_passage_mask = (final_merged_passage != 0).float()
+            final_merged_passage = self._film(final_merged_passage, turn_gammas - 1., turn_betas) * final_merged_passage_mask
         modeled_passage = self._dropout(self._modeling_layer(final_merged_passage, passage_lstm_mask))
         modeling_dim = modeled_passage.size(-1)
 
         # Shape: (batch_size, passage_length, encoding_dim * 4 + modeling_dim))
-        span_start_input = self._dropout(torch.cat([final_merged_passage, modeled_passage], dim=-1))
+        span_start_input_full = torch.cat([final_merged_passage, modeled_passage], dim=-1)
+        span_start_input = self._dropout(span_start_input_full)
+        import ipdb; ipdb.set_trace()
+        if not self._is_judge:
+            critic_input = span_start_input_full.detach()  # NB: Reward prediction should not update main network
+            value = (self._critic(critic_input).squeeze(-1) * passage_mask).sum(1)
         # Shape: (batch_size, passage_length)
         span_start_logits = self._span_start_predictor(span_start_input).squeeze(-1)
         # Shape: (batch_size, passage_length)
@@ -281,6 +288,7 @@ class BidirectionalAttentionFlow(Model):
                 "span_end_logits": span_end_logits,
                 "span_end_probs": span_end_probs,
                 "best_span": best_span,
+                "value": value if not self._is_judge else None,
                 }
 
         # Compute the loss for training.

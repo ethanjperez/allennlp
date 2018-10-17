@@ -486,6 +486,7 @@ class Trainer(Registrable):
             j_metrics = self._judge.get_metrics(per_sample=True)
             j_correct = torch.tensor(j_metrics['em'], dtype=sent_action_probs[0].dtype, device=sent_action_probs[0].device)
             baseline = j_correct.mean()  # Rough baseline. Can instead do moving average or actor-critic.
+            import ipdb; ipdb.set_trace()
             advantage = j_correct - baseline
 
             # Calculate and set A/B loss
