@@ -238,7 +238,8 @@ class BidirectionalAttentionFlow(Model):
             turn_film_params = self._turn_film_gen(a_turn)
             turn_gammas, turn_betas = torch.split(turn_film_params, self._modeling_layer.get_input_dim(), dim=-1)
             # NB: Add final_merged_passage back because of padding differences in passage_question_vectors
-            final_merged_passage = final_merged_passage + (self._film(final_merged_passage, turn_gammas - 1., turn_betas) * passage_lstm_mask)
+            final_merged_passage = final_merged_passage + (
+                    self._film(final_merged_passage, turn_gammas - 1., turn_betas) * passage_lstm_mask.unsqueeze(-1))
         modeled_passage = self._dropout(self._modeling_layer(final_merged_passage, passage_lstm_mask))
         modeling_dim = modeled_passage.size(-1)
 
