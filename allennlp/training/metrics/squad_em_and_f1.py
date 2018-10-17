@@ -17,6 +17,8 @@ class SquadEmAndF1(Metric):
         self._total_em = 0.0
         self._total_f1 = 0.0
         self._count = 0
+        self._ems = []
+        self._f1s = []
 
     @overrides
     def __call__(self, best_span_string, answer_strings):
@@ -37,6 +39,8 @@ class SquadEmAndF1(Metric):
         self._total_em += exact_match
         self._total_f1 += f1_score
         self._count += 1
+        self._ems.append(exact_match)
+        self._f1s.append(f1_score)
 
     @overrides
     def get_metric(self, reset: bool = False) -> Tuple[float, float]:
@@ -52,11 +56,25 @@ class SquadEmAndF1(Metric):
             self.reset()
         return exact_match, f1_score
 
+    def get_sample_metrics(self, reset: bool = False) -> Tuple[float, float]:
+        """
+        Returns
+        -------
+        Per-sample exact match and F1 score (in that order).
+        """
+        ems = self._ems
+        f1s = self._f1s
+        if reset:
+            self.reset()
+        return ems, f1s
+
     @overrides
     def reset(self):
         self._total_em = 0.0
         self._total_f1 = 0.0
         self._count = 0
+        self._ems = []
+        self._f1s = []
 
     def __str__(self):
         return f"SquadEmAndF1(em={self._total_em}, f1={self._total_f1})"

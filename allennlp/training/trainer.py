@@ -481,9 +481,9 @@ class Trainer(Registrable):
             batch['passage']['token_characters'] = ((batch['passage']['token_characters'] * sent_action_masks.unsqueeze(-1)) + ((1 - sent_action_masks.unsqueeze(-1)) * period_token_no)) * pad_masks.unsqueeze(-1)
             for batch_idx in range(bsz):
                 batch['metadata'][batch_idx].pop('a_turn')
-            import ipdb; ipdb.set_trace()
             j_output_dict = self._forward(batch, self._judge)
-            j_metrics = self._judge.get_metrics(reset=True)
+            import ipdb; ipdb.set_trace()
+            j_metrics = self._judge.get_sample_metrics(reset=True)
             baseline = 0.5  # Rough baseline. Can instead do moving average or prediction (A2C).
             advantage = j_metrics['em'] - baseline
 
