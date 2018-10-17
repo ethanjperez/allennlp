@@ -43,30 +43,22 @@ class SquadEmAndF1(Metric):
         self._f1s.append(f1_score)
 
     @overrides
-    def get_metric(self, reset: bool = False) -> Tuple[float, float]:
+    def get_metric(self, reset: bool = False, per_sample: bool = False) -> Tuple[float, float]:
         """
         Returns
         -------
         Average exact match and F1 score (in that order) as computed by the official SQuAD script
         over all inputs.
         """
-        exact_match = self._total_em / self._count if self._count > 0 else 0
-        f1_score = self._total_f1 / self._count if self._count > 0 else 0
+        if per_sample:
+            exact_match = self._ems
+            f1_score = self._f1s
+        else:
+            exact_match = self._total_em / self._count if self._count > 0 else 0
+            f1_score = self._total_f1 / self._count if self._count > 0 else 0
         if reset:
             self.reset()
         return exact_match, f1_score
-
-    def get_sample_metrics(self, reset: bool = False) -> Tuple[float, float]:
-        """
-        Returns
-        -------
-        Per-sample exact match and F1 score (in that order).
-        """
-        ems = self._ems
-        f1s = self._f1s
-        if reset:
-            self.reset()
-        return ems, f1s
 
     @overrides
     def reset(self):

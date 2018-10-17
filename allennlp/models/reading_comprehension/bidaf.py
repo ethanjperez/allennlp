@@ -288,8 +288,8 @@ class BidirectionalAttentionFlow(Model):
             output_dict['passage_tokens'] = passage_tokens
         return output_dict
 
-    def get_metrics(self, reset: bool = False) -> Dict[str, float]:
-        exact_match, f1_score = self._squad_metrics.get_metric(reset)
+    def get_metrics(self, reset: bool = False, per_sample: bool = False) -> Dict[str, float]:
+        exact_match, f1_score = self._squad_metrics.get_metric(reset, per_sample)
         return {
                 'start_acc': self._span_start_accuracy.get_metric(reset),
                 'end_acc': self._span_end_accuracy.get_metric(reset),
