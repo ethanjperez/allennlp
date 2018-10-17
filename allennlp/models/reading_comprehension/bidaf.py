@@ -16,6 +16,17 @@ from allennlp.training.metrics import BooleanAccuracy, CategoricalAccuracy, Squa
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 
 
+class FiLM(torch.nn.Module):
+    """
+    A Feature-wise Linear Modulation Layer from
+    'FiLM: Visual Reasoning with a General Conditioning Layer'
+    """
+    def forward(self, x, gammas, betas):
+        gammas = gammas.unsqueeze(2).unsqueeze(3).expand_as(x)
+        betas = betas.unsqueeze(2).unsqueeze(3).expand_as(x)
+        return (gammas * x) + betas
+
+
 @Model.register("bidaf")
 class BidirectionalAttentionFlow(Model):
     """
@@ -73,9 +84,14 @@ class BidirectionalAttentionFlow(Model):
                  dropout: float = 0.2,
                  mask_lstms: bool = True,
                  initializer: InitializerApplicator = InitializerApplicator(),
-                 regularizer: Optional[RegularizerApplicator] = None) -> None:
+                 regularizer: Optional[RegularizerApplicator] = None,
+                 is_judge: bool = True) -> None:
         super(BidirectionalAttentionFlow, self).__init__(vocab, regularizer)
 
+        self._is_judge = is_judge
+        if not self._is_judge:
+            self._film = FiLM()
+            self._turn_film_prediction = torch.nn.Linear(1, 2 * modeling_layer.get_input_dim())
         self._text_field_embedder = text_field_embedder
         self._highway_layer = TimeDistributed(Highway(text_field_embedder.get_output_dim(),
                                                       num_highway_layers))
@@ -171,7 +187,6 @@ class BidirectionalAttentionFlow(Model):
             question.
         """
         # TODO: Use FiLM to condition model on metadata[i][a_turn] (only if given)!
-        import ipdb; ipdb.set_trace()
         embedded_question = self._highway_layer(self._text_field_embedder(question))
         embedded_passage = self._highway_layer(self._text_field_embedder(passage))
         batch_size = embedded_question.size(0)
@@ -215,6 +230,13 @@ class BidirectionalAttentionFlow(Model):
                                           encoded_passage * tiled_question_passage_vector],
                                          dim=-1)
 
+        import ipdb; ipdb.set_trace()
+        # Debate: Conditioning on whose turn it is (A/B)
+        if metadata is not None and 'a_turn' in metadata[0]:
+            a_turn = torch.tensor([sample_metadata['a_turn'] for sample_metadata in metadata]).unsqueeeze(1)
+            turn_film_params = self._turn_film_prediction(a_turn)
+            turn_gammas, turn_betas = torch.split(turn_film_params, self._modeling_layer.get_input_dim(), dim=-1)
+            final_merged_passage = self._film(final_merged_passage, turn_gammas, turn_betas)
         modeled_passage = self._dropout(self._modeling_layer(final_merged_passage, passage_lstm_mask))
         modeling_dim = modeled_passage.size(-1)
 
