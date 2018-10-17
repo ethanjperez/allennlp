@@ -145,8 +145,21 @@ def evaluate(model: Model,
                 for sample_metric in sample_metrics:
                     metrics[k].append(sample_metric[k])
             metrics = {k: sum(vs) / len(vs) for k, vs in metrics.items()}
-            if num_sents >= 5:
-                import ipdb; ipdb.set_trace()
+            if num_sents >= 5 and (a_argmax != b_argmin):
+                a_sent_idxs = (sent_idxs == a_argmax).nonzero()[:,1]
+                a_sent_start_idx = a_sent_idxs.min()
+                a_sent_end_idx = a_sent_idxs.max() + 1
+                b_sent_idxs = (sent_idxs == b_argmin).nonzero()[:,1]
+                b_sent_start_idx = b_sent_idxs.min()
+                b_sent_end_idx = b_sent_idxs.max() + 1
+                print('\n***Passage***\n', ' '.join(batch['metadata'][0]['passage_tokens']))
+                print('\n***Question***\n', ' '.join(batch['metadata'][0]['question_tokens']))
+                print('\n***Answers***\n', [answer if isinstance(answer, str) else ' '.join(answer) for answer in batch['metadata'][0]['answer_texts']])
+                print('\n---B--- Sentence', b_argmin, '\n', ' '.join(batch['metadata'][0]['passage_tokens'][b_sent_start_idx:b_sent_end_idx]))
+                print('\n---A--- Sentence', a_argmax, '\n', ' '.join(batch['metadata'][0]['passage_tokens'][a_sent_start_idx:a_sent_end_idx]))
+                ab_sent_idxs = torch.stack([batch['passage']['tokens'].new((a_argmax, b_argmin)) for _ in range(num_sents.size(0))])
+                sent_rand_masks = torch.clamp(torch.stack([sent_idxs == ab_sent_idxs[:,i].unsqueeze(1) for i in range(num_turns)]).sum(0), max=1)
+                sent_rand_masks.nonzero()[:,1]
 
             if (not _warned_tqdm_ignores_underscores and
                         any(metric_name.startswith("_") for metric_name in metrics)):
