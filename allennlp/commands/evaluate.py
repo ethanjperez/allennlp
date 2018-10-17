@@ -119,26 +119,32 @@ def evaluate(model: Model,
                 sample_metrics.append(model.get_metrics(reset=True))
             else:
                 a_metrics = []
+                a_j_output_dicts = []
                 batch_passage_tokens = batch['passage']['tokens'].clone()
                 batch_passage_token_characters = batch['passage']['token_characters'].clone()
                 import ipdb; ipdb.set_trace()
                 for a_idx in range(num_sents):
                     b_metrics = []
+                    b_j_output_dicts = []
                     for b_idx in range(num_sents):
                         ab_sent_idxs = torch.stack([batch_passage_tokens.new((a_idx, b_idx)) for _ in range(num_sents.size(0))])
                         sent_rand_masks = torch.clamp(torch.stack([sent_idxs == ab_sent_idxs[:,i].unsqueeze(1) for i in range(num_turns)]).sum(0), max=1)
                         batch['passage']['tokens'] = ((batch_passage_tokens * sent_rand_masks) + ((1 - sent_rand_masks) * period_token_no)) * pad_masks
                         batch['passage']['token_characters'] = ((batch_passage_token_characters * sent_rand_masks.unsqueeze(-1)) + ((1 - sent_rand_masks.unsqueeze(-1)) * period_token_no)) * pad_masks.unsqueeze(-1)
                         batch = util.move_to_device(batch, cuda_device)
-                        model(**batch)
+                        b_j_output_dict = model(**batch)
+                        b_j_output_dicts.append(b_j_output_dict)
                         b_metrics.append(model.get_metrics(reset=True))
                     # Min over b's moves
                     b_em_scores = [metrics['em'] for metrics in b_metrics]
-                    b_argmin = b_em_scores.index(min(b_em_scores))
-                    a_metrics.append(b_metrics[b_argmin])
+                    b_opt = b_em_scores.index(min(b_em_scores))
+                    a_metrics.append(b_metrics[b_opt])
+                    a_j_output_dicts.append(b_j_output_dicts[b_opt])
                 a_em_scores = [metrics['em'] for metrics in a_metrics]
-                a_argmax = a_em_scores.index(max(a_em_scores))
-                sample_metrics.append(b_metrics[a_argmax])
+                a_opt = a_em_scores.index(max(a_em_scores))
+                sample_metrics.append(a_metrics[a_opt])
+                j_output_dict = a_j_output_dicts[a_opt]
+                j_correct = a_metrics[a_opt]['em']
 
             # Combine sample metrics into global metrics
             metrics = {k: [] for k in sample_metrics[0]}
@@ -146,19 +152,21 @@ def evaluate(model: Model,
                 for sample_metric in sample_metrics:
                     metrics[k].append(sample_metric[k])
             metrics = {k: sum(vs) / len(vs) for k, vs in metrics.items()}
-            if num_sents >= 5 and (a_argmax != b_argmin):
-                a_sent_idxs = (sent_idxs == a_argmax).nonzero()[:,1]
+            if num_sents >= 5 and (a_opt != b_opt):
+                a_sent_idxs = (sent_idxs == a_opt).nonzero()[:,1]
                 a_sent_start_idx = a_sent_idxs.min()
                 a_sent_end_idx = a_sent_idxs.max() + 1
-                b_sent_idxs = (sent_idxs == b_argmin).nonzero()[:,1]
+                b_sent_idxs = (sent_idxs == b_opt).nonzero()[:,1]
                 b_sent_start_idx = b_sent_idxs.min()
                 b_sent_end_idx = b_sent_idxs.max() + 1
                 print('\n***Passage***\n', ' '.join(batch['metadata'][0]['passage_tokens']))
                 print('\n***Question***\n', ' '.join(batch['metadata'][0]['question_tokens']))
                 print('\n***Answers***\n', [answer if isinstance(answer, str) else ' '.join(answer) for answer in batch['metadata'][0]['answer_texts']])
-                print('\n---B--- Sentence', b_argmin, '\n', ' '.join(batch['metadata'][0]['passage_tokens'][b_sent_start_idx:b_sent_end_idx]))
-                print('\n---A--- Sentence', a_argmax, '\n', ' '.join(batch['metadata'][0]['passage_tokens'][a_sent_start_idx:a_sent_end_idx]))
-                ab_sent_idxs = torch.stack([batch['passage']['tokens'].new((a_argmax, b_argmin)) for _ in range(num_sents.size(0))])
+                toks = batch['metadata'][0]['passage_tokens']
+                print('\n---B--- Sentence', b_opt, '\n', ' '.join(toks[b_sent_start_idx:b_sent_end_idx]))
+                print('\n---A--- Sentence', a_opt, '\n', ' '.join(toks[a_sent_start_idx:a_sent_end_idx]))
+                print('\n---J--- EM Score', j_correct, '!\n', ' '.join(toks[j_output_dict['best_span'][0][0]:j_output_dict['best_span'][0][1]+1]))
+                ab_sent_idxs = torch.stack([batch['passage']['tokens'].new((a_opt, b_opt)) for _ in range(num_sents.size(0))])
                 sent_rand_masks = torch.clamp(torch.stack([sent_idxs == ab_sent_idxs[:,i].unsqueeze(1) for i in range(num_turns)]).sum(0), max=1)
                 sent_rand_masks.nonzero()[:,1]
 
