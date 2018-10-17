@@ -121,6 +121,7 @@ def evaluate(model: Model,
                 a_metrics = []
                 batch_passage_tokens = batch['passage']['tokens'].clone()
                 batch_passage_token_characters = batch['passage']['token_characters'].clone()
+                import ipdb; ipdb.set_trace()
                 for a_idx in range(num_sents):
                     b_metrics = []
                     for b_idx in range(num_sents):
