@@ -559,7 +559,6 @@ class Trainer(Registrable):
 
             self._optimizer.zero_grad()
             loss = self._batch_loss(batch, for_training=True)
-            import ipdb; ipdb.set_trace()
             loss.backward()
 
             train_loss += loss.item()
