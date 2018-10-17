@@ -1091,7 +1091,6 @@ class Trainer(Registrable):
             if judge is not None:
                 judge = judge.cuda(cuda_device)
         parameters = [[n, p] for n, p in model.named_parameters() if p.requires_grad]
-        import ipdb; ipdb.set_trace()
         optimizer = Optimizer.from_params(parameters, params.pop("optimizer"))
 
         if lr_scheduler_params:
