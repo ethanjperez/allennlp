@@ -251,7 +251,7 @@ class BidirectionalAttentionFlow(Model):
             critic_input = span_start_input_full.detach()  # NB: Reward prediction should not update main network
             # Shape: (batch_size)
             # NB: Can add more layers to critic
-            value = (self._critic(critic_input).squeeze(-1) * passage_mask).sum(1)
+            value = torch.sigmoid((self._critic(critic_input).squeeze(-1) * passage_mask).sum(1))
         # Shape: (batch_size, passage_length)
         span_start_logits = self._span_start_predictor(span_start_input).squeeze(-1)
         # Shape: (batch_size, passage_length)
