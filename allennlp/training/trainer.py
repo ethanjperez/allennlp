@@ -464,6 +464,7 @@ class Trainer(Registrable):
                 for batch_idx in range(bsz):  # NB: 'metadata' is usually optional. Write code to add in if not present.
                     batch['metadata'][batch_idx]['a_turn'] = (turn % 2) == 0
                 ab_output_dict = self._forward(batch, self._model)
+                self._model.reset()  # Don't currently need debaters' metrics (only judge's)
 
                 # Sample from policy's sentence-level distribution
                 word_action_dist = ab_output_dict['span_start_probs']
@@ -513,7 +514,8 @@ class Trainer(Registrable):
         the total loss divided by the ``num_batches`` so that
         the ``"loss"`` metric is "average loss per batch".
         """
-        metrics = self._model.get_metrics(reset=reset)
+        model = self._judge if self._judge is not None else self._model
+        metrics = model.get_metrics(reset=reset)
         metrics["loss"] = float(total_loss / num_batches) if num_batches > 0 else 0.0
         return metrics
 
