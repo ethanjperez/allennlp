@@ -464,7 +464,7 @@ class Trainer(Registrable):
                 for batch_idx in range(bsz):  # NB: 'metadata' is usually optional. Write code to add in if not present.
                     batch['metadata'][batch_idx]['a_turn'] = (turn % 2) == 0
                 ab_output_dict = self._forward(batch, self._model)
-                self._model.reset()  # Don't currently need debaters' metrics (only judge's)
+                self._model.get_metrics(reset=True)  # Debater's metrics currently meaningless, so clear
 
                 # Sample from policy's sentence-level distribution
                 word_action_dist = ab_output_dict['span_start_probs']
@@ -486,7 +486,7 @@ class Trainer(Registrable):
             j_output_dict = self._forward(batch, self._judge)
             j_metrics = self._judge.get_metrics(per_sample=True)
             j_correct = torch.tensor(j_metrics['em'], dtype=sent_action_probs[0].dtype, device=sent_action_probs[0].device)
-            baseline = j_correct.mean()  # Rough baseline. Can instead do fixed, moving average, or actor-critic.
+            baseline = j_correct.mean()  # Rough baseline. Can instead do moving average or actor-critic.
             advantage = j_correct - baseline
 
             # Calculate and set A/B loss
