@@ -231,7 +231,6 @@ class BidirectionalAttentionFlow(Model):
                                           encoded_passage * tiled_question_passage_vector],
                                          dim=-1)
 
-        import ipdb; ipdb.set_trace()
         # Debate: Conditioning on whose turn it is (A/B)
         if not self._is_judge:
             assert(metadata is not None and 'a_turn' in metadata[0])
@@ -251,6 +250,7 @@ class BidirectionalAttentionFlow(Model):
         import ipdb; ipdb.set_trace()
         if not self._is_judge:
             critic_input = span_start_input_full.detach()  # NB: Reward prediction should not update main network
+            # Shape: (batch_size)
             value = (self._critic(critic_input).squeeze(-1) * passage_mask).sum(1)
         # Shape: (batch_size, passage_length)
         span_start_logits = self._span_start_predictor(span_start_input).squeeze(-1)
