@@ -152,7 +152,7 @@ def evaluate(model: Model,
                 for sample_metric in sample_metrics:
                     metrics[k].append(sample_metric[k])
             metrics = {k: sum(vs) / len(vs) for k, vs in metrics.items()}
-            if num_sents >= 5 and (a_opt != b_opt):
+            if num_sents >= 3 and (a_opt != b_opt):
                 a_sent_idxs = (sent_idxs == a_opt).nonzero()[:,1]
                 a_sent_start_idx = a_sent_idxs.min()
                 a_sent_end_idx = a_sent_idxs.max() + 1
