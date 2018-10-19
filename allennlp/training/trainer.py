@@ -494,9 +494,9 @@ class Trainer(Registrable):
                 a_turn = (turn % 2) == 0
                 grad_dir = -1 if a_turn else 1
                 baseline = values[turn].to(j_correct)  # Rougher baseline: j_correct.mean()
-                advantage = j_correct - baseline
+                advantage = j_correct - baseline.detach()
                 output_dict['loss'] += grad_dir * (torch.log(sent_action_probs[turn]) * advantage).sum()  # Actor loss
-                output_dict['loss'] += (advantage ** 2).sum()  # Critic loss
+                output_dict['loss'] += ((j_correct - baseline) ** 2).sum()  # Critic loss
 
         try:
             loss = output_dict["loss"]
