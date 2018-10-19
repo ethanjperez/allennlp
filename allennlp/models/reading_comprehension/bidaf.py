@@ -248,8 +248,8 @@ class BidirectionalAttentionFlow(Model):
         span_start_input_full = torch.cat([final_merged_passage, modeled_passage], dim=-1)
         span_start_input = self._dropout(span_start_input_full)
         if not self._is_judge:
-            # critic_input = span_start_input_full
-            critic_input = span_start_input_full.detach()  # NB: To prevent reward pred. from updating main network
+            critic_input = span_start_input_full
+            # critic_input = span_start_input_full.detach()  # NB: To prevent reward pred. from updating main network
             # Shape: (batch_size)
             # NB: Can add more layers to critic
             value = torch.sigmoid((self._critic(critic_input).squeeze(-1) * passage_mask).sum(1))
