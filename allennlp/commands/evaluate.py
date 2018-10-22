@@ -196,7 +196,7 @@ def evaluate_from_args(args: argparse.Namespace) -> Dict[str, Any]:
     logging.getLogger('allennlp.modules.token_embedders.embedding').setLevel(logging.INFO)
 
     # Load from archive
-    archive = load_archive(args.archive_file, args.cuda_device, args.overrides, args.weights_file, args.judge_archive_file is not None)
+    archive = load_archive(args.archive_file, args.cuda_device, args.overrides, args.weights_file, args.judge_archive_file is None)
     config = archive.config
     prepare_environment(config)
     model = archive.model
