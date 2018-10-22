@@ -498,7 +498,7 @@ class Trainer(Registrable):
                 value_loss = 0.5 * ((j_correct - baseline) ** 2).mean()  # Value loss
                 output_dict['loss'] += value_loss
                 if (self._batch_num_total % 200) == 0:
-                    import ipdb; ipdb.set_trace()
+                    # import ipdb; ipdb.set_trace()
                     print('This batch:')
                     print(' * V(s)      ~=', baseline.mean(), 'for a_turn =', a_turn)
                     print(' * V(s) Loss ~=', value_loss, 'for a_turn =', a_turn)
