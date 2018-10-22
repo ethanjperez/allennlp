@@ -81,7 +81,6 @@ class Evaluate(Subcommand):
                                default="",
                                help='a JSON structure used to override the experiment configuration')
 
-
         # Debate: Option to load trained judge from archive. In this case, debating agents only will be trained
         subparser.add_argument('-j', '--judge_archive_file',
                                type=str,
@@ -201,6 +200,20 @@ def evaluate_from_args(args: argparse.Namespace) -> Dict[str, Any]:
     prepare_environment(config)
     model = archive.model
     model.eval()
+
+    # Debate: Load judge model from archive (if applicable)
+    # Debate: Load judge model from archive (if applicable)
+    judge = None
+    if args.judge_archive_file is not None:
+        # Load from archive (Modified from evaluate.py)
+        judge_archive = load_archive(args.judge_archive_file, cuda_device=args.cuda_device)
+        judge_config = judge_archive.config
+        prepare_environment(judge_config)
+        judge = judge_archive.model
+        judge.eval()
+        # Use judge only for black-box reward (no gradient signal)
+        for param in judge.parameters():
+            param.requires_grad = False
 
     # Load the evaluation data
 
