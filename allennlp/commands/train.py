@@ -306,7 +306,8 @@ def train_model(params: Params,
     else:
         validation_iterator = None
 
-    train_data = all_datasets['train']
+    # If in eval_mode, load dummy training set (so it's faster)
+    train_data = all_datasets['validation'] if eval_mode else all_datasets['train']
     validation_data = all_datasets.get('validation')
     test_data = all_datasets.get('test')
 
