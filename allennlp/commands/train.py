@@ -241,7 +241,8 @@ def train_model(params: Params,
                 serialization_dir: str,
                 file_friendly_logging: bool = False,
                 recover: bool = False,
-                judge_archive_file: str = None) -> Model:
+                judge_archive_file: str = None,
+                eval_mode: bool = False) -> Model:
     """
     Trains the model specified in the given :class:`Params` object, using the data and training
     parameters also specified in that object, and saves the results in ``serialization_dir``.
