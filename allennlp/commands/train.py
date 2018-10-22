@@ -94,7 +94,7 @@ class Train(Subcommand):
 
         # Debate: Option to evaluate
         subparser.add_argument('-e', '--eval_mode',
-                               type=bool,
+                               action='store_true',
                                default=False,
                                help='run in evaluation-only mode?')
 
