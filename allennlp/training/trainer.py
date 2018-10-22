@@ -493,22 +493,22 @@ class Trainer(Registrable):
             j_correct = torch.tensor(j_metrics['em'], dtype=sent_action_probs[0].dtype, device=sent_action_probs[0].device)
 
             if ((self._batch_num_total % 10) == 0) and self._eval_mode:
-                import ipdb; ipdb.set_trace()
                 for sample_no in range(bsz):
-                    # Debate: Print examples. Copied with slight modifications from evaluate.py
-                    a_sent_idxs = all_sent_action_mask[0][sample_no].nonzero()[:,1]
-                    a_sent_start_idx = a_sent_idxs.min()
-                    a_sent_end_idx = a_sent_idxs.max() + 1
-                    b_sent_idxs = all_sent_action_mask[1][sample_no].nonzero()[:,1]
-                    b_sent_start_idx = b_sent_idxs.min()
-                    b_sent_end_idx = b_sent_idxs.max() + 1
-                    print('\n***Passage***\n', ' '.join(batch['metadata'][sample_no]['passage_tokens']))
-                    print('\n***Question***\n', ' '.join(batch['metadata'][sample_no]['question_tokens']))
-                    print('\n***Answers***\n', [answer if isinstance(answer, str) else ' '.join(answer) for answer in batch['metadata'][sample_no]['answer_texts']])
-                    toks = batch['metadata'][sample_no]['passage_tokens']
-                    print('\n---B--- Sentence', int(sent_action[1][sample_no]), '\n', ' '.join(toks[b_sent_start_idx:b_sent_end_idx]))
-                    print('\n---A--- Sentence', int(sent_action[0][sample_no]), '\n', ' '.join(toks[a_sent_start_idx:a_sent_end_idx]))
-                    print('\n---J--- EM Score', float(j_correct[sample_no]), '!\n', ' '.join(toks[j_output_dict['best_span'][sample_no][0]:j_output_dict['best_span'][sample_no][1]+1]))
+                    if bool(num_sents[sample_no] >= 3):
+                        # Debate: Print examples. Copied with slight modifications from evaluate.py
+                        a_sent_idxs = sent_action_masks[0][sample_no].nonzero().squeeze()
+                        a_sent_start_idx = a_sent_idxs.min()
+                        a_sent_end_idx = a_sent_idxs.max() + 1
+                        b_sent_idxs = sent_action_masks[1][sample_no].nonzero().squeeze()
+                        b_sent_start_idx = b_sent_idxs.min()
+                        b_sent_end_idx = b_sent_idxs.max() + 1
+                        print('\n***Passage***\n', ' '.join(batch['metadata'][sample_no]['passage_tokens']))
+                        print('\n***Question***\n', ' '.join(batch['metadata'][sample_no]['question_tokens']))
+                        print('\n***Answers***\n', [answer if isinstance(answer, str) else ' '.join(answer) for answer in batch['metadata'][sample_no]['answer_texts']])
+                        toks = batch['metadata'][sample_no]['passage_tokens']
+                        print('\n---B--- Sentence', int(sent_action[1][sample_no]), '\n', ' '.join(toks[b_sent_start_idx:b_sent_end_idx]))
+                        print('\n---A--- Sentence', int(sent_action[0][sample_no]), '\n', ' '.join(toks[a_sent_start_idx:a_sent_end_idx]))
+                        print('\n---J--- EM Score', float(j_correct[sample_no]), '!\n', ' '.join(toks[j_output_dict['best_span'][sample_no][0]:j_output_dict['best_span'][sample_no][1]+1]))
 
             # Calculate and set A/B loss
             output_dict = {'loss': 0}
