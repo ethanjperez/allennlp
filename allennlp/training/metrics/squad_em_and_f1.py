@@ -17,6 +17,8 @@ class SquadEmAndF1(Metric):
         self._total_em = 0.0
         self._total_f1 = 0.0
         self._count = 0
+        self._ems = []
+        self._f1s = []
 
     @overrides
     def __call__(self, best_span_string, answer_strings):
@@ -37,17 +39,26 @@ class SquadEmAndF1(Metric):
         self._total_em += exact_match
         self._total_f1 += f1_score
         self._count += 1
+        self._ems.append(exact_match)
+        self._f1s.append(f1_score)
 
     @overrides
-    def get_metric(self, reset: bool = False) -> Tuple[float, float]:
+    def get_metric(self, reset: bool = False, per_sample: bool = False) -> Tuple[float, float]:
         """
         Returns
         -------
         Average exact match and F1 score (in that order) as computed by the official SQuAD script
         over all inputs.
         """
-        exact_match = self._total_em / self._count if self._count > 0 else 0
-        f1_score = self._total_f1 / self._count if self._count > 0 else 0
+        if per_sample:
+            exact_match = self._ems
+            f1_score = self._f1s
+            # Reset per-sample metrics on access
+            self._ems = []
+            self._f1s = []
+        else:
+            exact_match = self._total_em / self._count if self._count > 0 else 0
+            f1_score = self._total_f1 / self._count if self._count > 0 else 0
         if reset:
             self.reset()
         return exact_match, f1_score
@@ -57,6 +68,8 @@ class SquadEmAndF1(Metric):
         self._total_em = 0.0
         self._total_f1 = 0.0
         self._count = 0
+        self._ems = []
+        self._f1s = []
 
     def __str__(self):
         return f"SquadEmAndF1(em={self._total_em}, f1={self._total_f1})"

@@ -182,7 +182,8 @@ class Trainer(Registrable):
                  histogram_interval: int = None,
                  should_log_parameter_statistics: bool = True,
                  should_log_learning_rate: bool = False,
-                 judge: Model = None) -> None:
+                 judge: Model = None,
+                 eval_mode: bool = False) -> None:
         """
         Parameters
         ----------
@@ -270,6 +271,7 @@ class Trainer(Registrable):
         """
         self._model = model
         self._judge = judge
+        self._eval_mode = eval_mode
         self._iterator = iterator
         self._validation_iterator = validation_iterator
         self._shuffle = shuffle
@@ -403,7 +405,7 @@ class Trainer(Registrable):
             return sparse_clip_norm(parameters_to_clip, self._grad_norm)
         return None
 
-    def _data_parallel(self, batch):
+    def _data_parallel(self, batch, model):
         """
         Do the forward pass using multiple GPUs.  This is a simplification
         of torch.nn.parallel.data_parallel to support the allennlp model
@@ -411,7 +413,7 @@ class Trainer(Registrable):
         """
         inputs, module_kwargs = scatter_kwargs((), batch, self._cuda_devices, 0)
         used_device_ids = self._cuda_devices[:len(inputs)]
-        replicas = replicate(self._model, used_device_ids)
+        replicas = replicate(model, used_device_ids)
         outputs = parallel_apply(replicas, inputs, module_kwargs, used_device_ids)
 
         # Only the 'loss' is needed.
@@ -419,15 +421,15 @@ class Trainer(Registrable):
         losses = gather([output['loss'].unsqueeze(0) for output in outputs], used_device_ids[0], 0)
         return {'loss': losses.mean()}
 
-    def _model_forward(self, batch):
+    def _forward(self, batch, model):
         """
-        Does a forward pass on the appropriate device(s) and returns the result.
+        Does a forward pass on the appropriate model and device(s) and returns the result.
         """
         if self._multiple_gpu:
             output_dict = self._data_parallel(batch)
         else:
             batch = util.move_to_device(batch, self._cuda_devices[0])
-            output_dict = self._model(**batch)
+            output_dict = model(**batch)
         return output_dict
 
     def _batch_loss(self, batch: torch.Tensor, for_training: bool) -> torch.Tensor:
@@ -436,41 +438,92 @@ class Trainer(Registrable):
         If ``for_training`` is `True` also applies regularization penalty.
         """
         # Debate: Special training procedures
+        # NB: Move precomputation from CPU to GPU if it's taking too long (time it)
         period_token_no = 5  # NB: Hacky: Fix to get directly from vocab!
-        num_sents_reveal = 2  # NB: Make training_config parameter
+        num_turns = 2  # NB: Make training_config parameter
+        sent_idxs = (batch['passage']['tokens'] == 5).cumsum(1) - (batch['passage']['tokens'] == period_token_no).long()
+        num_sents = sent_idxs.max(1)[0] + 1
+        pad_masks = (batch['passage']['tokens'] != 0).long()
         if self._judge is None:  # Training J on random sentences
             # Mask sentences
-            sent_idxs = (batch['passage']['tokens'] == 5).cumsum(1) - (batch['passage']['tokens'] == period_token_no).long()
-            num_sents = sent_idxs.max(1)[0] + 1
-            pad_masks = (batch['passage']['tokens'] != 0).long()
-            # NB: 'max' is a hack below for examples where you have less than num_sents_reveal! Need to replace those with full original tokens at the end.
-            rand_sent_idxs = torch.stack([torch.multinomial(torch.ones(max(int(num_sents[i]), num_sents_reveal)), num_sents_reveal, False) for i in range(num_sents.size(0))])
-            sent_masks = torch.stack([sent_idxs == rand_sent_idxs[:,i].unsqueeze(1) for i in range(num_sents_reveal)]).sum(0)
-            batch['passage']['tokens'] = ((batch['passage']['tokens'] * sent_masks) + ((1 - sent_masks) * period_token_no)) * pad_masks
-            batch['passage']['token_characters'] = ((batch['passage']['token_characters'] * sent_masks.unsqueeze(-1)) + ((1 - sent_masks.unsqueeze(-1)) * period_token_no)) * pad_masks.unsqueeze(-1)
+            # NB: Could replace for loop with 2-D multinomial input
+            # NB: 'max' is a hack below for examples where you have less than num_turns! Need to replace those with full original tokens at the end.
+            rand_sent_idxs = torch.stack([torch.multinomial(torch.ones(max(int(num_sents[i]), num_turns)), num_turns, False) for i in range(num_sents.size(0))])
+            sent_rand_masks = torch.stack([sent_idxs == rand_sent_idxs[:,i].unsqueeze(1) for i in range(num_turns)]).sum(0)
+            batch['passage']['tokens'] = ((batch['passage']['tokens'] * sent_rand_masks) + ((1 - sent_rand_masks) * period_token_no)) * pad_masks
+            batch['passage']['token_characters'] = ((batch['passage']['token_characters'] * sent_rand_masks.unsqueeze(-1)) + ((1 - sent_rand_masks.unsqueeze(-1)) * period_token_no)) * pad_masks.unsqueeze(-1)
 
             # Normal forward pass
-            output_dict = self._model_forward(batch)
+            output_dict = self._forward(batch, self._model)
         else:  # Training A/B
-            import ipdb; ipdb.set_trace()
-            ### Put A/B decisions in loop for multi-turn?
-            # Forward pass with A (model with agent indicator=0): Get action distribution and value prediction (or fixed as .5 or moving average of past 5 rewards)
-            output_dict = self._model_forward(batch)  # NB: May need to modify / make a separate _data_parallel function for multi-GPU
+            # Forward pass with A/B
+            # NB: May need to modify / make a separate _data_parallel function for multi-GPU
+            sent_actions = []
+            sent_action_masks = []
+            sent_action_probs = []
+            values = []
+            bsz = batch['question']['tokens'].size(0)
+            for turn in range(num_turns):
+                for batch_idx in range(bsz):  # NB: 'metadata' is usually optional. Write code to add in if not present.
+                    batch['metadata'][batch_idx]['a_turn'] = (turn % 2) == 0
+                ab_output_dict = self._forward(batch, self._model)
+                values.append(ab_output_dict['value'])
+                self._model.get_metrics(reset=True)  # Debater's metrics currently meaningless, so clear
 
-            # Convert output into distribution over sentence indexes
+                # Sample from policy's sentence-level distribution
+                word_action_dist = ab_output_dict['span_start_probs']
+                word_action = torch.multinomial(word_action_dist, 1) if for_training else torch.argmax(word_action_dist, dim=1, keepdim=True)
+                sent_action = sent_idxs.gather(1, word_action.to(sent_idxs.device))
+                sent_action_mask = sent_idxs == sent_action
+                sent_action_prob = (word_action_dist.to(sent_action_mask.device) * sent_action_mask.to(word_action_dist.dtype)).sum(1)
+                sent_actions.append(sent_action)
+                sent_action_masks.append(sent_action_mask)
+                sent_action_probs.append(sent_action_prob)
 
-            # Sample from model's policy distribution
+            # Mask J's input based on A/B's actions
+            all_sent_action_mask = torch.stack(sent_action_masks).sum(0)
+            # Clamp mask to max value 1. NB: Can just use torch.clamp later, though not sure how it affects gradients.
+            all_sent_action_mask = torch.where((all_sent_action_mask.eq(2).sum(1) > 0).unsqueeze(1), all_sent_action_mask / 2, all_sent_action_mask)
+            batch['passage']['tokens'] = ((batch['passage']['tokens'] * all_sent_action_mask) + ((1 - all_sent_action_mask) * period_token_no)) * pad_masks
+            batch['passage']['token_characters'] = ((batch['passage']['token_characters'] * all_sent_action_mask.unsqueeze(-1)) + ((1 - all_sent_action_mask.unsqueeze(-1)) * period_token_no)) * pad_masks.unsqueeze(-1)
+            for batch_idx in range(bsz):
+                batch['metadata'][batch_idx].pop('a_turn')
+            j_output_dict = self._forward(batch, self._judge)
+            j_metrics = self._judge.get_metrics(per_sample=True)
+            j_correct = torch.tensor(j_metrics['em'], dtype=sent_action_probs[0].dtype, device=sent_action_probs[0].device)
 
-            # Forward pass with B (model with agent indicator=1) (on A's output)
-
-            # Convert output into distribution over sentence indexes
-
-            # Sample from model's policy distribution
-
-            # Evaluate with J (eval mode) (Ensure its weights don't change after gradient update)
+            if ((self._batch_num_total % 10) == 0) and self._eval_mode:
+                for sample_no in range(bsz):
+                    if bool(num_sents[sample_no] >= 3):
+                        # Debate: Print examples. Copied with slight modifications from evaluate.py
+                        a_sent_idxs = sent_action_masks[0][sample_no].nonzero().squeeze()
+                        a_sent_start_idx = a_sent_idxs.min()
+                        a_sent_end_idx = a_sent_idxs.max() + 1
+                        b_sent_idxs = sent_action_masks[1][sample_no].nonzero().squeeze()
+                        b_sent_start_idx = b_sent_idxs.min()
+                        b_sent_end_idx = b_sent_idxs.max() + 1
+                        print('\n***Passage***\n', ' '.join(batch['metadata'][sample_no]['passage_tokens']))
+                        print('\n***Question***\n', ' '.join(batch['metadata'][sample_no]['question_tokens']))
+                        print('\n***Answers***\n', [answer if isinstance(answer, str) else ' '.join(answer) for answer in batch['metadata'][sample_no]['answer_texts']])
+                        toks = batch['metadata'][sample_no]['passage_tokens']
+                        print('\n---B--- Sentence', int(sent_actions[1][sample_no]), '\n', ' '.join(toks[b_sent_start_idx:b_sent_end_idx]))
+                        print('\n---A--- Sentence', int(sent_actions[0][sample_no]), '\n', ' '.join(toks[a_sent_start_idx:a_sent_end_idx]))
+                        print('\n---J--- EM Score', float(j_correct[sample_no]), '!\n', ' '.join(toks[j_output_dict['best_span'][sample_no][0]:j_output_dict['best_span'][sample_no][1]+1]))
+                        import ipdb; ipdb.set_trace()
 
             # Calculate and set A/B loss
-            loss = 0
+            output_dict = {'loss': 0}
+            for turn in range(num_turns):
+                a_turn = (turn % 2) == 0
+                grad_dir = -1 if a_turn else 1
+                baseline = values[turn].to(j_correct)  # Rougher baseline: j_correct.mean()
+                output_dict['loss'] += grad_dir * (torch.log(sent_action_probs[turn]) * (j_correct - baseline.detach())).mean()  # Policy loss
+                value_loss = 0.5 * ((j_correct - baseline) ** 2).mean()  # Value loss
+                output_dict['loss'] += value_loss
+                if (self._batch_num_total % 200) == 0:
+                    print('This batch:')
+                    print(' * V(s)      ~=', baseline.mean(), 'for a_turn =', a_turn)
+                    print(' * V(s) Loss ~=', value_loss, 'for a_turn =', a_turn)
 
         try:
             loss = output_dict["loss"]
@@ -490,7 +543,8 @@ class Trainer(Registrable):
         the total loss divided by the ``num_batches`` so that
         the ``"loss"`` metric is "average loss per batch".
         """
-        metrics = self._model.get_metrics(reset=reset)
+        model = self._judge if self._judge is not None else self._model
+        metrics = model.get_metrics(reset=reset)
         metrics["loss"] = float(total_loss / num_batches) if num_batches > 0 else 0.0
         return metrics
 
@@ -788,9 +842,10 @@ class Trainer(Registrable):
         epochs_trained = 0
         training_start_time = time.time()
 
-        for epoch in range(epoch_counter, self._num_epochs):
-            epoch_start_time = time.time()
-            train_metrics = self._train_epoch(epoch)
+        for epoch in range(epoch_counter, self._num_epochs + (1 if self._eval_mode else 0)):
+            if not self._eval_mode:
+                epoch_start_time = time.time()
+                train_metrics = self._train_epoch(epoch)
 
             if self._validation_data is not None:
                 with torch.no_grad():
@@ -835,6 +890,9 @@ class Trainer(Registrable):
                 metrics['best_epoch'] = epoch
                 for key, value in val_metrics.items():
                     metrics["best_validation_" + key] = value
+
+            if self._eval_mode:
+                return metrics
 
             if self._serialization_dir:
                 dump_metrics(os.path.join(self._serialization_dir, f'metrics_epoch_{epoch}.json'), metrics)
@@ -1049,7 +1107,9 @@ class Trainer(Registrable):
                     train_data: Iterable[Instance],
                     validation_data: Optional[Iterable[Instance]],
                     params: Params,
-                    validation_iterator: DataIterator = None) -> 'Trainer':
+                    validation_iterator: DataIterator = None,
+                    judge: Model = None,
+                    eval_mode: bool = False) -> 'Trainer':
         # pylint: disable=arguments-differ
         patience = params.pop_int("patience", None)
         validation_metric = params.pop("validation_metric", "-loss")
@@ -1062,6 +1122,8 @@ class Trainer(Registrable):
 
         if cuda_device >= 0:
             model = model.cuda(cuda_device)
+            if judge is not None:
+                judge = judge.cuda(cuda_device)
         parameters = [[n, p] for n, p in model.named_parameters() if p.requires_grad]
         optimizer = Optimizer.from_params(parameters, params.pop("optimizer"))
 
@@ -1098,7 +1160,9 @@ class Trainer(Registrable):
                    summary_interval=summary_interval,
                    histogram_interval=histogram_interval,
                    should_log_parameter_statistics=should_log_parameter_statistics,
-                   should_log_learning_rate=should_log_learning_rate)
+                   should_log_learning_rate=should_log_learning_rate,
+                   judge=judge,
+                   eval_mode=eval_mode)
 
 
 Trainer.register("default")(Trainer)
