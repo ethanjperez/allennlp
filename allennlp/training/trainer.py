@@ -506,8 +506,8 @@ class Trainer(Registrable):
                         print('\n***Question***\n', ' '.join(batch['metadata'][sample_no]['question_tokens']))
                         print('\n***Answers***\n', [answer if isinstance(answer, str) else ' '.join(answer) for answer in batch['metadata'][sample_no]['answer_texts']])
                         toks = batch['metadata'][sample_no]['passage_tokens']
-                        print('\n---B--- Sentence', int(sent_action[1][sample_no]), '\n', ' '.join(toks[b_sent_start_idx:b_sent_end_idx]))
-                        print('\n---A--- Sentence', int(sent_action[0][sample_no]), '\n', ' '.join(toks[a_sent_start_idx:a_sent_end_idx]))
+                        print('\n---B--- Sentence', int(sent_actions[1][sample_no]), '\n', ' '.join(toks[b_sent_start_idx:b_sent_end_idx]))
+                        print('\n---A--- Sentence', int(sent_actions[0][sample_no]), '\n', ' '.join(toks[a_sent_start_idx:a_sent_end_idx]))
                         print('\n---J--- EM Score', float(j_correct[sample_no]), '!\n', ' '.join(toks[j_output_dict['best_span'][sample_no][0]:j_output_dict['best_span'][sample_no][1]+1]))
 
             # Calculate and set A/B loss
