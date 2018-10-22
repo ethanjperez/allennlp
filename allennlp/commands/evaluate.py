@@ -197,11 +197,11 @@ def evaluate_from_args(args: argparse.Namespace) -> Dict[str, Any]:
     import ipdb; ipdb.set_trace()
     archive = load_archive(args.archive_file, args.cuda_device, args.overrides, args.weights_file)
     config = archive.config
+    config.params['model']['is_judge'] = False
     prepare_environment(config)
     model = archive.model
     model.eval()
 
-    # Debate: Load judge model from archive (if applicable)
     # Debate: Load judge model from archive (if applicable)
     judge = None
     if args.judge_archive_file is not None:
