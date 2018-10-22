@@ -81,6 +81,13 @@ class Evaluate(Subcommand):
                                default="",
                                help='a JSON structure used to override the experiment configuration')
 
+
+        # Debate: Option to load trained judge from archive. In this case, debating agents only will be trained
+        subparser.add_argument('-j', '--judge_archive_file',
+                               type=str,
+                               default=None,
+                               help='path to an archived trained judge model (if training debate agents only)')
+
         subparser.set_defaults(func=evaluate_from_args)
 
         return subparser
