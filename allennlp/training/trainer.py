@@ -890,6 +890,9 @@ class Trainer(Registrable):
                 for key, value in val_metrics.items():
                     metrics["best_validation_" + key] = value
 
+            if self._eval_mode:
+                return metrics
+
             if self._serialization_dir:
                 dump_metrics(os.path.join(self._serialization_dir, f'metrics_epoch_{epoch}.json'), metrics)
 
