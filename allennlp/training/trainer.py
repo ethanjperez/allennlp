@@ -458,6 +458,7 @@ class Trainer(Registrable):
         else:  # Training A/B
             # Forward pass with A/B
             # NB: May need to modify / make a separate _data_parallel function for multi-GPU
+            sent_actions = []
             sent_action_masks = []
             sent_action_probs = []
             values = []
@@ -471,24 +472,43 @@ class Trainer(Registrable):
 
                 # Sample from policy's sentence-level distribution
                 word_action_dist = ab_output_dict['span_start_probs']
-                word_action = torch.multinomial(word_action_dist, 1)
+                word_action = torch.multinomial(word_action_dist, 1) if for_training else torch.argmax(word_action_dist, dim=1, keepdim=True)
                 sent_action = sent_idxs.gather(1, word_action.to(sent_idxs.device))
                 sent_action_mask = sent_idxs == sent_action
                 sent_action_prob = (word_action_dist.to(sent_action_mask.device) * sent_action_mask.to(word_action_dist.dtype)).sum(1)
+                sent_actions.append(sent_action)
                 sent_action_masks.append(sent_action_mask)
                 sent_action_probs.append(sent_action_prob)
 
             # Mask J's input based on A/B's actions
-            sent_action_masks = torch.stack(sent_action_masks).sum(0)
+            all_sent_action_mask = torch.stack(sent_action_masks).sum(0)
             # Clamp mask to max value 1. NB: Can just use torch.clamp later, though not sure how it affects gradients.
-            sent_action_masks = torch.where((sent_action_masks.eq(2).sum(1) > 0).unsqueeze(1), sent_action_masks / 2, sent_action_masks)
-            batch['passage']['tokens'] = ((batch['passage']['tokens'] * sent_action_masks) + ((1 - sent_action_masks) * period_token_no)) * pad_masks
-            batch['passage']['token_characters'] = ((batch['passage']['token_characters'] * sent_action_masks.unsqueeze(-1)) + ((1 - sent_action_masks.unsqueeze(-1)) * period_token_no)) * pad_masks.unsqueeze(-1)
+            all_sent_action_mask = torch.where((all_sent_action_mask.eq(2).sum(1) > 0).unsqueeze(1), all_sent_action_mask / 2, all_sent_action_mask)
+            batch['passage']['tokens'] = ((batch['passage']['tokens'] * all_sent_action_mask) + ((1 - all_sent_action_mask) * period_token_no)) * pad_masks
+            batch['passage']['token_characters'] = ((batch['passage']['token_characters'] * all_sent_action_mask.unsqueeze(-1)) + ((1 - all_sent_action_mask.unsqueeze(-1)) * period_token_no)) * pad_masks.unsqueeze(-1)
             for batch_idx in range(bsz):
                 batch['metadata'][batch_idx].pop('a_turn')
             j_output_dict = self._forward(batch, self._judge)
             j_metrics = self._judge.get_metrics(per_sample=True)
             j_correct = torch.tensor(j_metrics['em'], dtype=sent_action_probs[0].dtype, device=sent_action_probs[0].device)
+
+            if ((self._batch_num_total % 10) == 0) and self._eval_mode:
+                import ipdb; ipdb.set_trace()
+                for sample_no in range(bsz):
+                    # Debate: Print examples. Copied with slight modifications from evaluate.py
+                    a_sent_idxs = all_sent_action_mask[0][sample_no].nonzero()[:,1]
+                    a_sent_start_idx = a_sent_idxs.min()
+                    a_sent_end_idx = a_sent_idxs.max() + 1
+                    b_sent_idxs = all_sent_action_mask[1][sample_no].nonzero()[:,1]
+                    b_sent_start_idx = b_sent_idxs.min()
+                    b_sent_end_idx = b_sent_idxs.max() + 1
+                    print('\n***Passage***\n', ' '.join(batch['metadata'][sample_no]['passage_tokens']))
+                    print('\n***Question***\n', ' '.join(batch['metadata'][sample_no]['question_tokens']))
+                    print('\n***Answers***\n', [answer if isinstance(answer, str) else ' '.join(answer) for answer in batch['metadata'][sample_no]['answer_texts']])
+                    toks = batch['metadata'][sample_no]['passage_tokens']
+                    print('\n---B--- Sentence', int(sent_action[1][sample_no]), '\n', ' '.join(toks[b_sent_start_idx:b_sent_end_idx]))
+                    print('\n---A--- Sentence', int(sent_action[0][sample_no]), '\n', ' '.join(toks[a_sent_start_idx:a_sent_end_idx]))
+                    print('\n---J--- EM Score', float(j_correct[sample_no]), '!\n', ' '.join(toks[j_output_dict['best_span'][sample_no][0]:j_output_dict['best_span'][sample_no][1]+1]))
 
             # Calculate and set A/B loss
             output_dict = {'loss': 0}
@@ -499,8 +519,7 @@ class Trainer(Registrable):
                 output_dict['loss'] += grad_dir * (torch.log(sent_action_probs[turn]) * (j_correct - baseline.detach())).mean()  # Policy loss
                 value_loss = 0.5 * ((j_correct - baseline) ** 2).mean()  # Value loss
                 output_dict['loss'] += value_loss
-                if (self._batch_num_total % 50) == 0:
-                    import ipdb; ipdb.set_trace()
+                if (self._batch_num_total % 200) == 0:
                     print('This batch:')
                     print(' * V(s)      ~=', baseline.mean(), 'for a_turn =', a_turn)
                     print(' * V(s) Loss ~=', value_loss, 'for a_turn =', a_turn)
