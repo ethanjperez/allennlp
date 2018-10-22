@@ -92,6 +92,12 @@ class Train(Subcommand):
                                default=None,
                                help='path to an archived trained judge model (if training debate agents only)')
 
+        # Debate: Option to evaluate
+        subparser.add_argument('-e', '--eval_mode',
+                               type=bool,
+                               default=False,
+                               help='run in evaluation-only mode?')
+
         subparser.set_defaults(func=train_model_from_args)
 
         return subparser
@@ -105,7 +111,8 @@ def train_model_from_args(args: argparse.Namespace):
                           args.overrides,
                           args.file_friendly_logging,
                           args.recover,
-                          args.judge_archive_file)
+                          args.judge_archive_file,
+                          args.eval_mode)
 
 
 def train_model_from_file(parameter_filename: str,
@@ -113,7 +120,8 @@ def train_model_from_file(parameter_filename: str,
                           overrides: str = "",
                           file_friendly_logging: bool = False,
                           recover: bool = False,
-                          judge_archive_file: str = None) -> Model:
+                          judge_archive_file: str = None,
+                          eval_mode: bool = False) -> Model:
     """
     A wrapper around :func:`train_model` which loads the params from a file.
 
@@ -136,7 +144,7 @@ def train_model_from_file(parameter_filename: str,
     """
     # Load the experiment config from a file and pass it to ``train_model``.
     params = Params.from_file(parameter_filename, overrides)
-    return train_model(params, serialization_dir, file_friendly_logging, recover, judge_archive_file)
+    return train_model(params, serialization_dir, file_friendly_logging, recover, judge_archive_file, eval_mode)
 
 
 def datasets_from_params(params: Params) -> Dict[str, Iterable[Instance]]:
@@ -339,7 +347,8 @@ def train_model(params: Params,
                                                           validation_data=validation_data,
                                                           params=trainer_params,
                                                           validation_iterator=validation_iterator,
-                                                          judge=judge)
+                                                          judge=judge,
+                                                          eval_mode=eval_mode)
 
     evaluate_on_test = params.pop_bool("evaluate_on_test", False)
     params.assert_empty('base train command')

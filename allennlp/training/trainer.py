@@ -182,7 +182,8 @@ class Trainer(Registrable):
                  histogram_interval: int = None,
                  should_log_parameter_statistics: bool = True,
                  should_log_learning_rate: bool = False,
-                 judge: Model = None) -> None:
+                 judge: Model = None,
+                 eval_mode: bool = False) -> None:
         """
         Parameters
         ----------
@@ -270,6 +271,7 @@ class Trainer(Registrable):
         """
         self._model = model
         self._judge = judge
+        self._eval_mode = eval_mode
         self._iterator = iterator
         self._validation_iterator = validation_iterator
         self._shuffle = shuffle
@@ -820,9 +822,10 @@ class Trainer(Registrable):
         epochs_trained = 0
         training_start_time = time.time()
 
-        for epoch in range(epoch_counter, self._num_epochs):
-            epoch_start_time = time.time()
-            train_metrics = self._train_epoch(epoch)
+        for epoch in range(epoch_counter, self._num_epochs + (1 if self._eval_mode else 0)):
+            if not self._eval_mode:
+                epoch_start_time = time.time()
+                train_metrics = self._train_epoch(epoch)
 
             if self._validation_data is not None:
                 with torch.no_grad():

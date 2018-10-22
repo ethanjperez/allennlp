@@ -101,6 +101,10 @@ def evaluate(model: Model,
     check_for_gpu(cuda_device)
     with torch.no_grad():
         model.eval()
+        if judge is not None:
+            # Not yet implemented
+            import ipdb; ipdb.set_trace()
+            judge.eval()
 
         iterator = data_iterator(instances,
                                  num_epochs=1,
@@ -110,7 +114,6 @@ def evaluate(model: Model,
         # Debate: Modified evaluation loop for brute force debate
         sample_metrics = []
         for batch in generator_tqdm:
-            import ipdb; ipdb.set_trace()
 
             period_token_no = 5
             num_turns = 2
