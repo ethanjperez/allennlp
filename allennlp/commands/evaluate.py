@@ -109,6 +109,8 @@ def evaluate(model: Model,
         # Debate: Modified evaluation loop for brute force debate
         sample_metrics = []
         for batch in generator_tqdm:
+            import ipdb; ipdb.set_trace()
+
             period_token_no = 5
             num_turns = 2
             sent_idxs = (batch['passage']['tokens'] == 5).cumsum(1) - (batch['passage']['tokens'] == period_token_no).long()
@@ -194,10 +196,8 @@ def evaluate_from_args(args: argparse.Namespace) -> Dict[str, Any]:
     logging.getLogger('allennlp.modules.token_embedders.embedding').setLevel(logging.INFO)
 
     # Load from archive
-    import ipdb; ipdb.set_trace()
     archive = load_archive(args.archive_file, args.cuda_device, args.overrides, args.weights_file)
     config = archive.config
-    config.params['model']['is_judge'] = False
     prepare_environment(config)
     model = archive.model
     model.eval()
