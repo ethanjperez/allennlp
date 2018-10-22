@@ -95,7 +95,8 @@ class Evaluate(Subcommand):
 def evaluate(model: Model,
              instances: Iterable[Instance],
              data_iterator: DataIterator,
-             cuda_device: int) -> Dict[str, Any]:
+             cuda_device: int,
+             judge: Model = None) -> Dict[str, Any]:
     _warned_tqdm_ignores_underscores = False
     check_for_gpu(cuda_device)
     with torch.no_grad():
@@ -235,7 +236,7 @@ def evaluate_from_args(args: argparse.Namespace) -> Dict[str, Any]:
     iterator = DataIterator.from_params(iterator_params)
     iterator.index_with(model.vocab)
 
-    metrics = evaluate(model, instances, iterator, args.cuda_device)
+    metrics = evaluate(model, instances, iterator, args.cuda_device, judge)
 
     logger.info("Finished evaluating.")
     logger.info("Metrics:")
