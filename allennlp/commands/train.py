@@ -316,7 +316,9 @@ def train_model(params: Params,
         for parameter in judge.parameters():
             parameter.requires_grad_(update_judge)
 
-    model = Model.from_params(vocab=vocab, params=params.pop('model'), judge=judge, update_judge=update_judge)
+    params['model']['judge'] = judge
+    params['model']['update_judge'] = update_judge
+    model = Model.from_params(vocab=vocab, params=params.pop('model'))
 
     # Initializing the model can have side effect of expanding the vocabulary
     vocab.save_to_files(os.path.join(serialization_dir, "vocabulary"))
@@ -342,10 +344,10 @@ def train_model(params: Params,
 
     frozen_parameter_names, tunable_parameter_names = \
         get_frozen_and_tunable_parameter_names(model)
-    logger.info("Following debater parameters are Frozen  (without gradient):")
+    logger.info("Following parameters are Frozen  (without gradient):")
     for name in frozen_parameter_names:
         logger.info(name)
-    logger.info("Following debater parameters are Tunable (with gradient):")
+    logger.info("Following parameters are Tunable (with gradient):")
     for name in tunable_parameter_names:
         logger.info(name)
 

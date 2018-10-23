@@ -512,6 +512,7 @@ class Trainer(Registrable):
 
             # Initialize loss (including J's supervised loss if necessary)
             output_dict = j_output_dict if self._model.update_judge else {'loss': 0}
+            output_dict['loss'] = output_dict['loss'].to(j_correct)
             # Calculate and set A/B loss
             for turn in range(num_turns):
                 a_turn = (turn % 2) == 0
