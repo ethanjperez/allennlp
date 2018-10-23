@@ -182,7 +182,6 @@ class Trainer(Registrable):
                  histogram_interval: int = None,
                  should_log_parameter_statistics: bool = True,
                  should_log_learning_rate: bool = False,
-                 judge: Model = None,
                  eval_mode: bool = False) -> None:
         """
         Parameters
@@ -270,7 +269,6 @@ class Trainer(Registrable):
             Whether to send parameter specific learning rate to tensorboard.
         """
         self._model = model
-        self._judge = judge
         self._eval_mode = eval_mode
         self._iterator = iterator
         self._validation_iterator = validation_iterator
@@ -438,13 +436,14 @@ class Trainer(Registrable):
         If ``for_training`` is `True` also applies regularization penalty.
         """
         # Debate: Special training procedures
+        # NB: Refactor into bidaf.py _forward_debate method
         # NB: Move precomputation from CPU to GPU if it's taking too long (time it)
-        period_token_no = 5  # NB: Hacky: Fix to get directly from vocab!
+        period_token_no = 5  # NB: Hacky: Fix later to get directly from vocab!
         num_turns = 2  # NB: Make training_config parameter
         sent_idxs = (batch['passage']['tokens'] == 5).cumsum(1) - (batch['passage']['tokens'] == period_token_no).long()
         num_sents = sent_idxs.max(1)[0] + 1
         pad_masks = (batch['passage']['tokens'] != 0).long()
-        if self._judge is None:  # Training J on random sentences
+        if self._model.is_judge:  # Training J on random sentences
             # Mask sentences
             # NB: Could replace for loop with 2-D multinomial input
             # NB: 'max' is a hack below for examples where you have less than num_turns! Need to replace those with full original tokens at the end.
@@ -488,14 +487,15 @@ class Trainer(Registrable):
             batch['passage']['token_characters'] = ((batch['passage']['token_characters'] * all_sent_action_mask.unsqueeze(-1)) + ((1 - all_sent_action_mask.unsqueeze(-1)) * period_token_no)) * pad_masks.unsqueeze(-1)
             for batch_idx in range(bsz):
                 batch['metadata'][batch_idx].pop('a_turn')
-            j_output_dict = self._forward(batch, self._judge)
-            j_metrics = self._judge.get_metrics(per_sample=True)
+            j_output_dict = self._forward(batch, self._model.judge)
+            j_metrics = self._model.judge.get_metrics(per_sample=True)
             j_correct = torch.tensor(j_metrics['em'], dtype=sent_action_probs[0].dtype, device=sent_action_probs[0].device)
 
+            # Print examples
             if ((self._batch_num_total % 10) == 0) and self._eval_mode:
                 for sample_no in range(bsz):
                     if bool(num_sents[sample_no] >= 3):
-                        # Debate: Print examples. Copied with slight modifications from evaluate.py
+                        # Copied with slight modifications from evaluate.py
                         a_sent_idxs = sent_action_masks[0][sample_no].nonzero().squeeze()
                         a_sent_start_idx = a_sent_idxs.min()
                         a_sent_end_idx = a_sent_idxs.max() + 1
@@ -509,10 +509,10 @@ class Trainer(Registrable):
                         print('\n---B--- Sentence', int(sent_actions[1][sample_no]), '\n', ' '.join(toks[b_sent_start_idx:b_sent_end_idx]))
                         print('\n---A--- Sentence', int(sent_actions[0][sample_no]), '\n', ' '.join(toks[a_sent_start_idx:a_sent_end_idx]))
                         print('\n---J--- EM Score', float(j_correct[sample_no]), '!\n', ' '.join(toks[j_output_dict['best_span'][sample_no][0]:j_output_dict['best_span'][sample_no][1]+1]))
-                        import ipdb; ipdb.set_trace()
 
+            # Initialize loss (including J's supervised loss if necessary)
+            output_dict = j_output_dict if self._model.update_judge else {'loss': 0}
             # Calculate and set A/B loss
-            output_dict = {'loss': 0}
             for turn in range(num_turns):
                 a_turn = (turn % 2) == 0
                 grad_dir = -1 if a_turn else 1
@@ -543,8 +543,8 @@ class Trainer(Registrable):
         the total loss divided by the ``num_batches`` so that
         the ``"loss"`` metric is "average loss per batch".
         """
-        model = self._judge if self._judge is not None else self._model
-        metrics = model.get_metrics(reset=reset)
+        judge = self._model if self._model.is_judge else self._model.judge
+        metrics = judge.get_metrics(reset=reset)
         metrics["loss"] = float(total_loss / num_batches) if num_batches > 0 else 0.0
         return metrics
 
@@ -560,6 +560,8 @@ class Trainer(Registrable):
         train_loss = 0.0
         # Set the model to "train" mode.
         self._model.train()
+        if not self._model.update_judge:
+            self._model.judge.eval()
 
         # Get tqdm for the training batches
         train_generator = self._iterator(self._train_data,
@@ -1108,7 +1110,6 @@ class Trainer(Registrable):
                     validation_data: Optional[Iterable[Instance]],
                     params: Params,
                     validation_iterator: DataIterator = None,
-                    judge: Model = None,
                     eval_mode: bool = False) -> 'Trainer':
         # pylint: disable=arguments-differ
         patience = params.pop_int("patience", None)
@@ -1122,8 +1123,6 @@ class Trainer(Registrable):
 
         if cuda_device >= 0:
             model = model.cuda(cuda_device)
-            if judge is not None:
-                judge = judge.cuda(cuda_device)
         parameters = [[n, p] for n, p in model.named_parameters() if p.requires_grad]
         optimizer = Optimizer.from_params(parameters, params.pop("optimizer"))
 
@@ -1161,7 +1160,6 @@ class Trainer(Registrable):
                    histogram_interval=histogram_interval,
                    should_log_parameter_statistics=should_log_parameter_statistics,
                    should_log_learning_rate=should_log_learning_rate,
-                   judge=judge,
                    eval_mode=eval_mode)
 
 
