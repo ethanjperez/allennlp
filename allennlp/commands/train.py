@@ -316,9 +316,7 @@ def train_model(params: Params,
         for parameter in judge.parameters():
             parameter.requires_grad_(update_judge)
 
-    params['model']['judge'] = judge
-    params['model']['update_judge'] = update_judge
-    model = Model.from_params(vocab=vocab, params=params.pop('model'))
+    model = Model.from_params(vocab=vocab, params=params.pop('model'), judge=judge, update_judge=update_judge)
 
     # Initializing the model can have side effect of expanding the vocabulary
     vocab.save_to_files(os.path.join(serialization_dir, "vocabulary"))
@@ -343,7 +341,7 @@ def train_model(params: Params,
             parameter.requires_grad_(False)
 
     frozen_parameter_names, tunable_parameter_names = \
-                   get_frozen_and_tunable_parameter_names(model)
+        get_frozen_and_tunable_parameter_names(model)
     logger.info("Following debater parameters are Frozen  (without gradient):")
     for name in frozen_parameter_names:
         logger.info(name)
@@ -389,7 +387,7 @@ def train_model(params: Params,
         logger.info("The model will be evaluated using the best epoch weights.")
         test_metrics = evaluate(
                 best_model, test_data, validation_iterator or iterator,
-                cuda_device=trainer._cuda_devices[0] # pylint: disable=protected-access
+                cuda_device=trainer._cuda_devices[0]  # pylint: disable=protected-access
         )
         for key, value in test_metrics.items():
             metrics["test_" + key] = value

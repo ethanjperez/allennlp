@@ -85,8 +85,7 @@ def archive_model(serialization_dir: str,
 def load_archive(archive_file: str,
                  cuda_device: int = -1,
                  overrides: str = "",
-                 weights_file: str = None,
-                 is_judge: bool = True) -> Archive:
+                 weights_file: str = None) -> Archive:
     """
     Instantiates an Archive from an archived `tar.gz` file.
 
@@ -141,7 +140,6 @@ def load_archive(archive_file: str,
     # Load config
     config = Params.from_file(os.path.join(serialization_dir, CONFIG_NAME), overrides)
     config.loading_from_archive = True
-    config.params['model']['is_judge'] = is_judge
 
     if weights_file:
         weights_path = weights_file
