@@ -316,9 +316,7 @@ def train_model(params: Params,
         for parameter in judge.parameters():
             parameter.requires_grad_(update_judge)
 
-    params['model']['judge'] = judge
-    params['model']['update_judge'] = update_judge
-    model = Model.from_params(vocab=vocab, params=params.pop('model'))
+    model = Model.from_params(vocab=vocab, params=params.pop('model'), judge=judge, update_judge=update_judge)
 
     # Initializing the model can have side effect of expanding the vocabulary
     vocab.save_to_files(os.path.join(serialization_dir, "vocabulary"))
