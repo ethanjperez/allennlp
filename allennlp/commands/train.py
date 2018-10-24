@@ -92,11 +92,17 @@ class Train(Subcommand):
                                default=None,
                                help='path to an archived trained judge model (if training debate agents only)')
 
+        # Debate: Option to load trained judge from archive. In this case, debating agents only will be trained
+        subparser.add_argument('-u', '--update_judge',
+                               action='store_true',
+                               default=False,
+                               help='update judge while training debate agents')
+
         # Debate: Option to evaluate
         subparser.add_argument('-e', '--eval_mode',
                                action='store_true',
                                default=False,
-                               help='run in evaluation-only mode?')
+                               help='run in evaluation-only mode')
 
         subparser.set_defaults(func=train_model_from_args)
 
@@ -112,6 +118,7 @@ def train_model_from_args(args: argparse.Namespace):
                           args.file_friendly_logging,
                           args.recover,
                           args.judge_archive_file,
+                          args.update_judge,
                           args.eval_mode)
 
 
@@ -121,6 +128,7 @@ def train_model_from_file(parameter_filename: str,
                           file_friendly_logging: bool = False,
                           recover: bool = False,
                           judge_archive_file: str = None,
+                          update_judge: bool = False,
                           eval_mode: bool = False) -> Model:
     """
     A wrapper around :func:`train_model` which loads the params from a file.
@@ -144,7 +152,7 @@ def train_model_from_file(parameter_filename: str,
     """
     # Load the experiment config from a file and pass it to ``train_model``.
     params = Params.from_file(parameter_filename, overrides)
-    return train_model(params, serialization_dir, file_friendly_logging, recover, judge_archive_file, eval_mode)
+    return train_model(params, serialization_dir, file_friendly_logging, recover, judge_archive_file, update_judge, eval_mode)
 
 
 def datasets_from_params(params: Params) -> Dict[str, Iterable[Instance]]:
@@ -242,6 +250,7 @@ def train_model(params: Params,
                 file_friendly_logging: bool = False,
                 recover: bool = False,
                 judge_archive_file: str = None,
+                update_judge: bool = False,
                 eval_mode: bool = False) -> Model:
     """
     Trains the model specified in the given :class:`Params` object, using the data and training
@@ -291,8 +300,23 @@ def train_model(params: Params,
              if key in datasets_for_vocab_creation)
     )
 
-    params['model']['is_judge'] = judge_archive_file is None
-    model = Model.from_params(vocab=vocab, params=params.pop('model'))
+    # Debate: Load judge model from archive (if applicable)
+    update_judge = update_judge and (judge_archive_file is not None)
+    judge = None
+    if judge_archive_file is not None:
+        # Load from archive (Modified from evaluate.py)
+        archive = load_archive(judge_archive_file, cuda_device=params["trainer"]["cuda_device"])
+        config = archive.config
+        prepare_environment(config)
+        judge = archive.model
+
+        # Use judge only for black-box reward (no gradient signal)?
+        if not update_judge:
+            judge.eval()
+        for parameter in judge.parameters():
+            parameter.requires_grad_(update_judge)
+
+    model = Model.from_params(vocab=vocab, params=params.pop('model'), judge=judge, update_judge=update_judge)
 
     # Initializing the model can have side effect of expanding the vocabulary
     vocab.save_to_files(os.path.join(serialization_dir, "vocabulary"))
@@ -317,26 +341,13 @@ def train_model(params: Params,
             parameter.requires_grad_(False)
 
     frozen_parameter_names, tunable_parameter_names = \
-                   get_frozen_and_tunable_parameter_names(model)
+        get_frozen_and_tunable_parameter_names(model)
     logger.info("Following parameters are Frozen  (without gradient):")
     for name in frozen_parameter_names:
         logger.info(name)
     logger.info("Following parameters are Tunable (with gradient):")
     for name in tunable_parameter_names:
         logger.info(name)
-
-    # Debate: Load judge model from archive (if applicable)
-    judge = None
-    if judge_archive_file is not None:
-        # Load from archive (Modified from evaluate.py)
-        archive = load_archive(judge_archive_file, cuda_device=trainer_params["cuda_device"])
-        config = archive.config
-        prepare_environment(config)
-        judge = archive.model
-        judge.eval()
-        # Use judge only for black-box reward (no gradient signal)
-        for param in judge.parameters():
-            param.requires_grad = False
 
     trainer_choice = trainer_params.pop_choice("type",
                                                Trainer.list_available(),
@@ -348,7 +359,6 @@ def train_model(params: Params,
                                                           validation_data=validation_data,
                                                           params=trainer_params,
                                                           validation_iterator=validation_iterator,
-                                                          judge=judge,
                                                           eval_mode=eval_mode)
 
     evaluate_on_test = params.pop_bool("evaluate_on_test", False)
@@ -377,7 +387,7 @@ def train_model(params: Params,
         logger.info("The model will be evaluated using the best epoch weights.")
         test_metrics = evaluate(
                 best_model, test_data, validation_iterator or iterator,
-                cuda_device=trainer._cuda_devices[0] # pylint: disable=protected-access
+                cuda_device=trainer._cuda_devices[0]  # pylint: disable=protected-access
         )
         for key, value in test_metrics.items():
             metrics["test_" + key] = value
