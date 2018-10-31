@@ -511,7 +511,7 @@ class Trainer(Registrable):
                         print('\n---J--- EM Score', float(j_correct[sample_no]), '!\n', ' '.join(toks[j_output_dict['best_span'][sample_no][0]:j_output_dict['best_span'][sample_no][1]+1]))
 
             # Initialize loss (including J's supervised loss if necessary)
-            output_dict = j_output_dict if self._model.update_judge else {'loss': 0}
+            output_dict = j_output_dict if self._model.update_judge else {'loss': torch.Tensor([0])}
             output_dict['loss'] = output_dict['loss'].to(j_correct)
             # Calculate and set A/B loss
             for turn in range(num_turns):

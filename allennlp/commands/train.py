@@ -36,6 +36,7 @@ import argparse
 import logging
 import os
 import re
+import warnings
 
 import torch
 
@@ -87,10 +88,12 @@ class Train(Subcommand):
                                help='outputs tqdm status on separate lines and slows tqdm refresh rate')
 
         # Debate: Option to load trained judge from archive. In this case, debating agents only will be trained
-        subparser.add_argument('-j', '--judge_archive_file',
+        subparser.add_argument('-j', '--judge_filename',
                                type=str,
                                default=None,
-                               help='path to an archived trained judge model (if training debate agents only)')
+                               help='path to parameter file describing the judge to be trained or'
+                                    'path to an archived, trained judge.'
+                                    'Do not use this option if training judge only.')
 
         # Debate: Option to load trained judge from archive. In this case, debating agents only will be trained
         subparser.add_argument('-u', '--update_judge',
@@ -117,7 +120,7 @@ def train_model_from_args(args: argparse.Namespace):
                           args.overrides,
                           args.file_friendly_logging,
                           args.recover,
-                          args.judge_archive_file,
+                          args.judge_filename,
                           args.update_judge,
                           args.eval_mode)
 
@@ -127,7 +130,7 @@ def train_model_from_file(parameter_filename: str,
                           overrides: str = "",
                           file_friendly_logging: bool = False,
                           recover: bool = False,
-                          judge_archive_file: str = None,
+                          judge_filename: str = None,
                           update_judge: bool = False,
                           eval_mode: bool = False) -> Model:
     """
@@ -152,7 +155,7 @@ def train_model_from_file(parameter_filename: str,
     """
     # Load the experiment config from a file and pass it to ``train_model``.
     params = Params.from_file(parameter_filename, overrides)
-    return train_model(params, serialization_dir, file_friendly_logging, recover, judge_archive_file, update_judge, eval_mode)
+    return train_model(params, serialization_dir, file_friendly_logging, recover, judge_filename, update_judge, eval_mode)
 
 
 def datasets_from_params(params: Params) -> Dict[str, Iterable[Instance]]:
@@ -249,7 +252,7 @@ def train_model(params: Params,
                 serialization_dir: str,
                 file_friendly_logging: bool = False,
                 recover: bool = False,
-                judge_archive_file: str = None,
+                judge_filename: str = None,
                 update_judge: bool = False,
                 eval_mode: bool = False) -> Model:
     """
@@ -280,7 +283,8 @@ def train_model(params: Params,
     create_serialization_dir(params, serialization_dir, recover)
     prepare_global_logging(serialization_dir, file_friendly_logging)
 
-    check_for_gpu(params.get('trainer').get('cuda_device', -1))
+    cuda_device = params.get('trainer').get('cuda_device', -1)
+    check_for_gpu(cuda_device)
 
     params.to_file(os.path.join(serialization_dir, CONFIG_NAME))
 
@@ -301,20 +305,32 @@ def train_model(params: Params,
     )
 
     # Debate: Load judge model from archive (if applicable)
-    update_judge = update_judge and (judge_archive_file is not None)
     judge = None
-    if judge_archive_file is not None:
-        # Load from archive (Modified from evaluate.py)
-        archive = load_archive(judge_archive_file, cuda_device=params["trainer"]["cuda_device"])
-        config = archive.config
-        prepare_environment(config)
-        judge = archive.model
+    update_judge = update_judge and (judge_filename is not None)
+    if judge_filename is not None:
+        judge_file_ending = judge_filename.split('.')[-1]
+        if judge_file_ending == 'gz':
+            # Load from archive (Modified from evaluate.py)
+            archive = load_archive(judge_filename, cuda_device=cuda_device)
+            config = archive.config
+            prepare_environment(config)
+            judge = archive.model
+        elif judge_file_ending == 'json' or judge_file_ending == 'jsonnet':
+            # NB: No overrides for judge. Also, only 'model' field is used.
+            judge_params = Params.from_file(judge_filename, params_overrides='')
+            judge = Model.from_params(vocab=vocab, params=judge_params.get('model'),
+                                      judge=None, update_judge=False)  # No judge internal to this model
+            if not update_judge:
+                warnings.warn('Provided Judge file was a training config file. '
+                              'Training from scratch even though -u was not specified.', UserWarning)
+                update_judge = True
 
-        # Use judge only for black-box reward (no gradient signal)?
+        # Whether to use judge only for black-box reward (no gradient signal)
         if not update_judge:
             judge.eval()
         for parameter in judge.parameters():
             parameter.requires_grad_(update_judge)
+
 
     model = Model.from_params(vocab=vocab, params=params.pop('model'), judge=judge, update_judge=update_judge)
 
