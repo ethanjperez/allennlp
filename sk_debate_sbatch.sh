@@ -8,7 +8,7 @@
 ## %j is the job id, %u is the user id
 #SBATCH --output=/checkpoint/%u/jobs/bidaf-debate-%j.out
 ## filename for job standard error output (stderr)
-#SBATCH --error=/checkpoint/%u/jobs/bidaj-debate-%j.err
+#SBATCH --error=/checkpoint/%u/jobs/bidaf-debate-%j.err
 
 ## partition name
 #SBATCH --partition=uninterrupted
