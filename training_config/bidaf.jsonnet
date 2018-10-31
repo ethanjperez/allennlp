@@ -87,9 +87,9 @@
   },
 
   "trainer": {
-    "num_epochs": 20,
+    "num_epochs": 200,
     "grad_norm": 5.0,
-    "patience": 10,
+    "patience": 30,
     "validation_metric": "+em",
     "cuda_device": 0,
     "learning_rate_scheduler": {
