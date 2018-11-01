@@ -430,7 +430,7 @@ class Trainer(Registrable):
             output_dict = model(**batch)
         return output_dict
 
-    def _batch_loss(self, batch: torch.Tensor, for_training: bool) -> torch.Tensor:
+    def _batch_loss(self, batch: torch.Tensor, for_training: bool, pretrain_task: bool = False) -> torch.Tensor:
         """
         Does a forward pass on the given batch and returns the ``loss`` value in the result.
         If ``for_training`` is `True` also applies regularization penalty.
@@ -443,7 +443,7 @@ class Trainer(Registrable):
         sent_idxs = (batch['passage']['tokens'] == 5).cumsum(1) - (batch['passage']['tokens'] == period_token_no).long()
         num_sents = sent_idxs.max(1)[0] + 1
         pad_masks = (batch['passage']['tokens'] != 0).long()
-        if self._model.is_judge:  # Training J on random sentences
+        if self._model.is_judge or pretrain_task:  # Training J on random sentences
             # Mask sentences
             # NB: Could replace for loop with 2-D multinomial input
             # NB: 'max' is a hack below for examples where you have less than num_turns! Need to replace those with full original tokens at the end.
@@ -452,8 +452,9 @@ class Trainer(Registrable):
             batch['passage']['tokens'] = ((batch['passage']['tokens'] * sent_rand_masks) + ((1 - sent_rand_masks) * period_token_no)) * pad_masks
             batch['passage']['token_characters'] = ((batch['passage']['token_characters'] * sent_rand_masks.unsqueeze(-1)) + ((1 - sent_rand_masks.unsqueeze(-1)) * period_token_no)) * pad_masks.unsqueeze(-1)
 
-            # Normal forward pass
-            output_dict = self._forward(batch, self._model)
+            # Normal forward pass with judge
+            model = self._model if self._model.is_judge else self._model.judge
+            output_dict = self._forward(batch, model)
         else:  # Training A/B
             # Forward pass with A/B
             # NB: May need to modify / make a separate _data_parallel function for multi-GPU
@@ -516,15 +517,16 @@ class Trainer(Registrable):
             # Calculate and set A/B loss
             for turn in range(num_turns):
                 a_turn = (turn % 2) == 0
+                turn_str = "_turn_" + str(a_turn)
                 grad_dir = -1 if a_turn else 1
-                baseline = values[turn].to(j_correct)  # Rougher baseline: j_correct.mean()
-                output_dict['loss'] += grad_dir * (torch.log(sent_action_probs[turn]) * (j_correct - baseline.detach())).mean()  # Policy loss
+                baseline = values[turn].to(j_correct)
+                policy_loss = grad_dir * (torch.log(sent_action_probs[turn]) * (j_correct - baseline.detach())).mean()
+                output_dict['loss'] += policy_loss
                 value_loss = 0.5 * ((j_correct - baseline) ** 2).mean()  # Value loss
                 output_dict['loss'] += value_loss
-                if (self._batch_num_total % 200) == 0:
-                    print('This batch:')
-                    print(' * V(s)      ~=', baseline.mean(), 'for a_turn =', a_turn)
-                    print(' * V(s) Loss ~=', value_loss, 'for a_turn =', a_turn)
+                self._tensorboard.add_train_scalar("loss/policy_loss" + turn_str, policy_loss.detach().cpu(), self._batch_num_total)
+                self._tensorboard.add_train_scalar("loss/value_baseline" + turn_str, baseline.mean().detach().cpu(), self._batch_num_total)
+                self._tensorboard.add_train_scalar("loss/value_loss" + turn_str, value_loss.detach().cpu(), self._batch_num_total)
 
         try:
             loss = output_dict["loss"]
@@ -783,7 +785,7 @@ class Trainer(Registrable):
             elif train_metric is not None:
                 logger.info(no_val_message_template, name.ljust(name_length), train_metric, "N/A")
 
-    def _validation_loss(self) -> Tuple[float, int]:
+    def _validation_loss(self, pretrain_task: bool = False) -> Tuple[float, int]:
         """
         Computes the validation loss. Returns it and the number of batches.
         """
@@ -805,7 +807,7 @@ class Trainer(Registrable):
         batches_this_epoch = 0
         val_loss = 0
         for batch in val_generator_tqdm:
-            loss = self._batch_loss(batch, for_training=False)
+            loss = self._batch_loss(batch, for_training=False, pretrain_task=pretrain_task)
             if loss is not None:
                 # You shouldn't necessarily have to compute a loss for validation, so we allow for
                 # `loss` to be None.  We need to be careful, though - `batches_this_epoch` is
@@ -852,8 +854,12 @@ class Trainer(Registrable):
 
             if self._validation_data is not None:
                 with torch.no_grad():
+                    # pretrain_task_val_loss, pretrain_task_num_batches = self._validation_loss(pretrain_task=True)
+                    # pretrain_task_val_metrics = self._get_metrics(pretrain_task_val_loss, pretrain_task_num_batches, reset=True)
+                    # TODO: Add a "pretrain_task" metric (instead of train or valid)
+
                     # We have a validation set, so compute all the metrics on it.
-                    val_loss, num_batches = self._validation_loss()
+                    val_loss, num_batches = self._validation_loss(pretrain_task=False)
                     val_metrics = self._get_metrics(val_loss, num_batches, reset=True)
 
                     # Check validation metric for early stopping
