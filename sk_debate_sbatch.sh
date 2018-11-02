@@ -36,4 +36,4 @@ module load anaconda3
 ### Run your job. Note that we are not passing any additional
 ### arguments to srun since we have already specificed the job
 ### configuration with SBATCH directives
-salloc --label -C  allennlp
+salloc -C volta32gb allennlp train training_config/bidaf.jsonnet --serialization-dir /checkpoint/siddk/bidaf-debate/ab-debate.pg -j /checkpoint02/siddk/bidaf-debate/model.tar.gz -e
