@@ -243,9 +243,9 @@ def create_serialization_dir(params: Params, serialization_dir: str, recover: bo
                 raise ConfigurationError("Training configuration does not match the configuration we're "
                                          "recovering from.")
     else:
-        if recover:
-            raise ConfigurationError(f"--recover specified but serialization_dir ({serialization_dir}) "
-                                     "does not exist.  There is nothing to recover from.")
+        # if recover:
+        #     raise ConfigurationError(f"--recover specified but serialization_dir ({serialization_dir}) "
+        #                              "does not exist.  There is nothing to recover from.")
         os.makedirs(serialization_dir, exist_ok=True)
 
 
