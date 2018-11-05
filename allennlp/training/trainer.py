@@ -529,8 +529,7 @@ class Trainer(Registrable):
                 self._tensorboard.add_train_scalar("loss/value_loss" + turn_str, value_loss.detach().cpu(), self._batch_num_total)
                 self._tensorboard.add_train_scalar("loss/value_rmse" + turn_str, ((2.0 * value_loss) ** 0.5).detach().cpu(), self._batch_num_total)  # Upper bound: .25
             if num_turns == 2:
-                self._tensorboard.add_train_scalar("loss/abs_diff_in_turn_value", (values[1] - values[0]).abs().detach().cpu())
-
+                self._tensorboard.add_train_scalar("loss/abs_diff_in_turn_value", (values[1] - values[0]).abs().detach().cpu(), self._batch_num_total)
 
         try:
             loss = output_dict["loss"]
