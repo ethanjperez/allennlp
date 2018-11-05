@@ -517,7 +517,7 @@ class Trainer(Registrable):
             # Calculate and set A/B loss
             for turn in range(num_turns):
                 a_turn = (turn % 2) == 0
-                turn_str = "_turn_" + str(a_turn)
+                turn_str = "_turn_" + str(turn) + "=" + ("A" if a_turn else "B")
                 grad_dir = -1 if a_turn else 1
                 baseline = values[turn].to(j_correct)
                 policy_loss = grad_dir * (torch.log(sent_action_probs[turn]) * (j_correct - baseline.detach())).mean()
@@ -527,6 +527,10 @@ class Trainer(Registrable):
                 self._tensorboard.add_train_scalar("loss/policy_loss" + turn_str, policy_loss.detach().cpu(), self._batch_num_total)
                 self._tensorboard.add_train_scalar("loss/value_baseline" + turn_str, baseline.mean().detach().cpu(), self._batch_num_total)
                 self._tensorboard.add_train_scalar("loss/value_loss" + turn_str, value_loss.detach().cpu(), self._batch_num_total)
+                self._tensorboard.add_train_scalar("loss/value_rmse" + turn_str, ((2.0 * value_loss) ** 0.5).detach().cpu(), self._batch_num_total)  # Upper bound: .25
+            if num_turns == 2:
+                self._tensorboard.add_train_scalar("loss/abs_diff_in_turn_value", (values[1] - values[0]).abs().detach().cpu())
+
 
         try:
             loss = output_dict["loss"]
