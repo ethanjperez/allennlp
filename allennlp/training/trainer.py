@@ -463,8 +463,8 @@ class Trainer(Registrable):
             sent_action_probs = []
             values = []
             for turn in range(num_turns):
-                import ipdb; ipdb.set_trace()
-                for batch_idx in range(self._batch_num_total):  # NB: 'metadata' is usually optional. Write code to add in if not present.
+                bsz = batch['question']['tokens'].size(0)
+                for batch_idx in range(bsz):  # NB: 'metadata' is usually optional. Write code to add in if not present.
                     batch['metadata'][batch_idx]['a_turn'] = (turn % 2) == 0
                 ab_output_dict = self._forward(batch, self._model)
                 values.append(ab_output_dict['value'])
@@ -492,7 +492,7 @@ class Trainer(Registrable):
             all_sent_action_mask = torch.where((all_sent_action_mask.eq(2).sum(1) > 0).unsqueeze(1), all_sent_action_mask / 2, all_sent_action_mask)
             batch['passage']['tokens'] = ((batch['passage']['tokens'] * all_sent_action_mask) + ((1 - all_sent_action_mask) * eos_token_idx)) * pad_masks
             batch['passage']['token_characters'] = ((batch['passage']['token_characters'] * all_sent_action_mask.unsqueeze(-1)) + ((1 - all_sent_action_mask.unsqueeze(-1)) * eos_token_idx)) * pad_masks.unsqueeze(-1)
-            for batch_idx in range(self._batch_num_total):
+            for batch_idx in range(bsz):
                 batch['metadata'][batch_idx].pop('a_turn')
             j_output_dict = self._forward(batch, self._model.judge)
             j_metrics = self._model.judge.get_metrics(per_sample=True)
@@ -502,7 +502,7 @@ class Trainer(Registrable):
 
             # Print examples
             if ((self._batch_num_total % 10) == 0) and self._eval_mode:
-                for sample_no in range(self._batch_num_total):
+                for sample_no in range(bsz):
                     if bool(num_sents[sample_no] >= 3):
                         # Copied with slight modifications from evaluate.py
                         a_sent_idxs = sent_action_masks[0][sample_no].nonzero().squeeze()
