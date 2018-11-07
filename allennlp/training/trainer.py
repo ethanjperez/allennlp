@@ -463,6 +463,7 @@ class Trainer(Registrable):
             sent_action_probs = []
             values = []
             for turn in range(num_turns):
+                import ipdb; ipdb.set_trace()
                 for batch_idx in range(self._batch_num_total):  # NB: 'metadata' is usually optional. Write code to add in if not present.
                     batch['metadata'][batch_idx]['a_turn'] = (turn % 2) == 0
                 ab_output_dict = self._forward(batch, self._model)
