@@ -129,7 +129,8 @@ def train_model_from_args(args: argparse.Namespace):
                           args.recover,
                           args.judge_filename,
                           args.update_judge,
-                          args.eval_mode)
+                          args.eval_mode,
+                          args.reward_method)
 
 
 def train_model_from_file(parameter_filename: str,
@@ -139,7 +140,8 @@ def train_model_from_file(parameter_filename: str,
                           recover: bool = False,
                           judge_filename: str = None,
                           update_judge: bool = False,
-                          eval_mode: bool = False) -> Model:
+                          eval_mode: bool = False,
+                          reward_method: str = None) -> Model:
     """
     A wrapper around :func:`train_model` which loads the params from a file.
 
@@ -162,7 +164,8 @@ def train_model_from_file(parameter_filename: str,
     """
     # Load the experiment config from a file and pass it to ``train_model``.
     params = Params.from_file(parameter_filename, overrides)
-    return train_model(params, serialization_dir, file_friendly_logging, recover, judge_filename, update_judge, eval_mode)
+    return train_model(params, serialization_dir, file_friendly_logging, recover,
+                       judge_filename, update_judge, eval_mode, reward_method)
 
 
 def datasets_from_params(params: Params) -> Dict[str, Iterable[Instance]]:
@@ -262,7 +265,8 @@ def train_model(params: Params,
                 recover: bool = False,
                 judge_filename: str = None,
                 update_judge: bool = False,
-                eval_mode: bool = False) -> Model:
+                eval_mode: bool = False,
+                reward_method: str = None) -> Model:
     """
     Trains the model specified in the given :class:`Params` object, using the data and training
     parameters also specified in that object, and saves the results in ``serialization_dir``.
@@ -327,7 +331,7 @@ def train_model(params: Params,
             # NB: No overrides for judge. Also, only 'model' field is used.
             judge_params = Params.from_file(judge_filename, params_overrides='')
             judge = Model.from_params(vocab=vocab, params=judge_params.get('model'),
-                                      judge=None, update_judge=False)  # No judge internal to this model
+                                      judge=None, update_judge=False, reward_method=None)  # No judge inside this model
             if not update_judge:
                 warnings.warn('Provided Judge file was a training config file. '
                               'Training from scratch even though -u was not specified.', UserWarning)
@@ -339,8 +343,8 @@ def train_model(params: Params,
         for parameter in judge.parameters():
             parameter.requires_grad_(update_judge)
 
-
-    model = Model.from_params(vocab=vocab, params=params.pop('model'), judge=judge, update_judge=update_judge)
+    model = Model.from_params(vocab=vocab, params=params.pop('model'),
+                              judge=judge, update_judge=update_judge, reward_method=reward_method)
 
     # Initializing the model can have side effect of expanding the vocabulary
     vocab.save_to_files(os.path.join(serialization_dir, "vocabulary"))
