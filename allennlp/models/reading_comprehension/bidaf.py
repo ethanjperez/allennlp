@@ -238,7 +238,7 @@ class BidirectionalAttentionFlow(Model):
 
         # Debate: Conditioning on whose turn it is (A/B)
         if not self.is_judge:
-            import IPython; IPython.embed()
+            breakpoint()
             assert(metadata is not None and 'a_turn' in metadata[0])
             a_turn = torch.tensor([sample_metadata['a_turn'] for sample_metadata in metadata],
                                   dtype=final_merged_passage.dtype, device=final_merged_passage.device).unsqueeze(1)
