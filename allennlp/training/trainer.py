@@ -476,7 +476,7 @@ class Trainer(Registrable):
                 sent_action = sent_idxs.gather(1, word_action.to(sent_idxs.device))
                 sent_action_mask = sent_idxs == sent_action
                 sent_action_prob = (word_action_dist.to(sent_action_mask.device) * sent_action_mask.to(word_action_dist.dtype)).sum(1)
-                import pdb; pdb.set_trace()
+                import ipdb; ipdb.set_trace()
                 sent_actions.append(sent_action)
                 sent_action_masks.append(sent_action_mask)
                 sent_action_probs.append(sent_action_prob)
