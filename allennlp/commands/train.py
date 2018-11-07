@@ -107,6 +107,13 @@ class Train(Subcommand):
                                default=False,
                                help='run in evaluation-only mode')
 
+        # Debate: Option to use EM or F1
+        subparser.add_argument('-m', '--reward_method',
+                               type=str,
+                               choices=['em', 'f1'],
+                               default=None,
+                               help='how to reward debate agents')
+
         subparser.set_defaults(func=train_model_from_args)
 
         return subparser
