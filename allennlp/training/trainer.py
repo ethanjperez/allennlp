@@ -477,7 +477,6 @@ class Trainer(Registrable):
                 sent_action = sent_idxs.gather(1, word_action.to(sent_idxs.device))
                 sent_action_mask = sent_idxs == sent_action
                 sent_action_prob = (word_action_dist.to(sent_action_mask.device) * sent_action_mask.to(word_action_dist.dtype)).sum(1)
-                import ipdb; ipdb.set_trace()
                 sent_answer = sent_idxs.gather(1, batch['span_start'].to(sent_idxs.device))
                 a_turn = (turn % 2) == 0
                 turn_str = "_turn_" + str(turn) + "_" + ("A" if a_turn else "B")

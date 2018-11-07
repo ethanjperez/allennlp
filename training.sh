@@ -13,6 +13,9 @@ allennlp train training_config/bidaf.jsonnet --serialization-dir tmp/ab.rounds\=
 # Train A/B/J from scratch (provide .jsonnet file to -j)
 allennlp train training_config/bidaf.jsonnet --serialization-dir tmp/ab.rounds\=1.independent.pg.j.dropout=0.5 -j training_config/bidaf.dropout=0.5.jsonnet -u
 
+# Train A/B/J from scratch with F1 reward
+allennlp train training_config/bidaf.jsonnet --serialization-dir tmp/ab.rounds\=1.independent.pg.j.dropout=0.5.reward_method=f1 -j training_config/bidaf.dropout=0.5.jsonnet -u -m f1
+
 # Evaluate A/B/J (add -e, no -u)
 allennlp train training_config/bidaf.jsonnet --serialization-dir tmp/ab.rounds\=1.independent.pg.j.dropout=0.5 -j training_config/bidaf.dropout=0.5.jsonnet -e
 
