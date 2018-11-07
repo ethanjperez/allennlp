@@ -438,9 +438,9 @@ class Trainer(Registrable):
         # Debate: Special training procedures
         # NB: Refactor into bidaf.py _forward_debate method
         # NB: Move precomputation from CPU to GPU if it's taking too long (time it)
-        period_token_no = 5  # NB: Hacky: Fix later to get directly from vocab!
+        eos_token_idx = self._model.vocab.get_token_index('.')
         num_turns = 2  # NB: Make training_config parameter
-        sent_idxs = (batch['passage']['tokens'] == 5).cumsum(1) - (batch['passage']['tokens'] == period_token_no).long()
+        sent_idxs = (batch['passage']['tokens'] == 5).cumsum(1) - (batch['passage']['tokens'] == eos_token_idx).long()
         num_sents = sent_idxs.max(1)[0] + 1
         pad_masks = (batch['passage']['tokens'] != 0).long()
         if self._model.is_judge or pretrain_task:  # Training J on random sentences
@@ -449,8 +449,8 @@ class Trainer(Registrable):
             # NB: 'max' is a hack below for examples where you have less than num_turns! Need to replace those with full original tokens at the end.
             rand_sent_idxs = torch.stack([torch.multinomial(torch.ones(max(int(num_sents[i]), num_turns)), num_turns, False) for i in range(num_sents.size(0))])
             sent_rand_masks = torch.stack([sent_idxs == rand_sent_idxs[:,i].unsqueeze(1) for i in range(num_turns)]).sum(0)
-            batch['passage']['tokens'] = ((batch['passage']['tokens'] * sent_rand_masks) + ((1 - sent_rand_masks) * period_token_no)) * pad_masks
-            batch['passage']['token_characters'] = ((batch['passage']['token_characters'] * sent_rand_masks.unsqueeze(-1)) + ((1 - sent_rand_masks.unsqueeze(-1)) * period_token_no)) * pad_masks.unsqueeze(-1)
+            batch['passage']['tokens'] = ((batch['passage']['tokens'] * sent_rand_masks) + ((1 - sent_rand_masks) * eos_token_idx)) * pad_masks
+            batch['passage']['token_characters'] = ((batch['passage']['token_characters'] * sent_rand_masks.unsqueeze(-1)) + ((1 - sent_rand_masks.unsqueeze(-1)) * eos_token_idx)) * pad_masks.unsqueeze(-1)
 
             # Normal forward pass with judge
             model = self._model if self._model.is_judge else self._model.judge
@@ -462,35 +462,42 @@ class Trainer(Registrable):
             sent_action_masks = []
             sent_action_probs = []
             values = []
-            bsz = batch['question']['tokens'].size(0)
             for turn in range(num_turns):
+                bsz = batch['question']['tokens'].size(0)
                 for batch_idx in range(bsz):  # NB: 'metadata' is usually optional. Write code to add in if not present.
                     batch['metadata'][batch_idx]['a_turn'] = (turn % 2) == 0
                 ab_output_dict = self._forward(batch, self._model)
                 values.append(ab_output_dict['value'])
-                self._model.get_metrics(reset=True)  # Debater's metrics currently meaningless, so clear
+                self._model.get_metrics(reset=True)  # A/B metrics currently meaningless, so clear
 
+                # NB: Can optimize if each computation is happening on CPU or GPU
                 # Sample from policy's sentence-level distribution
                 word_action_dist = ab_output_dict['span_start_probs']
                 word_action = torch.multinomial(word_action_dist, 1) if for_training else torch.argmax(word_action_dist, dim=1, keepdim=True)
                 sent_action = sent_idxs.gather(1, word_action.to(sent_idxs.device))
                 sent_action_mask = sent_idxs == sent_action
                 sent_action_prob = (word_action_dist.to(sent_action_mask.device) * sent_action_mask.to(word_action_dist.dtype)).sum(1)
+                sent_answer = sent_idxs.gather(1, batch['span_start'].to(sent_idxs.device))
+                a_turn = (turn % 2) == 0
+                turn_str = "_turn_" + str(turn) + "_" + ("A" if a_turn else "B")
+                self._tensorboard.add_train_scalar("loss/answer_sent_selected_" + turn_str, (sent_action == sent_answer).float().mean().detach().cpu(), self._batch_num_total)
                 sent_actions.append(sent_action)
                 sent_action_masks.append(sent_action_mask)
                 sent_action_probs.append(sent_action_prob)
 
             # Mask J's input based on A/B's actions
             all_sent_action_mask = torch.stack(sent_action_masks).sum(0)
-            # Clamp mask to max value 1. NB: Can just use torch.clamp later, though not sure how it affects gradients.
+            # Clamp mask to max value 1. NB: Can just use torch.clamp later (nec. for multi-turn!), though not sure how it affects gradients.
             all_sent_action_mask = torch.where((all_sent_action_mask.eq(2).sum(1) > 0).unsqueeze(1), all_sent_action_mask / 2, all_sent_action_mask)
-            batch['passage']['tokens'] = ((batch['passage']['tokens'] * all_sent_action_mask) + ((1 - all_sent_action_mask) * period_token_no)) * pad_masks
-            batch['passage']['token_characters'] = ((batch['passage']['token_characters'] * all_sent_action_mask.unsqueeze(-1)) + ((1 - all_sent_action_mask.unsqueeze(-1)) * period_token_no)) * pad_masks.unsqueeze(-1)
+            batch['passage']['tokens'] = ((batch['passage']['tokens'] * all_sent_action_mask) + ((1 - all_sent_action_mask) * eos_token_idx)) * pad_masks
+            batch['passage']['token_characters'] = ((batch['passage']['token_characters'] * all_sent_action_mask.unsqueeze(-1)) + ((1 - all_sent_action_mask.unsqueeze(-1)) * eos_token_idx)) * pad_masks.unsqueeze(-1)
             for batch_idx in range(bsz):
                 batch['metadata'][batch_idx].pop('a_turn')
             j_output_dict = self._forward(batch, self._model.judge)
             j_metrics = self._model.judge.get_metrics(per_sample=True)
-            j_correct = torch.tensor(j_metrics['em'], dtype=sent_action_probs[0].dtype, device=sent_action_probs[0].device)
+            j_em = torch.tensor(j_metrics['em'], dtype=sent_action_probs[0].dtype, device=sent_action_probs[0].device)
+            j_f1 = torch.tensor(j_metrics['f1'], dtype=sent_action_probs[0].dtype, device=sent_action_probs[0].device)
+            j_score = j_f1 if self._model.reward_method == 'f1' else j_em  # Exact match reward by default
 
             # Print examples
             if ((self._batch_num_total % 10) == 0) and self._eval_mode:
@@ -509,20 +516,20 @@ class Trainer(Registrable):
                         toks = batch['metadata'][sample_no]['passage_tokens']
                         print('\n---B--- Sentence', int(sent_actions[1][sample_no]), '\n', ' '.join(toks[b_sent_start_idx:b_sent_end_idx]))
                         print('\n---A--- Sentence', int(sent_actions[0][sample_no]), '\n', ' '.join(toks[a_sent_start_idx:a_sent_end_idx]))
-                        print('\n---J--- EM Score', float(j_correct[sample_no]), '!\n', ' '.join(toks[j_output_dict['best_span'][sample_no][0]:j_output_dict['best_span'][sample_no][1]+1]))
+                        print('\n---J--- EM / F1 ', float(j_em[sample_no]), '/', float(j_f1[sample_no]), '!\n', ' '.join(toks[j_output_dict['best_span'][sample_no][0]:j_output_dict['best_span'][sample_no][1]+1]))
 
             # Initialize loss (including J's supervised loss if necessary)
             output_dict = j_output_dict if self._model.update_judge else {'loss': torch.Tensor([0])}
-            output_dict['loss'] = output_dict['loss'].to(j_correct)
+            output_dict['loss'] = output_dict['loss'].to(j_score)
             # Calculate and set A/B loss
             for turn in range(num_turns):
                 a_turn = (turn % 2) == 0
                 turn_str = "_turn_" + str(turn) + "_" + ("A" if a_turn else "B")
                 grad_dir = -1 if a_turn else 1
-                baseline = values[turn].to(j_correct)
-                policy_loss = grad_dir * (torch.log(sent_action_probs[turn]) * (j_correct - baseline.detach())).mean()
+                baseline = values[turn].to(j_score)
+                policy_loss = grad_dir * (torch.log(sent_action_probs[turn]) * (j_score - baseline.detach())).mean()
                 output_dict['loss'] += policy_loss
-                value_loss = 0.5 * ((j_correct - baseline) ** 2).mean()  # Value loss
+                value_loss = 0.5 * ((j_score - baseline) ** 2).mean()  # Value loss
                 output_dict['loss'] += value_loss
                 self._tensorboard.add_train_scalar("loss/policy_loss" + turn_str, policy_loss.detach().cpu(), self._batch_num_total)
                 self._tensorboard.add_train_scalar("loss/value_baseline" + turn_str, baseline.mean().detach().cpu(), self._batch_num_total)

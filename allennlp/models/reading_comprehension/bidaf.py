@@ -86,11 +86,13 @@ class BidirectionalAttentionFlow(Model):
                  initializer: InitializerApplicator = InitializerApplicator(),
                  regularizer: Optional[RegularizerApplicator] = None,
                  judge: Model = None,
-                 update_judge: bool = False) -> None:
+                 update_judge: bool = False,
+                 reward_method: str = None) -> None:
         super(BidirectionalAttentionFlow, self).__init__(vocab, regularizer)
 
         self.judge = judge
         self.is_judge = self.judge is None
+        self.reward_method = None if self.is_judge else reward_method
         self.update_judge = update_judge and (self.judge is not None)
         self._text_field_embedder = text_field_embedder
         self._highway_layer = TimeDistributed(Highway(text_field_embedder.get_output_dim(),
