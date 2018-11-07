@@ -468,7 +468,7 @@ class Trainer(Registrable):
                     batch['metadata'][batch_idx]['a_turn'] = (turn % 2) == 0
                 ab_output_dict = self._forward(batch, self._model)
                 values.append(ab_output_dict['value'])
-                self._model.get_metrics(reset=True)  # Debater's metrics currently meaningless, so clear
+                self._model.get_metrics(reset=True)  # A/B metrics currently meaningless, so clear
 
                 # Sample from policy's sentence-level distribution
                 word_action_dist = ab_output_dict['span_start_probs']
@@ -476,6 +476,7 @@ class Trainer(Registrable):
                 sent_action = sent_idxs.gather(1, word_action.to(sent_idxs.device))
                 sent_action_mask = sent_idxs == sent_action
                 sent_action_prob = (word_action_dist.to(sent_action_mask.device) * sent_action_mask.to(word_action_dist.dtype)).sum(1)
+                import ipdb; ipdb.set_trace()
                 sent_actions.append(sent_action)
                 sent_action_masks.append(sent_action_mask)
                 sent_action_probs.append(sent_action_prob)
