@@ -480,7 +480,7 @@ class Trainer(Registrable):
                 sent_answer = sent_idxs.gather(1, batch['span_start'].to(sent_idxs.device))
                 a_turn = (turn % 2) == 0
                 turn_str = "_turn_" + str(turn) + "_" + ("A" if a_turn else "B")
-                self._tensorboard.add_train_scalar("loss/answer_sent_selected_" + turn_str, (sent_action == sent_answer).float().mean().detach().cpu(), self._batch_num_total)
+                self._tensorboard.add_train_scalar("loss/answer_sent_selected" + turn_str, (sent_action == sent_answer).float().mean().detach().cpu(), self._batch_num_total)
                 sent_actions.append(sent_action)
                 sent_action_masks.append(sent_action_mask)
                 sent_action_probs.append(sent_action_prob)
@@ -493,6 +493,7 @@ class Trainer(Registrable):
             batch['passage']['token_characters'] = ((batch['passage']['token_characters'] * all_sent_action_mask.unsqueeze(-1)) + ((1 - all_sent_action_mask.unsqueeze(-1)) * eos_token_idx)) * pad_masks.unsqueeze(-1)
             for batch_idx in range(bsz):
                 batch['metadata'][batch_idx].pop('a_turn')
+            import ipdb; ipdb.set_trace()
             j_output_dict = self._forward(batch, self._model.judge)
             j_metrics = self._model.judge.get_metrics(per_sample=True)
             j_em = torch.tensor(j_metrics['em'], dtype=sent_action_probs[0].dtype, device=sent_action_probs[0].device)
