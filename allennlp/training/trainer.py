@@ -480,8 +480,8 @@ class Trainer(Registrable):
                 sent_action = sent_idxs.gather(1, word_action.to(sent_idxs.device))
                 sent_action_mask = sent_idxs == sent_action
                 sent_action_prob = (word_action_dist.to(sent_action_mask.device) * sent_action_mask.to(word_action_dist.dtype)).sum(1)
-                answer_sent_selected = (sent_action == sent_answer).float()  # NOTE: Assumes answer does not cross period boundary
-                self._tensorboard.add_train_scalar("loss/answer_sent_selected" + turn_str[turn], answer_sent_selected.mean().detach().cpu(), self._batch_num_total)
+                answer_sent_chosen = (sent_action == sent_answer).float()  # NOTE: Assumes answer does not cross period boundary
+                self._tensorboard.add_train_scalar("loss/answer_sent_chosen" + turn_str[turn], answer_sent_chosen.mean().detach().cpu(), self._batch_num_total)
                 sent_actions.append(sent_action)
                 sent_action_masks.append(sent_action_mask)
                 sent_action_probs.append(sent_action_prob)
@@ -502,12 +502,17 @@ class Trainer(Registrable):
             j_f1 = torch.tensor(j_metrics['f1'], dtype=sent_action_probs[0].dtype, device=sent_action_probs[0].device)
             j_score = j_f1 if self._model.reward_method == 'f1' else j_em  # Exact match reward by default
 
-            # Add stats on if J selected a sentence from A or B
+            # Add stats on if J chosen a sentence from A or B
             j_span_start_sent = sent_idxs.gather(1, j_output_dict['best_span'][:,:1].to(sent_idxs.device))
             j_span_end_sent = sent_idxs.gather(1, j_output_dict['best_span'][:,1:].to(sent_idxs.device))
+            j_num_ab_sents_chosen = torch.zeros_like(j_span_start_sent).float()
             for turn in range(num_turns):
-                j_sent_selected = ((j_span_start_sent <= sent_actions[turn]) * (sent_actions[turn] <= j_span_end_sent)).float()
-                self._tensorboard.add_train_scalar("loss/j_sent_selected" + turn_str[turn], j_sent_selected.mean().detach().cpu(), self._batch_num_total)
+                j_sent_chosen = ((j_span_start_sent <= sent_actions[turn]) * (sent_actions[turn] <= j_span_end_sent)).float()
+                self._tensorboard.add_train_scalar("loss/j_sent_chosen" + turn_str[turn], j_sent_chosen.mean().detach().cpu(), self._batch_num_total)
+                j_num_ab_sents_chosen += j_sent_chosen
+            import ipdb; ipdb.set_trace()
+            j_chose_no_ab_sents = (j_num_ab_sents_chosen == 0).float()
+            self._tensorboard.add_train_scalar("loss/j_sent_chosen_not_a_or_b", j_chose_no_ab_sents.mean().detach().cpu(), self._batch_num_total)
 
             # Print examples
             if ((self._batch_num_total % 10) == 0) and self._eval_mode:
@@ -874,10 +879,10 @@ class Trainer(Registrable):
                 with torch.no_grad():
                     # pretrain_task_val_loss, pretrain_task_num_batches = self._validation_loss(pretrain_task=True)
                     # pretrain_task_val_metrics = self._get_metrics(pretrain_task_val_loss, pretrain_task_num_batches, reset=True)
-                    # TODO: Add a "pretrain_task" metric (instead of train or valid)
+                    # TODO: Add a "pretrain_task" metric (instead of train or valid). However, this would slow training.
 
                     # We have a validation set, so compute all the metrics on it.
-                    val_loss, num_batches = self._validation_loss(pretrain_task=False)
+                    val_loss, num_batches = self._validation_loss(pretrain_task=self._eval_mode)
                     val_metrics = self._get_metrics(val_loss, num_batches, reset=True)
 
                     # Check validation metric for early stopping
