@@ -510,7 +510,6 @@ class Trainer(Registrable):
                 j_sent_chosen = ((j_span_start_sent <= sent_actions[turn]) * (sent_actions[turn] <= j_span_end_sent)).float()
                 self._tensorboard.add_train_scalar("loss/j_sent_chosen" + turn_str[turn], j_sent_chosen.mean().detach().cpu(), self._batch_num_total)
                 j_num_ab_sents_chosen += j_sent_chosen
-            import ipdb; ipdb.set_trace()
             j_chose_no_ab_sents = (j_num_ab_sents_chosen == 0).float()
             self._tensorboard.add_train_scalar("loss/j_sent_chosen_not_a_or_b", j_chose_no_ab_sents.mean().detach().cpu(), self._batch_num_total)
 

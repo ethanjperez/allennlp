@@ -216,7 +216,8 @@ def create_serialization_dir(params: Params, serialization_dir: str, recover: bo
         If ``True``, we will try to recover from an existing serialization directory, and crash if
         the directory doesn't exist, or doesn't match the configuration we're given.
     """
-    if os.path.exists(serialization_dir) and os.listdir(serialization_dir):
+    dir_files = os.listdir(serialization_dir)
+    if os.path.exists(serialization_dir) and dir_files and len(dir_files) > 0:
         if not recover:
             raise ConfigurationError(f"Serialization directory ({serialization_dir}) already exists and is "
                                      f"not empty. Specify --recover to recover training from existing output.")
