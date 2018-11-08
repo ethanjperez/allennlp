@@ -506,7 +506,6 @@ class Trainer(Registrable):
             j_span_start_sent = sent_idxs.gather(1, j_output_dict['best_span'][:,:1].to(sent_idxs.device))
             j_span_end_sent = sent_idxs.gather(1, j_output_dict['best_span'][:,1:].to(sent_idxs.device))
             for turn in range(num_turns):
-                import ipdb; ipdb.set_trace()
                 j_sent_selected = ((j_span_start_sent <= sent_actions[turn]) * (sent_actions[turn] <= j_span_end_sent)).float()
                 self._tensorboard.add_train_scalar("loss/j_sent_selected" + turn_str[turn], j_sent_selected.mean().detach().cpu(), self._batch_num_total)
 
