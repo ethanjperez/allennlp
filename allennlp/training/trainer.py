@@ -464,11 +464,11 @@ class Trainer(Registrable):
             sent_action_probs = []
             values = []
             a_turn = {turn: (turn % 2) == 0 for turn in range(num_turns)}
-            turn_str = {"_turn_" + str(turn) + "_" + ("A" if a_turn[turn] else "B") for turn in range(num_turns)}
+            turn_str = {turn: "_turn_" + str(turn) + "_" + ("A" if a_turn[turn] else "B") for turn in range(num_turns)}
             for turn in range(num_turns):
                 bsz = batch['question']['tokens'].size(0)
                 for batch_idx in range(bsz):  # NB: 'metadata' is usually optional. Write code to add in if not present.
-                    batch['metadata'][batch_idx]['a_turn'] = (turn % 2) == 0
+                    batch['metadata'][batch_idx]['a_turn'] = a_turn[turn]
                 ab_output_dict = self._forward(batch, self._model)
                 values.append(ab_output_dict['value'])
                 self._model.get_metrics(reset=True)  # A/B metrics currently meaningless, so clear
