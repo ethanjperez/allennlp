@@ -443,6 +443,7 @@ class Trainer(Registrable):
         sent_idxs = (batch['passage']['tokens'] == 5).cumsum(1) - (batch['passage']['tokens'] == eos_token_idx).long()
         num_sents = sent_idxs.max(1)[0] + 1
         pad_masks = (batch['passage']['tokens'] != 0).long()
+        import ipdb; ipdb.set_trace()
         if self._model.is_judge or pretrain_task:  # Training J on random sentences
             # Mask sentences
             # NB: Could replace for loop with 2-D multinomial input
@@ -505,9 +506,11 @@ class Trainer(Registrable):
             # Add stats on if J selected a sentence from A or B
             j_span_start_sent = sent_idxs.gather(1, j_output_dict['best_span'][:,:1].to(sent_idxs.device))
             j_span_end_sent = sent_idxs.gather(1, j_output_dict['best_span'][:,1:].to(sent_idxs.device))
+            import ipdb; ipdb.set_trace()
             for turn in range(num_turns):
                 j_sent_selected = ((j_span_start_sent <= sent_actions[turn]) * (sent_actions[turn] <= j_span_end_sent)).float()
                 self._tensorboard.add_train_scalar("loss/j_sent_selected" + turn_str[turn], j_sent_selected.mean().detach().cpu(), self._batch_num_total)
+            self._tensorboard.add_train_scalar("loss/j_sent_selected_not_a_or_b", j_sent_selected.mean().detach().cpu(), self._batch_num_total)
 
             # Print examples
             if ((self._batch_num_total % 10) == 0) and self._eval_mode:
@@ -874,10 +877,10 @@ class Trainer(Registrable):
                 with torch.no_grad():
                     # pretrain_task_val_loss, pretrain_task_num_batches = self._validation_loss(pretrain_task=True)
                     # pretrain_task_val_metrics = self._get_metrics(pretrain_task_val_loss, pretrain_task_num_batches, reset=True)
-                    # TODO: Add a "pretrain_task" metric (instead of train or valid)
+                    # TODO: Add a "pretrain_task" metric (instead of train or valid). However, this would slow training.
 
                     # We have a validation set, so compute all the metrics on it.
-                    val_loss, num_batches = self._validation_loss(pretrain_task=False)
+                    val_loss, num_batches = self._validation_loss(pretrain_task=self._eval_mode)
                     val_metrics = self._get_metrics(val_loss, num_batches, reset=True)
 
                     # Check validation metric for early stopping
