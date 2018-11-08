@@ -21,11 +21,11 @@ allennlp train training_config/bidaf.jsonnet --serialization-dir tmp/ab.rounds\=
 
 ### SLURM
 # sbatch job
-export JOB_NAME=ab.rounds=1.independent.pg.5
+export JOB_NAME=ab.rounds=1.independent.pg.7
 export SAVE_DIR=tmp/$JOB_NAME
 if test -e $SAVE_DIR; then echo -e "\n${PURPLE}NOTICE: Directory already exists. Make sure you wanted to load from an existing checkpoint.\n"; else mkdir -p $SAVE_DIR; fi
 sbatch --job-name $JOB_NAME --mem=20000 -t 2-23:58 --gres=gpu:p40 --output $SAVE_DIR/train.log --error $SAVE_DIR/train.stderr.%j --open-mode append --requeue --wrap "\
-allennlp train training_config/bidaf.jsonnet --serialization-dir tmp/ab.rounds\=1.independent.pg -j tmp/j.rounds\=1/model.tar.gz --recover"
+allennlp train training_config/bidaf.jsonnet --serialization-dir $SAVE_DIR -j tmp/j.rounds\=1/model.tar.gz"
 echo -e "\n${CYAN}${SAVE_DIR}/train.log\n"
 
 # Get a 24GB GPU
