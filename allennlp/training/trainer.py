@@ -458,14 +458,17 @@ class Trainer(Registrable):
         else:  # Training A/B
             # Forward pass with A/B
             # NB: May need to modify / make a separate _data_parallel function for multi-GPU
+            sent_answer = sent_idxs.gather(1, batch['span_start'].to(sent_idxs.device))
             sent_actions = []
             sent_action_masks = []
             sent_action_probs = []
             values = []
+            a_turn = {turn: (turn % 2) == 0 for turn in range(num_turns)}
+            turn_str = {turn: "_turn_" + str(turn) + "_" + ("A" if a_turn[turn] else "B") for turn in range(num_turns)}
             for turn in range(num_turns):
                 bsz = batch['question']['tokens'].size(0)
                 for batch_idx in range(bsz):  # NB: 'metadata' is usually optional. Write code to add in if not present.
-                    batch['metadata'][batch_idx]['a_turn'] = (turn % 2) == 0
+                    batch['metadata'][batch_idx]['a_turn'] = a_turn[turn]
                 ab_output_dict = self._forward(batch, self._model)
                 values.append(ab_output_dict['value'])
                 self._model.get_metrics(reset=True)  # A/B metrics currently meaningless, so clear
@@ -477,10 +480,8 @@ class Trainer(Registrable):
                 sent_action = sent_idxs.gather(1, word_action.to(sent_idxs.device))
                 sent_action_mask = sent_idxs == sent_action
                 sent_action_prob = (word_action_dist.to(sent_action_mask.device) * sent_action_mask.to(word_action_dist.dtype)).sum(1)
-                sent_answer = sent_idxs.gather(1, batch['span_start'].to(sent_idxs.device))
-                a_turn = (turn % 2) == 0
-                turn_str = "_turn_" + str(turn) + "_" + ("A" if a_turn else "B")
-                self._tensorboard.add_train_scalar("loss/answer_sent_selected_" + turn_str, (sent_action == sent_answer).float().mean().detach().cpu(), self._batch_num_total)
+                answer_sent_selected = (sent_action == sent_answer).float()  # NOTE: Assumes answer does not cross period boundary
+                self._tensorboard.add_train_scalar("loss/answer_sent_selected" + turn_str[turn], answer_sent_selected.mean().detach().cpu(), self._batch_num_total)
                 sent_actions.append(sent_action)
                 sent_action_masks.append(sent_action_mask)
                 sent_action_probs.append(sent_action_prob)
@@ -493,11 +494,20 @@ class Trainer(Registrable):
             batch['passage']['token_characters'] = ((batch['passage']['token_characters'] * all_sent_action_mask.unsqueeze(-1)) + ((1 - all_sent_action_mask.unsqueeze(-1)) * eos_token_idx)) * pad_masks.unsqueeze(-1)
             for batch_idx in range(bsz):
                 batch['metadata'][batch_idx].pop('a_turn')
+
+            # Calculate J decision and A/B reward
             j_output_dict = self._forward(batch, self._model.judge)
             j_metrics = self._model.judge.get_metrics(per_sample=True)
             j_em = torch.tensor(j_metrics['em'], dtype=sent_action_probs[0].dtype, device=sent_action_probs[0].device)
             j_f1 = torch.tensor(j_metrics['f1'], dtype=sent_action_probs[0].dtype, device=sent_action_probs[0].device)
             j_score = j_f1 if self._model.reward_method == 'f1' else j_em  # Exact match reward by default
+
+            # Add stats on if J selected a sentence from A or B
+            j_span_start_sent = sent_idxs.gather(1, j_output_dict['best_span'][:,:1].to(sent_idxs.device))
+            j_span_end_sent = sent_idxs.gather(1, j_output_dict['best_span'][:,1:].to(sent_idxs.device))
+            for turn in range(num_turns):
+                j_sent_selected = ((j_span_start_sent <= sent_actions[turn]) * (sent_actions[turn] <= j_span_end_sent)).float()
+                self._tensorboard.add_train_scalar("loss/j_sent_selected" + turn_str[turn], j_sent_selected.mean().detach().cpu(), self._batch_num_total)
 
             # Print examples
             if ((self._batch_num_total % 10) == 0) and self._eval_mode:
@@ -523,18 +533,16 @@ class Trainer(Registrable):
             output_dict['loss'] = output_dict['loss'].to(j_score)
             # Calculate and set A/B loss
             for turn in range(num_turns):
-                a_turn = (turn % 2) == 0
-                turn_str = "_turn_" + str(turn) + "_" + ("A" if a_turn else "B")
-                grad_dir = -1 if a_turn else 1
+                grad_dir = -1 if a_turn[turn] else 1
                 baseline = values[turn].to(j_score)
                 policy_loss = grad_dir * (torch.log(sent_action_probs[turn]) * (j_score - baseline.detach())).mean()
                 output_dict['loss'] += policy_loss
                 value_loss = 0.5 * ((j_score - baseline) ** 2).mean()  # Value loss
                 output_dict['loss'] += value_loss
-                self._tensorboard.add_train_scalar("loss/policy_loss" + turn_str, policy_loss.detach().cpu(), self._batch_num_total)
-                self._tensorboard.add_train_scalar("loss/value_baseline" + turn_str, baseline.mean().detach().cpu(), self._batch_num_total)
-                self._tensorboard.add_train_scalar("loss/value_loss" + turn_str, value_loss.detach().cpu(), self._batch_num_total)
-                self._tensorboard.add_train_scalar("loss/value_rmse" + turn_str, ((2.0 * value_loss) ** 0.5).detach().cpu(), self._batch_num_total)  # Upper bound: .25
+                self._tensorboard.add_train_scalar("loss/policy_loss" + turn_str[turn], policy_loss.detach().cpu(), self._batch_num_total)
+                self._tensorboard.add_train_scalar("loss/value_baseline" + turn_str[turn], baseline.mean().detach().cpu(), self._batch_num_total)
+                self._tensorboard.add_train_scalar("loss/value_loss" + turn_str[turn], value_loss.detach().cpu(), self._batch_num_total)
+                self._tensorboard.add_train_scalar("loss/value_rmse" + turn_str[turn], ((2.0 * value_loss) ** 0.5).detach().cpu(), self._batch_num_total)  # Upper bound: .25
             if num_turns == 2:
                 self._tensorboard.add_train_scalar("loss/abs_diff_in_turn_value", ((values[1] - values[0]).abs()).mean().detach().cpu(), self._batch_num_total)
 
