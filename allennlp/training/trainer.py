@@ -857,7 +857,7 @@ class Trainer(Registrable):
             raise ConfigurationError("Could not recover training from the checkpoint.  Did you mean to output to "
                                      "a different serialization directory or delete the existing serialization "
                                      "directory?")
-
+        self._num_epochs = 200
         self._enable_gradient_clipping()
         self._enable_activation_logging()
 
