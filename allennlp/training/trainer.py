@@ -869,7 +869,7 @@ class Trainer(Registrable):
         epochs_trained = 0
         training_start_time = time.time()
 
-        for epoch in range(epoch_counter, self._num_epochs + (1 if self._eval_mode else 0)):
+        for epoch in range(epoch_counter, self._num_epochs + 180 + (1 if self._eval_mode else 0)):
             if not self._eval_mode:
                 epoch_start_time = time.time()
                 train_metrics = self._train_epoch(epoch)
