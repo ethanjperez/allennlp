@@ -470,7 +470,6 @@ class Trainer(Registrable):
         else:  # Training A/B
             # Forward pass with A/B
             # NB: May need to modify / make a separate _data_parallel function for multi-GPU
-            import ipdb; ipdb.set_trace()
             sent_actions = []
             sent_action_masks = []
             sent_action_probs = []

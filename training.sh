@@ -28,7 +28,7 @@ allennlp train training_config/bidaf.jsonnet --debate_mode ab --serialization-di
 
 ### SLURM
 # sbatch job
-export DEBATE_MODE=ab
+export DEBATE_MODE=br
 export JOB_NAME=$DEBATE_MODE
 export SAVE_DIR=tmp/$JOB_NAME
 if test -e $SAVE_DIR; then echo -e "\n${PURPLE}NOTICE: Directory already exists. Make sure you wanted to load from an existing checkpoint.\n"; else mkdir -p $SAVE_DIR; fi
