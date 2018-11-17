@@ -31,7 +31,7 @@ which to write the results.
                            outputs tqdm status on separate lines and slows tqdm
                            refresh rate
 """
-from typing import Dict, Iterable
+from typing import Dict, Iterable, List
 import argparse
 import logging
 import os
@@ -72,6 +72,12 @@ class Train(Subcommand):
                                type=str,
                                help='directory in which to save the model and its logs')
 
+        # Debate: Debate mode: Use A/B or random sentences (and in what order). Used for training and evaluation.
+        subparser.add_argument('-d', '--debate_mode',
+                               required=True,
+                               nargs='+',
+                               help='how to select sentences shown to judge')
+
         subparser.add_argument('-r', '--recover',
                                action='store_true',
                                default=False,
@@ -87,7 +93,7 @@ class Train(Subcommand):
                                default=False,
                                help='outputs tqdm status on separate lines and slows tqdm refresh rate')
 
-        # Debate: Option to load trained judge from archive. In this case, debating agents only will be trained
+        # Debate: Option to load trained judge from archive.
         subparser.add_argument('-j', '--judge_filename',
                                type=str,
                                default=None,
@@ -102,7 +108,7 @@ class Train(Subcommand):
                                help='update judge while training debate agents')
 
         # Debate: Option to evaluate
-        subparser.add_argument('-e', '--eval_mode',
+        subparser.add_argument('-e', '--evaluate',
                                action='store_true',
                                default=False,
                                help='run in evaluation-only mode')
@@ -124,23 +130,25 @@ def train_model_from_args(args: argparse.Namespace):
     """
     train_model_from_file(args.param_path,
                           args.serialization_dir,
+                          args.debate_mode,
                           args.overrides,
                           args.file_friendly_logging,
                           args.recover,
                           args.judge_filename,
                           args.update_judge,
-                          args.eval_mode,
+                          args.evaluate,
                           args.reward_method)
 
 
 def train_model_from_file(parameter_filename: str,
                           serialization_dir: str,
+                          debate_mode: List[str],
                           overrides: str = "",
                           file_friendly_logging: bool = False,
                           recover: bool = False,
                           judge_filename: str = None,
                           update_judge: bool = False,
-                          eval_mode: bool = False,
+                          evaluate: bool = False,
                           reward_method: str = None) -> Model:
     """
     A wrapper around :func:`train_model` which loads the params from a file.
@@ -164,8 +172,8 @@ def train_model_from_file(parameter_filename: str,
     """
     # Load the experiment config from a file and pass it to ``train_model``.
     params = Params.from_file(parameter_filename, overrides)
-    return train_model(params, serialization_dir, file_friendly_logging, recover,
-                       judge_filename, update_judge, eval_mode, reward_method)
+    return train_model(params, serialization_dir, debate_mode, file_friendly_logging, recover,
+                       judge_filename, update_judge, evaluate, reward_method)
 
 
 def datasets_from_params(params: Params) -> Dict[str, Iterable[Instance]]:
@@ -216,8 +224,7 @@ def create_serialization_dir(params: Params, serialization_dir: str, recover: bo
         If ``True``, we will try to recover from an existing serialization directory, and crash if
         the directory doesn't exist, or doesn't match the configuration we're given.
     """
-    dir_files = os.listdir(serialization_dir)
-    if os.path.exists(serialization_dir) and dir_files and len(dir_files) > 0:
+    if os.path.exists(serialization_dir) and os.listdir(serialization_dir) and len(os.listdir(serialization_dir)) > 0:
         if not recover:
             raise ConfigurationError(f"Serialization directory ({serialization_dir}) already exists and is "
                                      f"not empty. Specify --recover to recover training from existing output.")
@@ -250,9 +257,9 @@ def create_serialization_dir(params: Params, serialization_dir: str, recover: bo
                                  f"the serialization directory we're recovering from: "
                                  f"{flat_params[key]} != {flat_loaded[key]}")
                     fail = True
-            if fail:
-                raise ConfigurationError("Training configuration does not match the configuration we're "
-                                         "recovering from.")
+            # if fail:
+            #     raise ConfigurationError("Training configuration does not match the configuration we're "
+            #                              "recovering from.")
     else:
         # if recover:
         #     raise ConfigurationError(f"--recover specified but serialization_dir ({serialization_dir}) "
@@ -262,11 +269,12 @@ def create_serialization_dir(params: Params, serialization_dir: str, recover: bo
 
 def train_model(params: Params,
                 serialization_dir: str,
+                debate_mode: List[str],
                 file_friendly_logging: bool = False,
                 recover: bool = False,
                 judge_filename: str = None,
                 update_judge: bool = False,
-                eval_mode: bool = False,
+                evaluate: bool = False,
                 reward_method: str = None) -> Model:
     """
     Trains the model specified in the given :class:`Params` object, using the data and training
@@ -383,12 +391,13 @@ def train_model(params: Params,
                                                default_to_first_choice=True)
     trainer = Trainer.by_name(trainer_choice).from_params(model=model,
                                                           serialization_dir=serialization_dir,
+                                                          debate_mode=debate_mode,
                                                           iterator=iterator,
                                                           train_data=train_data,
                                                           validation_data=validation_data,
                                                           params=trainer_params,
                                                           validation_iterator=validation_iterator,
-                                                          eval_mode=eval_mode)
+                                                          evaluate=evaluate)
 
     evaluate_on_test = params.pop_bool("evaluate_on_test", False)
     params.assert_empty('base train command')
@@ -412,18 +421,19 @@ def train_model(params: Params,
     best_model = model
     best_model.load_state_dict(best_model_state)
 
-    if test_data and evaluate_on_test:
-        logger.info("The model will be evaluated using the best epoch weights.")
-        test_metrics = evaluate(
-                best_model, test_data, validation_iterator or iterator,
-                cuda_device=trainer._cuda_devices[0]  # pylint: disable=protected-access
-        )
-        for key, value in test_metrics.items():
-            metrics["test_" + key] = value
-
-    elif test_data:
-        logger.info("To evaluate on the test set after training, pass the "
-                    "'evaluate_on_test' flag, or use the 'allennlp evaluate' command.")
+    # NB: Evaluate command deprecated for debate
+    # if test_data and evaluate_on_test:
+    #     logger.info("The model will be evaluated using the best epoch weights.")
+    #     test_metrics = evaluate(
+    #             best_model, test_data, validation_iterator or iterator,
+    #             cuda_device=trainer._cuda_devices[0]  # pylint: disable=protected-access
+    #     )
+    #     for key, value in test_metrics.items():
+    #         metrics["test_" + key] = value
+    #
+    # elif test_data:
+    #     logger.info("To evaluate on the test set after training, pass the "
+    #                 "'evaluate_on_test' flag, or use the 'allennlp evaluate' command.")
 
     dump_metrics(os.path.join(serialization_dir, "metrics.json"), metrics, log=True)
 
