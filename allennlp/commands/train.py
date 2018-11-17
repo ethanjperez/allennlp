@@ -257,9 +257,9 @@ def create_serialization_dir(params: Params, serialization_dir: str, recover: bo
                                  f"the serialization directory we're recovering from: "
                                  f"{flat_params[key]} != {flat_loaded[key]}")
                     fail = True
-            if fail:
-                raise ConfigurationError("Training configuration does not match the configuration we're "
-                                         "recovering from.")
+            # if fail:
+            #     raise ConfigurationError("Training configuration does not match the configuration we're "
+            #                              "recovering from.")
     else:
         # if recover:
         #     raise ConfigurationError(f"--recover specified but serialization_dir ({serialization_dir}) "

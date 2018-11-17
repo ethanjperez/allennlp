@@ -142,7 +142,8 @@ class BidirectionalAttentionFlow(Model):
                 passage: Dict[str, torch.LongTensor],
                 span_start: torch.IntTensor = None,
                 span_end: torch.IntTensor = None,
-                metadata: List[Dict[str, Any]] = None) -> Dict[str, torch.Tensor]:
+                metadata: List[Dict[str, Any]] = None,
+                store_metrics: bool = True) -> Dict[str, torch.Tensor]:
         # pylint: disable=arguments-differ
         """
         Parameters
@@ -168,6 +169,9 @@ class BidirectionalAttentionFlow(Model):
             should be the batch size, and each dictionary should have the keys ``id``,
             ``original_passage``, and ``token_offsets``.  If you only want the best span string and
             don't care about official metrics, you can omit the ``id`` key.
+        store_metrics : bool
+            If true, stores metrics (if applicable) within model metric tracker.
+            If false, returns resulting metrics immediately, without updating the model metric tracker.
 
         Returns
         -------
@@ -300,13 +304,16 @@ class BidirectionalAttentionFlow(Model):
         # Compute the loss for training.
         if span_start is not None:
             loss = nll_loss(util.masked_log_softmax(span_start_logits, passage_mask), span_start.squeeze(-1))
-            self._span_start_accuracy(span_start_logits, span_start.squeeze(-1))
+            if store_metrics:
+                self._span_start_accuracy(span_start_logits, span_start.squeeze(-1))
             loss += nll_loss(util.masked_log_softmax(span_end_logits, passage_mask), span_end.squeeze(-1))
-            self._span_end_accuracy(span_end_logits, span_end.squeeze(-1))
-            self._span_accuracy(best_span, torch.stack([span_start, span_end], -1))
+            if store_metrics:
+                self._span_end_accuracy(span_end_logits, span_end.squeeze(-1))
+                self._span_accuracy(best_span, torch.stack([span_start, span_end], -1))
             output_dict["loss"] = loss
 
         # Compute the EM and F1 on SQuAD and add the tokenized input to the output.
+        tmp_squad_metrics = None
         if metadata is not None:
             output_dict['best_span_str'] = []
             question_tokens = []
@@ -323,9 +330,16 @@ class BidirectionalAttentionFlow(Model):
                 output_dict['best_span_str'].append(best_span_string)
                 answer_texts = metadata[i].get('answer_texts', [])
                 if answer_texts:
-                    self._squad_metrics(best_span_string, answer_texts)
+                    if store_metrics:
+                        self._squad_metrics(best_span_string, answer_texts)
+                    else:
+                        if tmp_squad_metrics is None:
+                            tmp_squad_metrics = SquadEmAndF1()
+                        tmp_squad_metrics(best_span_string, answer_texts)
             output_dict['question_tokens'] = question_tokens
             output_dict['passage_tokens'] = passage_tokens
+        if tmp_squad_metrics is not None:
+            return output_dict, tmp_squad_metrics
         return output_dict
 
     def get_metrics(self, reset: bool = False, per_sample: bool = False) -> Dict[str, float]:
