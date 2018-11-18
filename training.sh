@@ -25,10 +25,10 @@ allennlp train training_config/bidaf.num_epochs=200.jsonnet --serialization-dir 
 
 ### SLURM
 # sbatch job
-export SAVE_DIR=tmp/br.v  # NB: Update every run!
+export SAVE_DIR=tmp/ab.v  # NB: Update every run!
 if test -e $SAVE_DIR; then echo -e "\n${PURPLE}NOTICE: Directory already exists. Make sure you wanted to load from an existing checkpoint.\n"; else mkdir -p $SAVE_DIR; fi
 sbatch --job-name $SAVE_DIR --mem=20000 -t 2-23:58 --gres=gpu:p40 --open-mode append --requeue --wrap "\
-allennlp train training_config/bidaf.num_epochs=200.jsonnet --debate_mode br --serialization-dir tmp/br.v -j training_config/bidaf.num_epochs=200.jsonnet -u -v
+allennlp train training_config/bidaf.num_epochs=200.jsonnet --debate_mode ab --serialization-dir tmp/ab.v -j training_config/bidaf.num_epochs=200.jsonnet -u -v
 "
 echo -e "\n${CYAN}${SAVE_DIR}/train.log\n"
 

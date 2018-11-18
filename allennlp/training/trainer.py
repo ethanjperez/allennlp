@@ -487,24 +487,31 @@ class Trainer(Registrable):
         sent_reveal_idxs = []
         sent_reveal_masks = []
         sent_reveal_probs = []
-        values = []  # Add -1 to values if no value prediction made
+        values = []  # Add -1 * torch.ones(bsz) if no value prediction made
         for turn, method in enumerate(debate_mode[0]):
+            # Variables that must be set after each turn
+            sent_reveal_idx = None
+            sent_reveal_mask = None
+            sent_reveal_prob = None
+            value = None
             if method == 'r':  # Random selection
                 sent_reveal_idx = (torch.rand_like(num_sents.float()) * num_sents.float()).trunc().long().unsqueeze(1)
                 sent_reveal_mask = sent_idxs == sent_reveal_idx
                 sent_reveal_prob = torch.ones(bsz) / num_sents.float()
-                values.append(-1)
+                value = -1 * torch.ones(bsz)
             elif method == 'g':  # Ground truth, answer-containing selection
                 sent_reveal_idx = sent_answer_idx
                 sent_reveal_mask = sent_idxs == sent_reveal_idx
                 sent_reveal_prob = torch.ones(bsz)
-                values.append(-1)
+                value = -1 * torch.ones(bsz)
             elif method in ['A', 'B']:  # A/B oracle selection
                 oracle_func = max if method == 'A' else min  # NOTE: Modify if adding another oracle method
                 oracle_eval_method = 'f1'  # NOTE: Only other option is 'em'
                 # NOTE: Set below to None to make oracle selection simultaneous with other selections
                 past_sent_reveal_idxs = torch.cat(sent_reveal_idxs, 1) if len(sent_reveal_idxs) > 0 else None
                 opt_idxs = []
+                oracle_values = []
+                judge_was_training = judge.training
                 judge.eval()
                 for sample_no in range(bsz):
                     # Batch together all possible next outcomes for a sample
@@ -529,49 +536,57 @@ class Trainer(Registrable):
                         ((1 - oracle_sent_reveal_masks.unsqueeze(-1)) * eos_token_idx)
                         ) * oracle_pad_masks.unsqueeze(-1)
 
+                    # Get results
                     oracle_output_dict, oracle_metrics = self._forward(oracle_batch, judge)
                     oracle_metrics = oracle_metrics.get_metric(reset=True, per_sample=True)[1 if oracle_eval_method == 'f1' else 0]
                     opt_sc = oracle_func(oracle_metrics)
+                    oracle_values.append(opt_sc)
                     opt_idxs.append(oracle_metrics.index(opt_sc))
-                if debater is None or debater.update_judge:
+                if judge_was_training:
                     judge.train()
+
                 sent_reveal_idx = torch.LongTensor(opt_idxs).unsqueeze(1)
                 sent_reveal_mask = sent_idxs == sent_reveal_idx
                 sent_reveal_prob = torch.ones(bsz)
-                values.append(-1)
+                value = torch.FloatTensor(oracle_values)
             elif method in ['a', 'b']:  # A/B RL selection
                 assert debater is not None, 'Cannot use debate method ' + method + ' without debate agents!'
                 for batch_idx in range(bsz):  # NB: 'metadata' usually optional but will now cause error if missing
                     batch['metadata'][batch_idx]['a_turn'] = a_turn[turn]
                 ab_output_dict = self._forward(batch, debater)
-                values.append(ab_output_dict['value'])
                 debater.get_metrics(reset=True)  # A/B metrics currently meaningless, so clear
 
                 # NB: Can optimize if each computation is happening on CPU or GPU
                 # Sample from policy's sentence-level distribution
                 word_reveal_dist = ab_output_dict['span_start_probs']
                 word_reveal_idx = torch.multinomial(word_reveal_dist, 1) if for_training else torch.argmax(word_reveal_dist, dim=1, keepdim=True)
+
                 sent_reveal_idx = sent_idxs.gather(1, word_reveal_idx.to(sent_idxs.device))
                 sent_reveal_mask = sent_idxs == sent_reveal_idx
                 sent_reveal_prob = (word_reveal_dist.to(sent_reveal_mask.device) * sent_reveal_mask.to(word_reveal_dist.dtype)).sum(1)
+                value = ab_output_dict['value']
             else:
                 raise NotImplementedError('Unimplemented answer selection debate method', method)
             answer_sent_chosen = (sent_reveal_idx == sent_answer_idx).float()  # NOTE: Assumes answer does not cross period boundary
             self._tensorboard.add_train_scalar("loss/answer_sent_chosen" + turn_str[turn], answer_sent_chosen.mean().detach().cpu(), self._batch_num_total)
+
+            assert (sent_reveal_idx is not None) and (sent_reveal_mask is not None) and (sent_reveal_prob is not None) and (value is not None), \
+                'Error: Did not fill all necessary variables for turn selection.'
             sent_reveal_idxs.append(sent_reveal_idx)
             sent_reveal_masks.append(sent_reveal_mask)
             sent_reveal_probs.append(sent_reveal_prob)
+            values.append(value)
+
+        # Remove metadata added for A/B forward pass
+        for batch_idx in range(bsz):
+            if 'a_turn' in batch['metadata'][batch_idx]:
+                batch['metadata'][batch_idx].pop('a_turn')
 
         # Mask passage
         all_sent_reveal_mask = torch.stack(sent_reveal_masks).sum(0)
         all_sent_reveal_mask = all_sent_reveal_mask / (all_sent_reveal_mask.clamp(min=1))   # Differentiable clamp to max=1
         batch['passage']['tokens'] = ((batch['passage']['tokens'] * all_sent_reveal_mask) + ((1 - all_sent_reveal_mask) * eos_token_idx)) * pad_masks
         batch['passage']['token_characters'] = ((batch['passage']['token_characters'] * all_sent_reveal_mask.unsqueeze(-1)) + ((1 - all_sent_reveal_mask.unsqueeze(-1)) * eos_token_idx)) * pad_masks.unsqueeze(-1)
-
-        # Remove metadata added for A/B forward pass
-        for batch_idx in range(bsz):
-            if 'a_turn' in batch['metadata'][batch_idx]:
-                batch['metadata'][batch_idx].pop('a_turn')
 
         # Normal forward pass with judge
         output_dict = self._forward(batch, judge)
