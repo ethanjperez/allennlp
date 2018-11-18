@@ -466,6 +466,12 @@ class Trainer(Registrable):
             raise NotImplementedError('No implementation yet for # rounds =', num_rounds)
         num_turns = len(debate_mode[0])
 
+        # Model aliases for convenience
+        debater = None if self._model.is_judge else self._model
+        judge = self._model if self._model.is_judge else self._model.judge
+        assert debater is None or 'a' in debate_mode[0] or 'b' in debate_mode[0], \
+            'Unnecessary to have debaters in debate mode ' + str(debate_mode) + '. Please remove -j flag.'
+
         # Precomputation. NB: Move from CPU to GPU if slow
         bsz = batch['question']['tokens'].size(0)
         eos_token_idx = self._model.vocab.get_token_index('.')
@@ -475,11 +481,7 @@ class Trainer(Registrable):
         num_sents = (sent_idxs * pad_masks).max(1)[0] + 1
         sent_answer_idx = sent_idxs.gather(1, batch['span_start'].to(sent_idxs.device))
         a_turn = {turn: debate_mode[0][turn] == 'a' for turn in range(len(debate_mode[0]))}
-        turn_str = {turn: "_turn_" + str(turn) + "_agent_" + debate_mode[0][turn].upper() for turn in range(num_turns)}
-
-        # Model aliases for convenience
-        debater = None if self._model.is_judge else self._model
-        judge = self._model if self._model.is_judge else self._model.judge
+        turn_str = {turn: "_turn_" + str(turn) + "_agent_" + debate_mode[0][turn] for turn in range(num_turns)}
 
         # Execute player turns to determine mask
         sent_reveal_idxs = []

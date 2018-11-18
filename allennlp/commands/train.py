@@ -93,32 +93,37 @@ class Train(Subcommand):
                                default=False,
                                help='outputs tqdm status on separate lines and slows tqdm refresh rate')
 
-        # Debate: Option to load trained judge from archive.
+        # Debate options below
         subparser.add_argument('-j', '--judge_filename',
                                type=str,
                                default=None,
                                help='path to parameter file describing the judge to be trained or'
                                     'path to an archived, trained judge.'
-                                    'Do not use this option if training judge only.')
+                                    'Do not use this option if training judge only.'
+                                    'If updating pre-trained judge, pass in archived *.tar.gz file.'
+                                    'If training judge from scratch, pass in *.jsonnet config file.')
 
-        # Debate: Option to load trained judge from archive. In this case, debating agents only will be trained
         subparser.add_argument('-u', '--update_judge',
                                action='store_true',
                                default=False,
                                help='update judge while training debate agents')
 
-        # Debate: Option to evaluate
         subparser.add_argument('-e', '--evaluate',
                                action='store_true',
                                default=False,
                                help='run in evaluation-only mode')
 
-        # Debate: Option to use EM or F1
         subparser.add_argument('-m', '--reward_method',
                                type=str,
                                choices=['em', 'f1'],
-                               default=None,
+                               default='f1',
                                help='how to reward debate agents')
+
+        subparser.add_argument('-v', '--detach_value_head',
+                               action='store_true',
+                               default=False,
+                               help='Detach value head prediction network from main policy network,'
+                                    'to prevent gradients to value function from overpowering gradients to policy')
 
         subparser.set_defaults(func=train_model_from_args)
 
@@ -137,7 +142,8 @@ def train_model_from_args(args: argparse.Namespace):
                           args.judge_filename,
                           args.update_judge,
                           args.evaluate,
-                          args.reward_method)
+                          args.reward_method,
+                          args.detach_value_head)
 
 
 def train_model_from_file(parameter_filename: str,
@@ -149,7 +155,8 @@ def train_model_from_file(parameter_filename: str,
                           judge_filename: str = None,
                           update_judge: bool = False,
                           evaluate: bool = False,
-                          reward_method: str = None) -> Model:
+                          reward_method: str = None,
+                          detach_value_head: bool = False) -> Model:
     """
     A wrapper around :func:`train_model` which loads the params from a file.
 
@@ -173,7 +180,7 @@ def train_model_from_file(parameter_filename: str,
     # Load the experiment config from a file and pass it to ``train_model``.
     params = Params.from_file(parameter_filename, overrides)
     return train_model(params, serialization_dir, debate_mode, file_friendly_logging, recover,
-                       judge_filename, update_judge, evaluate, reward_method)
+                       judge_filename, update_judge, evaluate, reward_method, detach_value_head)
 
 
 def datasets_from_params(params: Params) -> Dict[str, Iterable[Instance]]:
@@ -275,7 +282,8 @@ def train_model(params: Params,
                 judge_filename: str = None,
                 update_judge: bool = False,
                 evaluate: bool = False,
-                reward_method: str = None) -> Model:
+                reward_method: str = None,
+                detach_value_head: bool = False) -> Model:
     """
     Trains the model specified in the given :class:`Params` object, using the data and training
     parameters also specified in that object, and saves the results in ``serialization_dir``.
@@ -299,6 +307,10 @@ def train_model(params: Params,
     best_model: ``Model``
         The model with the best epoch weights.
     """
+    # NB: Modify appropriately for multi-round debate
+    assert judge_filename is None or 'a' in debate_mode[0] or 'b' in debate_mode[0], \
+        'Unnecessary to have debaters in debate mode ' + str(debate_mode) + '. Please remove -j flag.'
+
     prepare_environment(params)
 
     create_serialization_dir(params, serialization_dir, recover)
@@ -340,7 +352,8 @@ def train_model(params: Params,
             # NB: No overrides for judge. Also, only 'model' field is used.
             judge_params = Params.from_file(judge_filename, params_overrides='')
             judge = Model.from_params(vocab=vocab, params=judge_params.get('model'),
-                                      judge=None, update_judge=False, reward_method=None)  # No judge inside this model
+                                      judge=None, update_judge=False, reward_method=None,  # No judge inside this model
+                                      detach_value_head=False)
             if not update_judge:
                 warnings.warn('Provided Judge file was a training config file. '
                               'Training from scratch even though -u was not specified.', UserWarning)
@@ -353,7 +366,8 @@ def train_model(params: Params,
             parameter.requires_grad_(update_judge)
 
     model = Model.from_params(vocab=vocab, params=params.pop('model'),
-                              judge=judge, update_judge=update_judge, reward_method=reward_method)
+                              judge=judge, update_judge=update_judge, reward_method=reward_method,
+                              detach_value_head=detach_value_head)
 
     # Initializing the model can have side effect of expanding the vocabulary
     vocab.save_to_files(os.path.join(serialization_dir, "vocabulary"))
