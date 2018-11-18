@@ -406,14 +406,15 @@ def train_model(params: Params,
         metrics = trainer.train()
     except KeyboardInterrupt:
         # if we have completed an epoch, try to create a model archive.
-        if os.path.exists(os.path.join(serialization_dir, _DEFAULT_WEIGHTS)):
+        if os.path.exists(os.path.join(serialization_dir, _DEFAULT_WEIGHTS)) and not evaluate:
             logging.info("Training interrupted by the user. Attempting to create "
                          "a model archive using the current best epoch weights.")
             archive_model(serialization_dir, files_to_archive=params.files_to_archive)
         raise
 
     # Now tar up results
-    archive_model(serialization_dir, files_to_archive=params.files_to_archive)
+    if not evaluate:
+        archive_model(serialization_dir, files_to_archive=params.files_to_archive)
 
     logger.info("Loading the best epoch weights.")
     best_model_state_path = os.path.join(serialization_dir, 'best.th')
