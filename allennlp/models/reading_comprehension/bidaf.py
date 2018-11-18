@@ -87,13 +87,15 @@ class BidirectionalAttentionFlow(Model):
                  regularizer: Optional[RegularizerApplicator] = None,
                  judge: Model = None,
                  update_judge: bool = False,
-                 reward_method: str = None) -> None:
+                 reward_method: str = None,
+                 detach_value_head: bool = False) -> None:
         super(BidirectionalAttentionFlow, self).__init__(vocab, regularizer)
 
         self.judge = judge
         self.is_judge = self.judge is None
         self.reward_method = None if self.is_judge else reward_method
         self.update_judge = update_judge and (self.judge is not None)
+        self._detach_value_head = detach_value_head
         self._text_field_embedder = text_field_embedder
         self._highway_layer = TimeDistributed(Highway(text_field_embedder.get_output_dim(),
                                                       num_highway_layers))
@@ -110,6 +112,7 @@ class BidirectionalAttentionFlow(Model):
         span_start_input_dim = encoding_dim * 4 + modeling_dim
         self._span_start_predictor = TimeDistributed(torch.nn.Linear(span_start_input_dim, 1))
         if not self.is_judge:
+            # NB: Rename to value head. Would break loading old checkpoints.
             self._critic = TimeDistributed(torch.nn.Linear(span_start_input_dim, 1))
 
         span_end_encoding_dim = span_end_encoder.get_output_dim()
@@ -258,9 +261,10 @@ class BidirectionalAttentionFlow(Model):
         span_start_input = self._dropout(span_start_input_full)
         if not self.is_judge:
             critic_input = span_start_input_full
-            # critic_input = span_start_input_full.detach()  # NB: To prevent reward pred. from updating main network
+            if self._detach_value_head:  # Prevents reward prediction from updating main network
+                critic_input = critic_input.detach()
             # Shape: (batch_size)
-            # NB: Can add more layers to critic
+            # NB: Can add more layers to value prediction
             value = (self._critic(critic_input).squeeze(-1) * passage_mask).mean(1)
         # Shape: (batch_size, passage_length)
         span_start_logits = self._span_start_predictor(span_start_input).squeeze(-1)
