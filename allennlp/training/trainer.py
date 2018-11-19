@@ -33,6 +33,7 @@ from allennlp.data.iterators.data_iterator import DataIterator
 from allennlp.models.model import Model
 from allennlp.nn import util
 from allennlp.training.learning_rate_schedulers import LearningRateScheduler
+from allennlp.training.metrics import Average
 from allennlp.training.optimizers import Optimizer
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
@@ -271,15 +272,16 @@ class Trainer(Registrable):
             Whether to send parameter specific learning rate to tensorboard.
         """
         self._model = model
-        self._debate_mode = debate_mode
-        self._evaluate = evaluate
         self._iterator = iterator
+        self._debate_mode = debate_mode
         self._validation_iterator = validation_iterator
         self._shuffle = shuffle
         self._optimizer = optimizer
         self._train_data = train_dataset
         self._validation_data = validation_dataset
+        self._evaluate = evaluate
 
+        self._trainer_metrics = {}
         if patience is None:  # no early stopping
             if validation_dataset:
                 logger.warning('You provided a validation dataset but patience was set to None, '
@@ -452,6 +454,13 @@ class Trainer(Registrable):
                 raise NotImplementedError('Unimplemented slice for key, value:', k, v)
         return sliced_batch
 
+    def _update_trainer_metrics(self, metric_name, new_value):
+        """
+        Updates the trainer's metrics for metric_name with new_value
+        """
+        self._trainer_metrics[metric_name] = self._trainer_metrics.get(metric_name, Average())
+        self._trainer_metrics[metric_name](new_value)
+
     def _batch_loss(self, batch: torch.Tensor, for_training: bool, debate_mode: List[str] = None) -> torch.Tensor:
         """
         Does a forward pass on the given batch and returns the ``loss`` value in the result.
@@ -568,7 +577,7 @@ class Trainer(Registrable):
             else:
                 raise NotImplementedError('Unimplemented answer selection debate method', method)
             answer_sent_chosen = (sent_reveal_idx == sent_answer_idx).float()  # NOTE: Assumes answer does not cross period boundary
-            self._tensorboard.add_train_scalar("loss/answer_sent_chosen" + turn_str[turn], answer_sent_chosen.mean().detach().cpu(), self._batch_num_total)
+            self._update_trainer_metrics('answer_sent_chosen' + turn_str[turn], answer_sent_chosen.mean())
 
             assert (sent_reveal_idx is not None) and (sent_reveal_mask is not None) and (sent_reveal_prob is not None) and (value is not None), \
                 'Error: Did not fill all necessary variables for turn selection.'
@@ -603,10 +612,10 @@ class Trainer(Registrable):
             j_num_ab_sents_chosen = torch.zeros_like(j_span_start_sent).float()
             for turn in range(num_turns):
                 j_sent_chosen = ((j_span_start_sent <= sent_reveal_idxs[turn]) * (sent_reveal_idxs[turn] <= j_span_end_sent)).float()
-                self._tensorboard.add_train_scalar("loss/j_sent_chosen" + turn_str[turn], j_sent_chosen.mean().detach().cpu(), self._batch_num_total)
+                self._update_trainer_metrics('j_sent_chosen' + turn_str[turn], j_sent_chosen.mean())
                 j_num_ab_sents_chosen += j_sent_chosen
             j_chose_no_ab_sents = (j_num_ab_sents_chosen == 0).float()
-            self._tensorboard.add_train_scalar("loss/j_sent_chosen_not_a_or_b", j_chose_no_ab_sents.mean().detach().cpu(), self._batch_num_total)
+            self._update_trainer_metrics('j_sent_chosen_not_a_or_b', j_chose_no_ab_sents.mean())
 
             # Print examples
             if ((self._batch_num_total % 20) == 0) and self._evaluate:
@@ -635,12 +644,11 @@ class Trainer(Registrable):
                     output_dict['loss'] += policy_loss
                     value_loss = 0.5 * ((j_score - baseline) ** 2).mean()  # Value loss
                     output_dict['loss'] += value_loss
-                    self._tensorboard.add_train_scalar("loss/policy_loss" + turn_str[turn], policy_loss.detach().cpu(), self._batch_num_total)
-                    self._tensorboard.add_train_scalar("loss/value_baseline" + turn_str[turn], baseline.mean().detach().cpu(), self._batch_num_total)
-                    self._tensorboard.add_train_scalar("loss/value_loss" + turn_str[turn], value_loss.detach().cpu(), self._batch_num_total)
-                    self._tensorboard.add_train_scalar("loss/value_rmse" + turn_str[turn], ((2.0 * value_loss) ** 0.5).detach().cpu(), self._batch_num_total)  # Upper bound: .25
+                    self._update_trainer_metrics('policy_loss' + turn_str[turn], policy_loss)
+                    self._update_trainer_metrics('value' + turn_str[turn], baseline.mean())
+                    self._update_trainer_metrics('value_loss' + turn_str[turn], value_loss)  # Upper bound ~= .125
             if len(values) == 2:
-                self._tensorboard.add_train_scalar("loss/abs_diff_in_turn_value", ((values[1] - values[0]).abs()).mean().detach().cpu(), self._batch_num_total)
+                self._update_trainer_metrics('abs_diff_in_turn_value', (values[1] - values[0]).abs().mean())
 
         try:
             loss = output_dict["loss"]
@@ -663,6 +671,8 @@ class Trainer(Registrable):
         judge = self._model if self._model.is_judge else self._model.judge
         metrics = judge.get_metrics(reset=reset)
         metrics["loss"] = float(total_loss / num_batches) if num_batches > 0 else 0.0
+        trainer_metrics = {name: metric.get_metric(reset).item() for name, metric in self._trainer_metrics.items()}
+        metrics.update(trainer_metrics)
         return metrics
 
     def _train_epoch(self, epoch: int) -> Dict[str, float]:
