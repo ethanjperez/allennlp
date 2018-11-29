@@ -43,7 +43,7 @@
                 "num_filters": 100,
                 "ngram_filter_sizes": [5]
                 },
-                "dropout": 0.2
+                "dropout": 0.7
             }
         }
     },
@@ -54,7 +54,7 @@
       "input_size": 200,
       "hidden_size": 100,
       "num_layers": 1,
-      "dropout": 0.2
+      "dropout": 0.7
     },
     "similarity_function": {
       "type": "linear",
@@ -68,7 +68,7 @@
       "input_size": 800,
       "hidden_size": 100,
       "num_layers": 2,
-      "dropout": 0.2
+      "dropout": 0.7
     },
     "span_end_encoder": {
       "type": "lstm",
@@ -76,9 +76,9 @@
       "input_size": 1400,
       "hidden_size": 100,
       "num_layers": 1,
-      "dropout": 0.2
+      "dropout": 0.7
     },
-    "dropout": 0.2
+    "dropout": 0.7
   },
   "iterator": {
     "type": "bucket",
