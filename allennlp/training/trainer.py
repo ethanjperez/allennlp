@@ -466,6 +466,7 @@ class Trainer(Registrable):
         Does a forward pass on the given batch and returns the ``loss`` value in the result.
         If ``for_training`` is `True` also applies regularization penalty.
         """
+        print("Here!")
         # If overriding default passage revealing method
         if debate_mode is None:
             debate_mode = self._debate_mode
@@ -484,6 +485,10 @@ class Trainer(Registrable):
         # Precomputation. NB: Move from CPU to GPU if slow
         bsz = batch['question']['tokens'].size(0)
         eos_token_idx = self._model.vocab.get_token_index('.')
+
+        # import IPython
+        # IPython.embed()
+
         eos_idxs = (batch['passage']['tokens'] == eos_token_idx).long()
         sent_idxs = eos_idxs.cumsum(1) - eos_idxs  # NOTE: Padding regions have sent_idxs == num_sents
         pad_masks = (batch['passage']['tokens'] != 0).long()
