@@ -584,7 +584,7 @@ class Trainer(Registrable):
             sent_reveal_idxs.append(sent_reveal_idx)
             sent_reveal_masks.append(sent_reveal_mask)
             sent_reveal_probs.append(sent_reveal_prob)
-            values.append(value)
+            values.append(value.cpu())
 
         # Remove metadata added for A/B forward pass
         for batch_idx in range(bsz):
