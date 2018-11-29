@@ -19,7 +19,7 @@
       }
     }
   },
-  "train_data_path": "datasets/squad/squad-dev-v1.1.json",
+  "train_data_path": "datasets/squad/squad-train-v1.1.json",
   "validation_data_path": "datasets/squad/squad-dev-v1.1.json",
   "model": {
     "type": "bidaf",
@@ -87,9 +87,9 @@
   },
 
   "trainer": {
-    "num_epochs": 50,
+    "num_epochs": 200,
     "grad_norm": 5.0,
-    "patience": 20,
+    "patience": 10,
     "validation_metric": "+em",
     "cuda_device": 0,
     "learning_rate_scheduler": {
