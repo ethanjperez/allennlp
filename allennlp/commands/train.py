@@ -252,6 +252,8 @@ def create_serialization_dir(params: Params, serialization_dir: str, recover: bo
             flat_params = params.as_flat_dict()
             flat_loaded = loaded_params.as_flat_dict()
             for key in flat_params.keys() - flat_loaded.keys():
+                if key == 'test_data_path':
+                    continue
                 logger.error(f"Key '{key}' found in training configuration but not in the serialization "
                              f"directory we're recovering from.")
                 fail = True
