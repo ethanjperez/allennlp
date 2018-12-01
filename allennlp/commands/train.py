@@ -108,10 +108,11 @@ class Train(Subcommand):
                                default=False,
                                help='update judge while training debate agents')
 
+        # NB: --evaluate does not expand vocab based on test data
         subparser.add_argument('-e', '--evaluate',
                                action='store_true',
                                default=False,
-                               help='run in evaluation-only mode')
+                               help='run in evaluation-only mode on test_data_path (validation if no test given)')
 
         subparser.add_argument('-m', '--reward_method',
                                type=str,
@@ -307,8 +308,8 @@ def train_model(params: Params,
     best_model: ``Model``
         The model with the best epoch weights.
     """
-    # NB: Modify appropriately for multi-round debate
-    assert judge_filename is None or 'a' in debate_mode[0] or 'b' in debate_mode[0], \
+    num_trained_debater_turns = sum(['a' in debate_turn or 'b' in debate_turn for debate_turn in debate_mode])
+    assert judge_filename is None or (num_trained_debater_turns == 0), \
         'Unnecessary to have debaters in debate mode ' + str(debate_mode) + '. Please remove -j flag.'
 
     prepare_environment(params)
@@ -322,6 +323,8 @@ def train_model(params: Params,
     params.to_file(os.path.join(serialization_dir, CONFIG_NAME))
 
     all_datasets = datasets_from_params(params)
+    if evaluate:  # NB: --evaluate does not expand vocab based on test data
+        params["datasets_for_vocab_creation"] = ['train', 'validation']
     datasets_for_vocab_creation = set(params.pop("datasets_for_vocab_creation", all_datasets))
 
     for dataset in datasets_for_vocab_creation:
@@ -384,6 +387,8 @@ def train_model(params: Params,
     train_data = all_datasets['train']
     validation_data = all_datasets.get('validation')
     test_data = all_datasets.get('test')
+    if evaluate and (test_data is not None):
+        validation_data = test_data
 
     trainer_params = params.pop("trainer")
     no_grad_regexes = trainer_params.pop("no_grad", ())
