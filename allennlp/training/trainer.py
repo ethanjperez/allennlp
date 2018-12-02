@@ -478,8 +478,6 @@ class Trainer(Registrable):
         # Model aliases for convenience
         debater = None if self._model.is_judge else self._model
         judge = self._model if self._model.is_judge else self._model.judge
-        assert debater is None or 'a' in debate_mode[0] or 'b' in debate_mode[0], \
-            'Unnecessary to have debaters in debate mode ' + str(debate_mode) + '. Please remove -j flag.'
 
         # Precomputation. NB: Move from CPU to GPU if slow
         bsz = batch['question']['tokens'].size(0)
@@ -659,7 +657,6 @@ class Trainer(Registrable):
                 raise RuntimeError("The model you are trying to optimize does not contain a"
                                    " 'loss' key in the output of model.forward(inputs).")
             loss = None
-
         return loss
 
     def _get_metrics(self, total_loss: float, num_batches: int, reset: bool = False) -> Dict[str, float]:
