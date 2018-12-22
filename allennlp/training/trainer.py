@@ -20,6 +20,7 @@ from typing import Dict, Optional, List, Tuple, Union, Iterable, Any, Set
 
 import torch
 import torch.optim.lr_scheduler
+from torch.nn.functional import binary_cross_entropy
 from torch.nn.parallel import replicate, parallel_apply
 from torch.nn.parallel.scatter_gather import scatter_kwargs, gather
 from tensorboardX import SummaryWriter
@@ -495,7 +496,13 @@ class Trainer(Registrable):
         sent_reveal_masks = []
         sent_reveal_probs = []
         values = []  # Add -1 * torch.ones(bsz) if no value prediction made
-        for turn, method in enumerate(debate_mode[0]):
+        eval_only_turns = ''
+        b_sl_loss = 0.
+        if debater is not None and debater.reward_method == 'sl':
+            assert 'b' in debate_mode[0], 'Supervised learning for non-b agents not yet implemented!'
+            eval_only_turns += 'B'
+
+        for turn, method in enumerate(debate_mode[0] + eval_only_turns):
             # Variables that must be set after each turn
             sent_reveal_idx = None
             sent_reveal_mask = None
@@ -556,7 +563,7 @@ class Trainer(Registrable):
                 sent_reveal_mask = sent_idxs == sent_reveal_idx
                 sent_reveal_prob = torch.ones(bsz)
                 value = torch.FloatTensor(oracle_values)
-            elif method in ['a', 'b']:  # A/B RL selection
+            elif method in ['a', 'b']:  # A/B trained selection
                 assert debater is not None, 'Cannot use debate method ' + method + ' without debate agents!'
                 for batch_idx in range(bsz):  # NB: 'metadata' usually optional but will now cause error if missing
                     batch['metadata'][batch_idx]['a_turn'] = a_turn[turn]
@@ -574,15 +581,20 @@ class Trainer(Registrable):
                 value = ab_output_dict['value']
             else:
                 raise NotImplementedError('Unimplemented answer selection debate method', method)
-            answer_sent_chosen = (sent_reveal_idx == sent_answer_idx).float()  # NOTE: Assumes answer does not cross period boundary
-            self._update_trainer_metrics('answer_sent_chosen' + turn_str[turn], answer_sent_chosen.mean())
 
-            assert (sent_reveal_idx is not None) and (sent_reveal_mask is not None) and (sent_reveal_prob is not None) and (value is not None), \
-                'Error: Did not fill all necessary variables for turn selection.'
-            sent_reveal_idxs.append(sent_reveal_idx)
-            sent_reveal_masks.append(sent_reveal_mask)
-            sent_reveal_probs.append(sent_reveal_prob)
-            values.append(value.cpu())
+            if turn < len(debate_mode[0]):  # Actual masks to apply for training input
+                answer_sent_chosen = (sent_reveal_idx == sent_answer_idx).float()  # NOTE: Assumes answer does not cross period boundary
+                self._update_trainer_metrics('answer_sent_chosen' + turn_str[turn], answer_sent_chosen.mean())
+
+                assert (sent_reveal_idx is not None) and (sent_reveal_mask is not None) and (sent_reveal_prob is not None) and (value is not None), \
+                    'Error: Did not fill all necessary variables for turn selection.'
+                sent_reveal_idxs.append(sent_reveal_idx)
+                sent_reveal_masks.append(sent_reveal_mask)
+                sent_reveal_probs.append(sent_reveal_prob)
+                values.append(value.cpu())
+            else:  # Store information for evaluation and training output (i.e., oracle selections to predict)
+                b_sl_turn = debate_mode[0].index('b')
+                b_sl_loss = binary_cross_entropy(sent_reveal_probs[b_sl_turn], sent_reveal_prob)
 
         # Remove metadata added for A/B forward pass
         for batch_idx in range(bsz):
@@ -633,6 +645,7 @@ class Trainer(Registrable):
             # Initialize loss (including J's supervised loss if necessary)
             output_dict = output_dict if self._model.update_judge else {'loss': torch.Tensor([0])}
             output_dict['loss'] = output_dict['loss'].to(j_score)
+            output_dict['loss'] += b_sl_loss
             # Calculate and set A/B loss
             for turn, method in enumerate(debate_mode[0]):
                 if method in ['a', 'b']:

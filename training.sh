@@ -30,6 +30,9 @@ allennlp train training_config/bidaf.num_epochs=200.j.no_grad=cwp.jsonnet --deba
 allennlp train training_config/bidaf.num_epochs=200.j.no_grad=cwpa.jsonnet --debate_mode gB --serialization-dir tmp/gB.j.no_grad=cwpa.u -j tmp/rr.2/model.tar.gz -u
 allennlp train training_config/bidaf.num_epochs=200.j.no_grad=cwpam.jsonnet --debate_mode gB --serialization-dir tmp/gB.j.no_grad=cwpam.u -j tmp/rr.2/model.tar.gz -u
 
+# Train gb, b with Supervised Learning
+allennlp train training_config/bidaf.jsonnet --serialization-dir tmp/gb.m=sl -j tmp/rr.3/model.tar.gz --debate_mode gb -m sl
+
 # Evaluate abj (add -e -r, no -u)
 allennlp train training_config/bidaf.num_epochs=200.jsonnet --debate_mode rr --serialization-dir tmp/ab.pt\=rr -j tmp/rr.2/model.tar.gz -r -e
 
@@ -38,13 +41,13 @@ allennlp train training_config/bidaf.patience=None.num_epochs=200.jsonnet --deba
 allennlp train training_config/bidaf.patience=None.num_epochs=200.jsonnet --debate_mode ar --serialization-dir tmp/ab.3.pt\=rr.2.u -j tmp/rr.3/model.tar.gz -r -e
 
 # Evaluate j with gB
-allennlp train training_config/bidaf.mini.debug.jsonnet --serialization-dir tmp/debug."$(uuid)" -e --debate_mode gB
+allennlp train training_config/bidaf.cpu.mini.debug.jsonnet --serialization-dir tmp/debug -e --debate_mode gB
 allennlp train training_config/bidaf.num_epochs=200.jsonnet --serialization-dir tmp/rr.2 -e -r --debate_mode gB
 allennlp train training_config/bidaf.num_epochs=200.jsonnet --serialization-dir tmp/rr.2 -e -r --debate_mode gB -o "{'test_data_path': 'datasets/squad/squad-adversarial-add-one-sent.json'}"
 allennlp train training_config/bidaf.num_epochs=200.jsonnet --serialization-dir tmp/rr.2 -e -r --debate_mode gB -o "{'test_data_path': 'datasets/squad/squad-adversarial-add-sent.json'}"
 
 # Debug
-allennlp train training_config/bidaf.mini.debug.jsonnet --serialization-dir tmp/debug."$(uuid)" -j training_config/bidaf.mini.debug.jsonnet -u --debate_mode ab
+allennlp train training_config/bidaf.cpu.mini.debug.jsonnet --serialization-dir tmp/debug -j training_config/bidaf.cpu.mini.debug.jsonnet -u --debate_mode ab
 
 ### SLURM
 # sbatch job
@@ -60,8 +63,8 @@ echo -e "\n${CYAN}${SERIALIZATION_DIR}/train.log\n"
 srun --pty --mem=20000 -t 2-23:58 --gres=gpu:p40 bash
 
 # Get a dev GPU. Other GPUs: {1080ti,titanxp,titanblack,k40,k20,k20x,m2090}
-srun --pty --mem=20000 -t 2-23:58 --gres=gpu:titanxp bash
-srun --pty --mem=20000 -t 2-23:58 --gres=gpu:1080ti:1 bash
+srun --pty --mem=20000 -t 1-23:58 --gres=gpu:titanxp bash
+srun --pty --mem=20000 -t 1-23:58 --gres=gpu:1080ti:1 bash
 
 # Live updating dashboard of your jobs:
 watch 'squeue -o "%.18i %.40j %.10u %.8T %.10M %.9l %.16b %.6C %.6D %R" -u $USER'
