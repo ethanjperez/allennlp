@@ -594,6 +594,8 @@ class Trainer(Registrable):
                 values.append(value.cpu())
             else:  # Store information for evaluation and training output (i.e., oracle selections to predict)
                 b_sl_turn = debate_mode[0].index('b')
+                if 1 in sent_reveal_probs[b_sl_turn]:
+                    print(sent_reveal_probs)
                 b_sl_loss = binary_cross_entropy(sent_reveal_probs[b_sl_turn], sent_reveal_prob)
 
         # Remove metadata added for A/B forward pass
