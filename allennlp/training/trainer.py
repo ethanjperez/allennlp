@@ -595,6 +595,7 @@ class Trainer(Registrable):
             else:  # Store information for evaluation and training output (i.e., oracle selections to predict)
                 b_sl_turn = debate_mode[0].index('b')
                 b_sl_loss = (-torch.log(sent_reveal_probs[b_sl_turn])).mean()
+                self._update_trainer_metrics('b_sl_loss', b_sl_loss)
 
         # Remove metadata added for A/B forward pass
         for batch_idx in range(bsz):
