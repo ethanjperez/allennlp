@@ -64,7 +64,7 @@ allennlp train training_config/bidaf.patience=None.num_epochs=200.dropout=0.6.js
 echo -e "\n${CYAN}${SERIALIZATION_DIR}/train.log\n"
 
 # Get a 24GB GPU
-srun --pty --mem=20000 -t 2-23:58 --gres=gpu:p40 bash
+srun --pty --mem=20000 -t 6-23:58 --gres=gpu:p40 bash
 
 # Get a dev GPU. Other GPUs: {1080ti,titanxp,titanblack,k40,k20,k20x,m2090}
 srun --pty --mem=20000 -t 1-23:58 --gres=gpu:titanxp bash
