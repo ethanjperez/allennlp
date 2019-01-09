@@ -7,4 +7,5 @@ These submodules contain readers for things that are predominantly reading compr
 
 from allennlp.data.dataset_readers.reading_comprehension.squad import SquadReader
 from allennlp.data.dataset_readers.reading_comprehension.quac import QuACReader
+from allennlp.data.dataset_readers.reading_comprehension.race import RaceReader
 from allennlp.data.dataset_readers.reading_comprehension.triviaqa import TriviaQaReader
