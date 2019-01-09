@@ -498,7 +498,8 @@ class Trainer(Registrable):
         values = []  # Add -1 * torch.ones(bsz) if no value prediction made
         eval_only_turns = ''
         b_sl_loss = 0.
-        if debater is not None and debater.reward_method == 'sl':
+        b_sl_training = debater is not None and debater.reward_method == 'sl'
+        if b_sl_training:
             assert 'b' in debate_mode[0], 'Supervised learning for non-b agents not yet implemented!'
             eval_only_turns += 'B'
 
@@ -593,6 +594,7 @@ class Trainer(Registrable):
                 sent_reveal_probs.append(sent_reveal_prob)
                 values.append(value.cpu())
             else:  # Store information for evaluation and training output (i.e., oracle selections to predict)
+                assert b_sl_training, 'Error: Updating b_sl_loss though b_sl_training == False'
                 b_sl_turn = debate_mode[0].index('b')
                 b_sl_loss = (-torch.log(sent_reveal_probs[b_sl_turn])).mean()
                 self._update_trainer_metrics('b_sl_loss', b_sl_loss)
@@ -649,7 +651,7 @@ class Trainer(Registrable):
             output_dict['loss'] += b_sl_loss
             # Calculate and set A/B loss
             for turn, method in enumerate(debate_mode[0]):
-                if method in ['a', 'b']:
+                if method == 'a' or ((method == 'b') and (not b_sl_training)):
                     grad_dir = -1 if a_turn[turn] else 1
                     baseline = values[turn].to(j_score)
                     policy_loss = grad_dir * (torch.log(sent_reveal_probs[turn]) * (j_score - baseline.detach())).mean()
