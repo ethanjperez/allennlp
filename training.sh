@@ -3,7 +3,7 @@
 ### AllenNLP Commands
 
 # RACE: Training J on full passage (normal supervised training)
-allennlp train training_config/bidaf.race.size=half.jsonnet --serialization-dir tmp/race.j.pt=f --debate_mode f
+allennlp train training_config/bidaf.race.size=half.jsonnet --serialization-dir tmp/race.j.pt=f.size=half.dropout=0.2 --debate_mode f
 
 # Training J only:
 allennlp train training_config/bidaf.num_epochs=200.jsonnet --debate_mode rr --serialization-dir tmp/rr.2
@@ -57,10 +57,10 @@ allennlp train training_config/bidaf.cpu.mini.debug.jsonnet --serialization-dir 
 ### SLURM
 # sbatch job
 # NB: Update SERIALIZATION_DIR every run!
-export SERIALIZATION_DIR=tmp/gb.m=sl.dropout=0.6
+export SERIALIZATION_DIR=tmp/race.j.pt=f.size=half.dropout=0.2
 if test -e $SERIALIZATION_DIR; then echo -e "\n${PURPLE}NOTICE: Directory already exists. Make sure you wanted to load from an existing checkpoint.\n"; else mkdir -p $SERIALIZATION_DIR; fi
 sbatch --job-name $SERIALIZATION_DIR --mem=20000 -t 6-23:58 --gres=gpu:p40 --open-mode append --requeue --wrap "\
-allennlp train training_config/bidaf.patience=None.num_epochs=200.dropout=0.6.jsonnet --serialization-dir tmp/gb.m=sl.dropout=0.6 -j tmp/rr.3/model.tar.gz --debate_mode gb -m sl
+allennlp train training_config/bidaf.race.size=half.jsonnet --serialization-dir tmp/race.j.pt=f.size=half.dropout=0.2 --debate_mode f
 "
 echo -e "\n${CYAN}${SERIALIZATION_DIR}/train.log\n"
 
