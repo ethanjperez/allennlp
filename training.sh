@@ -2,7 +2,8 @@
 
 ### AllenNLP Commands
 
-# Training Normal Squad Model
+# RACE: Training J on full passage (normal supervised training)
+allennlp train training_config/bidaf.race.jsonnet --serialization-dir tmp/race.j.pt=f --debate_mode f
 
 # Training J only:
 allennlp train training_config/bidaf.num_epochs=200.jsonnet --debate_mode rr --serialization-dir tmp/rr.2
