@@ -177,9 +177,6 @@ if __name__ == "__main__":
                     # Append to article dict
                     article_dict["paragraphs"].append(paragraph_dict)
 
-                    import IPython
-                    IPython.embed()
-
                 # Add article dict to data
                 if dt == "train":
                     train_data["data"].append(article_dict)
