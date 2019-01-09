@@ -32,7 +32,7 @@ allennlp train training_config/bidaf.num_epochs=200.j.no_grad=cwpam.jsonnet --de
 
 # Train b on gb with SL on oracle
 allennlp train training_config/bidaf.cpu.mini.debug.jsonnet --serialization-dir tmp/debug -j training_config/bidaf.cpu.mini.debug.jsonnet -u --debate_mode gb -m sl
-allennlp train training_config/bidaf.patience=None.num_epochs=200.jsonnet --serialization-dir tmp/gb.m=sl -j tmp/rr.3/model.tar.gz --debate_mode gb -m sl
+allennlp train training_config/bidaf.patience=None.num_epochs=200.jsonnet --serialization-dir tmp/gb.m=sl.dropout=0.2 -j tmp/rr.3/model.tar.gz --debate_mode gb -m sl
 
 # Evaluate abj (add -e -r, no -u)
 allennlp train training_config/bidaf.num_epochs=200.jsonnet --debate_mode rr --serialization-dir tmp/ab.pt\=rr -j tmp/rr.2/model.tar.gz -r -e
@@ -53,10 +53,10 @@ allennlp train training_config/bidaf.cpu.mini.debug.jsonnet --serialization-dir 
 ### SLURM
 # sbatch job
 # NB: Update SERIALIZATION_DIR every run!
-export SERIALIZATION_DIR=tmp/ab.3.pt=rr.3
+export SERIALIZATION_DIR=tmp/gb.m=sl.dropout=0.6
 if test -e $SERIALIZATION_DIR; then echo -e "\n${PURPLE}NOTICE: Directory already exists. Make sure you wanted to load from an existing checkpoint.\n"; else mkdir -p $SERIALIZATION_DIR; fi
 sbatch --job-name $SERIALIZATION_DIR --mem=20000 -t 6-23:58 --gres=gpu:p40 --open-mode append --requeue --wrap "\
-allennlp train training_config/bidaf.patience=None.num_epochs=200.jsonnet --debate_mode ab --serialization-dir tmp/ab.3.pt=rr.3 -j tmp/rr.3/model.tar.gz
+allennlp train training_config/bidaf.patience=None.num_epochs=200.dropout=0.6.jsonnet --serialization-dir tmp/gb.m=sl.dropout=0.6 -j tmp/rr.3/model.tar.gz --debate_mode gb -m sl
 "
 echo -e "\n${CYAN}${SERIALIZATION_DIR}/train.log\n"
 
