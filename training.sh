@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 
 ### AllenNLP Commands
+
+# Training Normal Squad Model
+
 # Training J only:
 allennlp train training_config/bidaf.num_epochs=200.jsonnet --debate_mode rr --serialization-dir tmp/rr.2
 
