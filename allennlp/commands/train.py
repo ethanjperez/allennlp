@@ -36,6 +36,7 @@ import argparse
 import logging
 import os
 import re
+import shutil
 import warnings
 
 import torch
@@ -231,6 +232,9 @@ def create_serialization_dir(params: Params, serialization_dir: str, recover: bo
         If ``True``, we will try to recover from an existing serialization directory, and crash if
         the directory doesn't exist, or doesn't match the configuration we're given.
     """
+    if os.path.exists(serialization_dir) and serialization_dir.endswith('debug'):
+        shutil.rmtree(serialization_dir)  # Overwrite "debug" directory automatically (if nec.)
+
     if os.path.exists(serialization_dir) and os.listdir(serialization_dir) and len(os.listdir(serialization_dir)) > 0:
         if not recover:
             raise ConfigurationError(f"Serialization directory ({serialization_dir}) already exists and is "
