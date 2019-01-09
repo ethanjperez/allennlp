@@ -20,7 +20,6 @@ from typing import Dict, Optional, List, Tuple, Union, Iterable, Any, Set
 
 import torch
 import torch.optim.lr_scheduler
-from torch.nn.functional import binary_cross_entropy
 from torch.nn.parallel import replicate, parallel_apply
 from torch.nn.parallel.scatter_gather import scatter_kwargs, gather
 from tensorboardX import SummaryWriter
