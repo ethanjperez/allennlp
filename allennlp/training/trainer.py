@@ -498,19 +498,19 @@ class Trainer(Registrable):
             a_turn = {turn: debate_mode[0][turn] == 'a' for turn in range(len(debate_mode[0]))}
             turn_str = {turn: "_turn_" + str(turn) + "_agent_" + debate_mode[0][turn] for turn in range(num_turns)}
 
-            # Execute player turns to determine mask
+            # Add any turns that shouldn't directly add to loss (i.e., calculating Oracle B predictions)
+            b_sl_training = debater is not None and debater.reward_method == 'sl'
+            assert (not b_sl_training) or debate_mode[0] == 'gb', 'Supervised learning only supported for GT vs. b'
+
+            # Execute player turns to determine mask. NB: Refactor a player turn into one function
             sent_reveal_idxs = []
             sent_reveal_masks = []
             sent_reveal_probs = []
             values = []  # Add -1 * torch.ones(bsz) if no value prediction made
-            eval_only_turns = ''
-            b_sl_loss = 0.
-            b_sl_training = debater is not None and debater.reward_method == 'sl'
-            if b_sl_training:
-                assert 'b' in debate_mode[0], 'Supervised learning for non-b agents not yet implemented!'
-                eval_only_turns += 'B'
-
-            for turn, method in enumerate(debate_mode[0] + eval_only_turns):
+            for turn, method in enumerate(debate_mode[0] if not b_sl_training else debate_mode[0].replace('b', 'Bb')):
+                # NB: Remove b_sl_training hard-coding below and above. Refactor a player turn into one function
+                if b_sl_training and method == 'b' and turn == 2:
+                    turn = 1
                 # Variables that must be set after each turn
                 sent_reveal_idx = None
                 sent_reveal_mask = None
@@ -578,33 +578,39 @@ class Trainer(Registrable):
                     ab_output_dict = self._forward(batch, debater)
                     debater.get_metrics(reset=True)  # A/B metrics currently meaningless, so clear
 
-                    # NB: Can optimize if each computation is happening on CPU or GPU
                     # Sample from policy's sentence-level distribution
                     word_reveal_dist = ab_output_dict['span_start_probs']
+                    # NB: Technically should do argmax on sentence-level distribution!
                     word_reveal_idx = torch.multinomial(word_reveal_dist, 1) if for_training else torch.argmax(word_reveal_dist, dim=1, keepdim=True)
-
                     sent_reveal_idx = sent_idxs.gather(1, word_reveal_idx.to(sent_idxs.device))
                     sent_reveal_mask = sent_idxs == sent_reveal_idx
-                    sent_reveal_prob = (word_reveal_dist.to(sent_reveal_mask.device) * sent_reveal_mask.to(word_reveal_dist.dtype)).sum(1)
+
+                    if b_sl_training:  # SL: No sampling for prediction probs. Forcibly choose Oracle's prediction
+                        b_sl_sampling_acc = (sent_reveal_idx == oracle_sent_reveal_idx).float()
+                        self._update_trainer_metrics('b_sl_sampling_acc', b_sl_sampling_acc.mean())
+                        sent_reveal_prob = (word_reveal_dist.to(oracle_sent_reveal_mask.device) * oracle_sent_reveal_mask.to(word_reveal_dist.dtype)).sum(1)
+                    else:  # RL: Use prob of sampled sentence to calculate loss
+                        sent_reveal_prob = (word_reveal_dist.to(sent_reveal_mask.device) * sent_reveal_mask.to(word_reveal_dist.dtype)).sum(1)
+
                     value = ab_output_dict['value']
                 else:
                     raise NotImplementedError('Unimplemented answer selection debate method', method)
 
-                if turn < len(debate_mode[0]):  # Actual masks to apply for training input
-                    answer_sent_chosen = (sent_reveal_idx == sent_answer_idx).float()  # NOTE: Assumes answer does not cross period boundary
-                    self._update_trainer_metrics('answer_sent_chosen' + turn_str[turn], answer_sent_chosen.mean())
+                # Apply masks / use probs only after eval-only turns are finished
+                if b_sl_training and method == 'B' and turn == 1:
+                    oracle_sent_reveal_idx = sent_reveal_idx
+                    oracle_sent_reveal_mask = sent_reveal_mask
+                    continue
 
-                    assert (sent_reveal_idx is not None) and (sent_reveal_mask is not None) and (sent_reveal_prob is not None) and (value is not None), \
-                        'Error: Did not fill all necessary variables for turn selection.'
-                    sent_reveal_idxs.append(sent_reveal_idx)
-                    sent_reveal_masks.append(sent_reveal_mask)
-                    sent_reveal_probs.append(sent_reveal_prob)
-                    values.append(value.cpu())
-                else:  # Store information for evaluation and training output (i.e., oracle selections to predict)
-                    assert b_sl_training, 'Error: Updating b_sl_loss though b_sl_training == False'
-                    b_sl_turn = debate_mode[0].index('b')
-                    b_sl_loss = (-torch.log(sent_reveal_probs[b_sl_turn])).mean()
-                    self._update_trainer_metrics('b_sl_loss', b_sl_loss)
+                answer_sent_chosen = (sent_reveal_idx == sent_answer_idx).float()  # NOTE: Assumes answer does not cross period boundary
+                self._update_trainer_metrics('answer_sent_chosen' + turn_str[turn], answer_sent_chosen.mean())
+
+                assert (sent_reveal_idx is not None) and (sent_reveal_mask is not None) and (sent_reveal_prob is not None) and (value is not None), \
+                    'Error: Did not fill all necessary variables for turn selection.'
+                sent_reveal_idxs.append(sent_reveal_idx)
+                sent_reveal_masks.append(sent_reveal_mask)
+                sent_reveal_probs.append(sent_reveal_prob)
+                values.append(value.cpu())
 
             # Remove metadata added for A/B forward pass
             for batch_idx in range(bsz):
@@ -655,19 +661,23 @@ class Trainer(Registrable):
                 # Initialize loss (including J's supervised loss if necessary)
                 output_dict = output_dict if self._model.update_judge else {'loss': torch.Tensor([0])}
                 output_dict['loss'] = output_dict['loss'].to(j_score)
-                output_dict['loss'] += b_sl_loss
                 # Calculate and set A/B loss
                 for turn, method in enumerate(debate_mode[0]):
-                    if method == 'a' or ((method == 'b') and (not b_sl_training)):
-                        grad_dir = -1 if a_turn[turn] else 1
-                        baseline = values[turn].to(j_score)
-                        policy_loss = grad_dir * (torch.log(sent_reveal_probs[turn]) * (j_score - baseline.detach())).mean()
-                        output_dict['loss'] += policy_loss
-                        value_loss = 0.5 * ((j_score - baseline) ** 2).mean()  # Value loss
-                        output_dict['loss'] += value_loss
-                        self._update_trainer_metrics('policy_loss' + turn_str[turn], policy_loss)
-                        self._update_trainer_metrics('value' + turn_str[turn], baseline.mean())
-                        self._update_trainer_metrics('value_loss' + turn_str[turn], value_loss)  # Upper bound ~= .125
+                    if method in ['a', 'b']:
+                        if b_sl_training:
+                            b_sl_loss = (-torch.log(sent_reveal_probs[turn])).mean()  # Upweight prob. of Oracle choice
+                            output_dict['loss'] += b_sl_loss
+                            self._update_trainer_metrics('b_sl_loss', b_sl_loss)
+                        else:
+                            grad_dir = -1 if a_turn[turn] else 1
+                            baseline = values[turn].to(j_score)
+                            policy_loss = grad_dir * (torch.log(sent_reveal_probs[turn]) * (j_score - baseline.detach())).mean()
+                            output_dict['loss'] += policy_loss
+                            value_loss = 0.5 * ((j_score - baseline) ** 2).mean()  # Value loss
+                            output_dict['loss'] += value_loss
+                            self._update_trainer_metrics('policy_loss' + turn_str[turn], policy_loss)
+                            self._update_trainer_metrics('value' + turn_str[turn], baseline.mean())
+                            self._update_trainer_metrics('value_loss' + turn_str[turn], value_loss)  # Upper bound ~= .125
                 if len(values) == 2:
                     self._update_trainer_metrics('abs_diff_in_turn_value', (values[1] - values[0]).abs().mean())
 
