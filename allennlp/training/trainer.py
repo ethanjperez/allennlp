@@ -185,7 +185,8 @@ class Trainer(Registrable):
                  histogram_interval: int = None,
                  should_log_parameter_statistics: bool = True,
                  should_log_learning_rate: bool = False,
-                 evaluate: bool = False) -> None:
+                 evaluate: bool = False,
+                 breakpoint_level: int = 0) -> None:
         """
         Parameters
         ----------
@@ -280,6 +281,7 @@ class Trainer(Registrable):
         self._train_data = train_dataset
         self._validation_data = validation_dataset
         self._evaluate = evaluate
+        self._breakpoint_level = breakpoint_level
 
         self._trainer_metrics = {}
         if patience is None:  # no early stopping
@@ -499,8 +501,8 @@ class Trainer(Registrable):
             turn_str = {turn: "_turn_" + str(turn) + "_agent_" + debate_mode[0][turn] for turn in range(num_turns)}
 
             # Add any turns that shouldn't directly add to loss (i.e., calculating Oracle B predictions)
-            b_sl_training = debater is not None and debater.reward_method == 'sl'
-            assert (not b_sl_training) or debate_mode[0] == 'gb', 'Supervised learning only supported for GT vs. b'
+            b_sl_training = (debater is not None) and (debater.reward_method == 'sl')
+            assert (not b_sl_training) or (debate_mode[0] == 'gb'), 'Supervised learning only supported for GT vs. b'
 
             # Execute player turns to determine mask. NB: Refactor a player turn into one function
             sent_reveal_idxs = []
@@ -509,7 +511,7 @@ class Trainer(Registrable):
             values = []  # Add -1 * torch.ones(bsz) if no value prediction made
             for turn, method in enumerate(debate_mode[0] if not b_sl_training else debate_mode[0].replace('b', 'Bb')):
                 # NB: Remove b_sl_training hard-coding below and above. Refactor a player turn into one function
-                if b_sl_training and method == 'b' and turn == 2:
+                if b_sl_training and (method == 'b') and (turn == 2):
                     turn = 1
                 # Variables that must be set after each turn
                 sent_reveal_idx = None
@@ -532,6 +534,7 @@ class Trainer(Registrable):
                     # NOTE: Set below to None to make oracle selection simultaneous with other selections
                     past_sent_reveal_idxs = torch.cat(sent_reveal_idxs, 1) if len(sent_reveal_idxs) > 0 else None
                     opt_idxs = []
+                    sc_changes = []
                     oracle_values = []
                     judge_was_training = judge.training
                     judge.eval()
@@ -562,10 +565,13 @@ class Trainer(Registrable):
                         oracle_output_dict, oracle_metrics = self._forward(oracle_batch, judge)
                         oracle_metrics = oracle_metrics.get_metric(reset=True, per_sample=True)[1 if oracle_eval_method == 'f1' else 0]
                         opt_sc = oracle_func(oracle_metrics)
+                        sub_opt_mean_sc = (sum(oracle_metrics) - opt_sc) / float(len(oracle_metrics) - 1)
                         oracle_values.append(opt_sc)
                         opt_idxs.append(oracle_metrics.index(opt_sc))
+                        sc_changes.append(sub_opt_mean_sc - opt_sc)
                     if judge_was_training:
                         judge.train()
+                    sc_changes = torch.Tensor(sc_changes)
 
                     sent_reveal_idx = torch.LongTensor(opt_idxs).unsqueeze(1)
                     sent_reveal_mask = sent_idxs == sent_reveal_idx
@@ -579,7 +585,9 @@ class Trainer(Registrable):
                     debater.get_metrics(reset=True)  # A/B metrics currently meaningless, so clear
 
                     # Sample from policy's sentence-level distribution
-                    import ipdb; ipdb.set_trace()
+                    # NB: Examine b preds. F1? Does swapping in Oracle preds swapped lower F1? sent_reveal_idx == 0?
+                    # NB: How accurate is b for samples where Oracle drops Judge score (by a lot / to 0)?
+                    if self._breakpoint_level >= 1: import ipdb; ipdb.set_trace()
                     word_reveal_dist = ab_output_dict['span_start_probs']
                     # NB: Technically should do argmax on sentence-level distribution!
                     word_reveal_idx = torch.multinomial(word_reveal_dist, 1)  # if for_training else torch.argmax(word_reveal_dist, dim=1, keepdim=True)
@@ -589,6 +597,11 @@ class Trainer(Registrable):
                     if b_sl_training:  # SL: No sampling for prediction probs. Forcibly choose Oracle's prediction
                         b_sl_sampling_acc = (sent_reveal_idx == oracle_sent_reveal_idx).float()
                         self._update_trainer_metrics('b_sl_sampling_acc', b_sl_sampling_acc.mean())
+                        for i in range(11):
+                            threshold = i / 10.
+                            oracle_big_sc_change_idxs = (sc_changes * (sc_changes.abs() > threshold).float()).nonzero()
+                            if len(oracle_big_sc_change_idxs) > 0:
+                                self._update_trainer_metrics('b_sl_sampling_acc_where_maxF1drop>' + str(threshold), b_sl_sampling_acc[oracle_big_sc_change_idxs].mean())
                         sent_reveal_prob = (word_reveal_dist.to(oracle_sent_reveal_mask.device) * oracle_sent_reveal_mask.to(word_reveal_dist.dtype)).sum(1)
                     else:  # RL: Use prob of sampled sentence to calculate loss
                         sent_reveal_prob = (word_reveal_dist.to(sent_reveal_mask.device) * sent_reveal_mask.to(word_reveal_dist.dtype)).sum(1)
@@ -598,7 +611,7 @@ class Trainer(Registrable):
                     raise NotImplementedError('Unimplemented answer selection debate method', method)
 
                 # Apply masks / use probs only after eval-only turns are finished
-                if b_sl_training and method == 'B' and turn == 1:
+                if b_sl_training and (method == 'B') and (turn == 1):
                     oracle_sent_reveal_idx = sent_reveal_idx
                     oracle_sent_reveal_mask = sent_reveal_mask
                     continue
@@ -1275,7 +1288,8 @@ class Trainer(Registrable):
                     validation_data: Optional[Iterable[Instance]],
                     params: Params,
                     validation_iterator: DataIterator = None,
-                    evaluate: bool = False) -> 'Trainer':
+                    evaluate: bool = False,
+                    breakpoint_level: int = 0) -> 'Trainer':
         # pylint: disable=arguments-differ
         patience = params.pop_int("patience", None)
         validation_metric = params.pop("validation_metric", "-loss")
@@ -1326,7 +1340,8 @@ class Trainer(Registrable):
                    histogram_interval=histogram_interval,
                    should_log_parameter_statistics=should_log_parameter_statistics,
                    should_log_learning_rate=should_log_learning_rate,
-                   evaluate=evaluate)
+                   evaluate=evaluate,
+                   breakpoint_level=breakpoint_level)
 
 
 Trainer.register("default")(Trainer)

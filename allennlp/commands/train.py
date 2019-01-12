@@ -127,6 +127,11 @@ class Train(Subcommand):
                                help='Detach value head prediction network from main policy network,'
                                     'to prevent gradients to value function from overpowering gradients to policy')
 
+        subparser.add_argument('-b', '--breakpoint_level',
+                               type=int,
+                               default=0,
+                               help='Debugging option: Increase to run with more breakpoints. 0 for no breakpoints.')
+
         subparser.set_defaults(func=train_model_from_args)
 
         return subparser
@@ -145,7 +150,8 @@ def train_model_from_args(args: argparse.Namespace):
                           args.update_judge,
                           args.evaluate,
                           args.reward_method,
-                          args.detach_value_head)
+                          args.detach_value_head,
+                          args.breakpoint_level)
 
 
 def train_model_from_file(parameter_filename: str,
@@ -158,7 +164,8 @@ def train_model_from_file(parameter_filename: str,
                           update_judge: bool = False,
                           evaluate: bool = False,
                           reward_method: str = None,
-                          detach_value_head: bool = False) -> Model:
+                          detach_value_head: bool = False,
+                          breakpoint_level: int = 0) -> Model:
     """
     A wrapper around :func:`train_model` which loads the params from a file.
 
@@ -182,7 +189,7 @@ def train_model_from_file(parameter_filename: str,
     # Load the experiment config from a file and pass it to ``train_model``.
     params = Params.from_file(parameter_filename, overrides)
     return train_model(params, serialization_dir, debate_mode, file_friendly_logging, recover,
-                       judge_filename, update_judge, evaluate, reward_method, detach_value_head)
+                       judge_filename, update_judge, evaluate, reward_method, detach_value_head, breakpoint_level)
 
 
 def datasets_from_params(params: Params) -> Dict[str, Iterable[Instance]]:
@@ -295,7 +302,8 @@ def train_model(params: Params,
                 update_judge: bool = False,
                 evaluate: bool = False,
                 reward_method: str = None,
-                detach_value_head: bool = False) -> Model:
+                detach_value_head: bool = False,
+                breakpoint_level: int = 0) -> Model:
     """
     Trains the model specified in the given :class:`Params` object, using the data and training
     parameters also specified in that object, and saves the results in ``serialization_dir``.
@@ -428,7 +436,8 @@ def train_model(params: Params,
                                                           validation_data=validation_data,
                                                           params=trainer_params,
                                                           validation_iterator=validation_iterator,
-                                                          evaluate=evaluate)
+                                                          evaluate=evaluate,
+                                                          breakpoint_level=breakpoint_level)
 
     evaluate_on_test = params.pop_bool("evaluate_on_test", False)
     params.assert_empty('base train command')
