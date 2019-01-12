@@ -597,11 +597,15 @@ class Trainer(Registrable):
                     if b_sl_training:  # SL: No sampling for prediction probs. Forcibly choose Oracle's prediction
                         b_sl_sampling_acc = (sent_reveal_idx == oracle_sent_reveal_idx).float()
                         self._update_trainer_metrics('b_sl_sampling_acc', b_sl_sampling_acc.mean())
-                        for i in range(11):
-                            threshold = i / 10.
-                            oracle_big_sc_change_idxs = (sc_changes * (sc_changes.abs() > threshold).float()).nonzero()
-                            if len(oracle_big_sc_change_idxs) > 0:
-                                self._update_trainer_metrics('b_sl_sampling_acc_where_maxF1drop>' + str(threshold), b_sl_sampling_acc[oracle_big_sc_change_idxs].mean())
+                        for i in range(-1, 10):
+                            thres_start = i / 10.
+                            thres_end = (i + 1) / 10.
+                            thres_start_mask = (sc_changes.abs() > thres_start).float()
+                            thres_end_mask = (thres_end >= sc_changes.abs()).float()
+                            oracle_sc_change_in_thres_idxs = (thres_start_mask * thres_end_mask).nonzero()
+                            if len(oracle_sc_change_in_thres_idxs) > 0:
+                                self._update_trainer_metrics('b_sl_sampling_acc_where_' + str(thres_end) + '>=maxF1drop>' + str(thres_start), b_sl_sampling_acc[oracle_sc_change_in_thres_idxs].mean())
+                                self._update_trainer_metrics('num_samples_where_' + str(thres_end) + '>=maxF1drop>' + str(thres_start), torch.tensor(len(oracle_sc_change_in_thres_idxs)))
                         sent_reveal_prob = (word_reveal_dist.to(oracle_sent_reveal_mask.device) * oracle_sent_reveal_mask.to(word_reveal_dist.dtype)).sum(1)
                     else:  # RL: Use prob of sampled sentence to calculate loss
                         sent_reveal_prob = (word_reveal_dist.to(sent_reveal_mask.device) * sent_reveal_mask.to(word_reveal_dist.dtype)).sum(1)
