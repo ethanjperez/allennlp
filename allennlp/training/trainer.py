@@ -534,7 +534,8 @@ class Trainer(Registrable):
                     # NOTE: Set below to None to make oracle selection simultaneous with other selections
                     past_sent_reveal_idxs = torch.cat(sent_reveal_idxs, 1) if len(sent_reveal_idxs) > 0 else None
                     opt_idxs = []
-                    sc_changes = []
+                    if b_sl_training:
+                        sc_changes = []
                     oracle_values = []
                     judge_was_training = judge.training
                     judge.eval()
@@ -565,13 +566,13 @@ class Trainer(Registrable):
                         oracle_output_dict, oracle_metrics = self._forward(oracle_batch, judge)
                         oracle_metrics = oracle_metrics.get_metric(reset=True, per_sample=True)[1 if oracle_eval_method == 'f1' else 0]
                         opt_sc = oracle_func(oracle_metrics)
-                        sub_opt_mean_sc = opt_sc if (len(oracle_metrics) == 1) else (sum(oracle_metrics) - opt_sc) / float(len(oracle_metrics) - 1)
                         oracle_values.append(opt_sc)
                         opt_idxs.append(oracle_metrics.index(opt_sc))
-                        sc_changes.append(sub_opt_mean_sc - opt_sc)
+                        if b_sl_training:
+                            no_reveal_sc = oracle_metrics[past_sent_reveal_idxs[sample_no, 0]]
+                            sc_changes.append(no_reveal_sc - opt_sc)
                     if judge_was_training:
                         judge.train()
-                    sc_changes = torch.Tensor(sc_changes)
 
                     sent_reveal_idx = torch.LongTensor(opt_idxs).unsqueeze(1)
                     sent_reveal_mask = sent_idxs == sent_reveal_idx
@@ -597,6 +598,7 @@ class Trainer(Registrable):
                     if b_sl_training:  # SL: No sampling for prediction probs. Forcibly choose Oracle's prediction
                         b_sl_sampling_acc = (sent_reveal_idx == oracle_sent_reveal_idx).float()
                         self._update_trainer_metrics('b_sl_sampling_acc', b_sl_sampling_acc.mean())
+                        sc_changes = torch.Tensor(sc_changes)
                         for i in range(-1, 10):
                             thres_start = i / 10.
                             thres_end = (i + 1) / 10.
