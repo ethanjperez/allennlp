@@ -603,9 +603,9 @@ class Trainer(Registrable):
                             thres_start_mask = (sc_changes.abs() > thres_start).float()
                             thres_end_mask = (thres_end >= sc_changes.abs()).float()
                             oracle_sc_change_in_thres_idxs = (thres_start_mask * thres_end_mask).nonzero()
-                            if len(oracle_sc_change_in_thres_idxs) > 0:
-                                self._update_trainer_metrics('b_sl_sampling_acc_where_' + str(thres_end) + '>=maxF1drop>' + str(thres_start), b_sl_sampling_acc[oracle_sc_change_in_thres_idxs].mean())
-                                self._update_trainer_metrics('num_samples_where_' + str(thres_end) + '>=maxF1drop>' + str(thres_start), torch.tensor(len(oracle_sc_change_in_thres_idxs)))
+                            self._update_trainer_metrics('num_samples_per_batch_where_' + str(thres_end) + '>=maxF1drop>' + str(thres_start), torch.tensor(len(oracle_sc_change_in_thres_idxs)))
+                            for idx in oracle_sc_change_in_thres_idxs:
+                                self._update_trainer_metrics('b_sl_sampling_acc_where_' + str(thres_end) + '>=maxF1drop>' + str(thres_start), b_sl_sampling_acc[idx])
                         sent_reveal_prob = (word_reveal_dist.to(oracle_sent_reveal_mask.device) * oracle_sent_reveal_mask.to(word_reveal_dist.dtype)).sum(1)
                     else:  # RL: Use prob of sampled sentence to calculate loss
                         sent_reveal_prob = (word_reveal_dist.to(sent_reveal_mask.device) * sent_reveal_mask.to(word_reveal_dist.dtype)).sum(1)
