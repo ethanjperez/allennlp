@@ -565,7 +565,7 @@ class Trainer(Registrable):
                         oracle_output_dict, oracle_metrics = self._forward(oracle_batch, judge)
                         oracle_metrics = oracle_metrics.get_metric(reset=True, per_sample=True)[1 if oracle_eval_method == 'f1' else 0]
                         opt_sc = oracle_func(oracle_metrics)
-                        sub_opt_mean_sc = (sum(oracle_metrics) - opt_sc) / float(len(oracle_metrics) - 1)
+                        sub_opt_mean_sc = opt_sc if (len(oracle_metrics) == 1) else (sum(oracle_metrics) - opt_sc) / float(len(oracle_metrics) - 1)
                         oracle_values.append(opt_sc)
                         opt_idxs.append(oracle_metrics.index(opt_sc))
                         sc_changes.append(sub_opt_mean_sc - opt_sc)
