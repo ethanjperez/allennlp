@@ -51,6 +51,9 @@ allennlp train training_config/bidaf.num_epochs=200.jsonnet --serialization-dir 
 allennlp train training_config/bidaf.num_epochs=200.jsonnet --serialization-dir tmp/rr.2 -e -r --debate_mode gB -o "{'test_data_path': 'datasets/squad/squad-adversarial-add-one-sent.json'}"
 allennlp train training_config/bidaf.num_epochs=200.jsonnet --serialization-dir tmp/rr.2 -e -r --debate_mode gB -o "{'test_data_path': 'datasets/squad/squad-adversarial-add-sent.json'}"
 
+# Evaluate j with gb (SL-trained)
+allennlp train training_config/bidaf.patience=None.num_epochs=200.jsonnet --serialization-dir tmp/gb.m=sl.dropout=0.2.backup -j tmp/rr.3/model.tar.gz --debate_mode gb -m sl -e -r
+
 # Debug
 allennlp train training_config/bidaf.cpu.mini.debug.jsonnet --serialization-dir tmp/debug -j training_config/bidaf.cpu.mini.debug.jsonnet -u --debate_mode ab
 

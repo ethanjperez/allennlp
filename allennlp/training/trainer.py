@@ -579,6 +579,7 @@ class Trainer(Registrable):
                     debater.get_metrics(reset=True)  # A/B metrics currently meaningless, so clear
 
                     # Sample from policy's sentence-level distribution
+                    import ipdb; ipdb.set_trace()
                     word_reveal_dist = ab_output_dict['span_start_probs']
                     # NB: Technically should do argmax on sentence-level distribution!
                     word_reveal_idx = torch.multinomial(word_reveal_dist, 1)  # if for_training else torch.argmax(word_reveal_dist, dim=1, keepdim=True)
