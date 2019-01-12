@@ -590,7 +590,7 @@ class Trainer(Registrable):
                     if self._breakpoint_level >= 1: import ipdb; ipdb.set_trace()
                     word_reveal_dist = ab_output_dict['span_start_probs']
                     # NB: Technically should do argmax on sentence-level distribution!
-                    word_reveal_idx = torch.multinomial(word_reveal_dist, 1)  # if for_training else torch.argmax(word_reveal_dist, dim=1, keepdim=True)
+                    word_reveal_idx = torch.multinomial(word_reveal_dist, 1) if for_training else torch.argmax(word_reveal_dist, dim=1, keepdim=True)
                     sent_reveal_idx = sent_idxs.gather(1, word_reveal_idx.to(sent_idxs.device))
                     sent_reveal_mask = sent_idxs == sent_reveal_idx
 
