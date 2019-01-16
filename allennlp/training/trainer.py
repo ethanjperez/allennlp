@@ -562,7 +562,7 @@ class Trainer(Registrable):
             tok_mask = {'.': (batch['passage']['tokens'] == self._model.vocab.get_token_index('.')).long()}
             eos_tok_mask = tok_mask['.']  # TODO: Add '?' and '!'
             # If last non-padding token isn't a period, make it also an eos token in the mask
-            if not race_data:  # TODO: Remove if later. SQuAD models trained without this clause (slight inaccuracy possibly)
+            if not race_data:  # NB: Remove 'if' later. SQuAD models trained without this clause (slight inaccuracy possibly)
                 for i in range(bsz):
                     eos_tok_mask[i, batch['passage']['tokens'][i].nonzero()[-1]] = 1
 
@@ -585,9 +585,11 @@ class Trainer(Registrable):
             turn_str = {turn: "_turn_" + str(turn) + "_agent_" + debate_mode[0][turn] for turn in range(num_turns)}
 
             # Add any turns that shouldn't directly add to loss (i.e., calculating Oracle B predictions)
-            # NB: Multiple turns of b_sl untested
-            b_sl_training = (debater is not None) and (debater.reward_method == 'sl')
-            debate_mode_with_eval_only_turns = debate_mode[0] if not b_sl_training else debate_mode[0].replace('b', 'Bb')
+            # NB: Multiple turns of sl untested
+            assert ((debater is not None) or (debater.reward_method == 'sl')), \
+                'Cannot use Supervised Learning reward method without debating agent(s)'
+            sl_debate = (debater.reward_method == 'sl')
+            debate_mode_with_eval_only_turns = debate_mode[0] if not sl_debate else debate_mode[0].replace('b', 'Bb').replace('a', 'Aa')
 
             # Execute player turns to determine mask.
             sent_choice_idxs = []
@@ -600,7 +602,7 @@ class Trainer(Registrable):
                 next_method = ''
                 if (debate_mode_with_eval_only_turns_idx + 1) < len(debate_mode_with_eval_only_turns):
                     next_method = debate_mode_with_eval_only_turns[debate_mode_with_eval_only_turns_idx + 1]
-                is_eval_only_turn = (b_sl_training and (method == 'B') and (next_method == 'b'))
+                is_eval_only_turn = sl_debate and (method in ['A', 'B']) and (next_method == method.lower())
                 num_first_sents_excluded = len(ans_toks) if race_data else 0
                 # Variables that must be set after each turn
                 sent_choice_idx = None
@@ -608,7 +610,6 @@ class Trainer(Registrable):
                 sent_choice_prob = None
                 value = None
                 if method == 'r':  # Random selection
-                    # TODO: Verify this works for RACE
                     sent_choice_idx = (torch.rand_like(num_sents.float()) * (num_sents.float() - num_first_sents_excluded)).trunc().long().unsqueeze(1) + num_first_sents_excluded
                     sent_choice_mask = sent_idxs == sent_choice_idx
                     sent_choice_prob = torch.ones(bsz) / (num_sents.float() - num_first_sents_excluded)
@@ -626,7 +627,7 @@ class Trainer(Registrable):
                     # NOTE: Set below to None to make oracle selection simultaneous with other selections
                     past_sent_choice_idxs = torch.cat(sent_choice_idxs, 1) if len(sent_choice_idxs) > 0 else None
                     opt_idxs = []
-                    if b_sl_training:
+                    if sl_debate:
                         sc_diffs = []
                     oracle_values = []
                     judge_was_training = judge.training
@@ -657,7 +658,7 @@ class Trainer(Registrable):
                         opt_sc = float(oracle_func(oracle_metrics))
                         oracle_values.append(opt_sc)
                         opt_idxs.append(oracle_metrics.index(opt_sc))
-                        if b_sl_training:
+                        if sl_debate:
                             baseline_sc = sum(oracle_metrics) / len(oracle_metrics)
                             # NB: Hard-coding different baseline score based on debate_mode
                             if debate_mode == 'gb':  # No sentence choice is baseline
@@ -684,9 +685,9 @@ class Trainer(Registrable):
                     sent_choice_idx = sent_idxs.gather(1, word_choice_idx.to(sent_idxs.device))
                     sent_choice_mask = sent_idxs == sent_choice_idx
 
-                    if b_sl_training:  # SL: No sampling for prediction probs. Forcibly choose Oracle's prediction
-                        b_sl_sampling_acc = (sent_choice_idx == oracle_sent_choice_idx).float()
-                        self._update_trainer_metrics('b_sl_sampling_acc' + turn_str[turn], b_sl_sampling_acc.mean())
+                    if sl_debate:  # SL: No sampling for prediction probs. Forcibly choose Oracle's prediction
+                        sl_sampling_acc = (sent_choice_idx == oracle_sent_choice_idx).float()
+                        self._update_trainer_metrics('sl_sampling_acc' + turn_str[turn], sl_sampling_acc.mean())
                         sc_diffs = torch.Tensor(sc_diffs)
                         for i in range(-1, 10):
                             thres_start = i / 10.
@@ -694,10 +695,10 @@ class Trainer(Registrable):
                             thres_start_mask = (sc_diffs.abs() > thres_start).float()
                             thres_end_mask = (thres_end >= sc_diffs.abs()).float()
                             oracle_sc_diff_in_thres_idxs = (thres_start_mask * thres_end_mask).nonzero()
-                            self._update_trainer_metrics('b_sl_num_per_batch_where_' + str(thres_end) + '>=maxF1drop>' + str(thres_start) + turn_str[turn], torch.tensor(float(len(oracle_sc_diff_in_thres_idxs))))
+                            self._update_trainer_metrics('sl_num_per_batch_where_' + str(thres_end) + '>=MaxScoreDrop>' + str(thres_start) + turn_str[turn], torch.tensor(float(len(oracle_sc_diff_in_thres_idxs))))
                             for idx in oracle_sc_diff_in_thres_idxs:
-                                self._update_trainer_metrics('b_sl_sampling_acc_where_' + str(thres_end) + '>=maxF1drop>' + str(thres_start) + turn_str[turn], b_sl_sampling_acc[idx])
-                        self._update_trainer_metrics('b_sl_nonzero_preds_per_batch' + turn_str[turn], (sent_choice_idx != 0).float().sum())
+                                self._update_trainer_metrics('sl_sampling_acc_where_' + str(thres_end) + '>=MaxScoreDrop>' + str(thres_start) + turn_str[turn], sl_sampling_acc[idx])
+                        self._update_trainer_metrics('sl_nonzero_preds_per_batch' + turn_str[turn], (sent_choice_idx != 0).float().sum())
                         sent_choice_prob = (word_choice_dist.to(oracle_sent_choice_mask.device) * oracle_sent_choice_mask.to(word_choice_dist.dtype)).sum(1)
                     else:  # RL: Use prob of sampled sentence to calculate loss
                         sent_choice_prob = (word_choice_dist.to(sent_choice_mask.device) * sent_choice_mask.to(word_choice_dist.dtype)).sum(1)
@@ -707,7 +708,7 @@ class Trainer(Registrable):
                     raise NotImplementedError('Unimplemented answer selection debate method', method)
 
                 # Apply masks / use probs only after eval-only turns are finished
-                if b_sl_training and is_eval_only_turn:
+                if sl_debate and is_eval_only_turn:
                     oracle_sent_choice_idx = sent_choice_idx
                     oracle_sent_choice_mask = sent_choice_mask
                     continue
@@ -753,10 +754,10 @@ class Trainer(Registrable):
                 # Calculate and set A/B loss
                 for turn, method in enumerate(debate_mode[0]):
                     if method in ['a', 'b']:
-                        if b_sl_training:
-                            b_sl_loss = (-torch.log(sent_choice_probs[turn])).mean()  # Upweight prob. of Oracle choice
-                            output_dict['loss'] += b_sl_loss
-                            self._update_trainer_metrics('b_sl_loss' + turn_str[turn], b_sl_loss)
+                        if sl_debate:
+                            sl_loss = (-torch.log(sent_choice_probs[turn])).mean()  # Upweight prob. of Oracle choice
+                            output_dict['loss'] += sl_loss
+                            self._update_trainer_metrics('sl_loss' + turn_str[turn], sl_loss)
                         else:
                             grad_dir = -1 if a_turn[turn] else 1
                             baseline = values[turn].to(j_score)

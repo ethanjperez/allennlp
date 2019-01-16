@@ -5,6 +5,19 @@
 # RACE: Training J on full passage (normal supervised training)
 allennlp train training_config/bidaf.race.size=half.jsonnet --serialization-dir tmp/race.ans_beg.j.pt=f.size=half --debate_mode f
 
+# RACE: Debating!
+allennlp train training_config/bidaf.race.size=half.jsonnet --serialization-dir tmp/race.gb.m=sl.pt=race.f -j tmp/race.f/model.tar.gz --debate_mode B -m sl -e -r
+allennlp train training_config/bidaf.race.size=half.jsonnet --serialization-dir tmp/race.gb.m=sl.pt=race.f -j tmp/race.f/model.tar.gz --debate_mode A -m sl -e -r
+allennlp train training_config/bidaf.race.size=half.jsonnet --serialization-dir tmp/race.gb.m=sl.pt=race.f -j tmp/race.f/model.tar.gz --debate_mode AB -m sl -e -r
+allennlp train training_config/bidaf.race.size=half.jsonnet --serialization-dir tmp/race.gb.m=sl.pt=race.f -j tmp/race.f/model.tar.gz --debate_mode BA -m sl -e -r
+allennlp train training_config/bidaf.race.size=half.jsonnet --serialization-dir tmp/race.gb.m=sl.pt=race.f -j tmp/race.f/model.tar.gz --debate_mode BB -m sl -e -r
+allennlp train training_config/bidaf.race.size=half.jsonnet --serialization-dir tmp/race.gb.m=sl.pt=race.f -j tmp/race.f/model.tar.gz --debate_mode AA -m sl -e -r
+allennlp train training_config/bidaf.race.size=half.jsonnet --serialization-dir tmp/race.gb.m=sl.pt=race.f -j tmp/race.f/model.tar.gz --debate_mode r -m sl -e -r
+allennlp train training_config/bidaf.race.size=half.jsonnet --serialization-dir tmp/race.gb.m=sl.pt=race.f -j tmp/race.f/model.tar.gz --debate_mode rr -m sl -e -r
+allennlp train training_config/bidaf.race.size=half.jsonnet --serialization-dir tmp/race.gb.m=sl.pt=race.f -j tmp/race.f/model.tar.gz --debate_mode rrrr -m sl -e -r
+allennlp train training_config/bidaf.race.size=half.jsonnet --serialization-dir tmp/race.gb.m=sl.pt=race.f -j tmp/race.f/model.tar.gz --debate_mode b -m sl
+allennlp train training_config/bidaf.race.size=half.jsonnet --serialization-dir tmp/race.gb.m=sl.pt=race.f -j tmp/race.f/model.tar.gz --debate_mode a -m sl
+
 # Training J only:
 allennlp train training_config/bidaf.num_epochs=200.jsonnet --debate_mode rr --serialization-dir tmp/rr.2
 
