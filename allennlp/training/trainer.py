@@ -468,9 +468,10 @@ class Trainer(Registrable):
         Does a forward pass on the given batch and returns the ``loss`` value in the result.
         If ``for_training`` is `True` also applies regularization penalty.
         """
-        # If overriding default passage revealing method
+        # If overriding default passage choiceing method
         if debate_mode is None:
             debate_mode = self._debate_mode
+        race_data = ('SELECT_' in batch['metadata'][0]['answer_texts'][0])  # NB: Fix this to be cleaner!
 
         num_rounds = len(debate_mode)
         if num_rounds > 1:
@@ -496,46 +497,50 @@ class Trainer(Registrable):
             sent_idxs = eos_idxs.cumsum(1) - eos_idxs  # NOTE: Padding regions have sent_idxs == num_sents
             pad_masks = (batch['passage']['tokens'] != 0).long()
             num_sents = (sent_idxs * pad_masks).max(1)[0] + 1
-            sent_answer_idx = sent_idxs.gather(1, batch['span_start'].to(sent_idxs.device))
+            sent_answer_idx = sent_idxs.gather(1, batch['span_start'].to(sent_idxs.device))  # TODO: Make SQuAD-only
             a_turn = {turn: debate_mode[0][turn] == 'a' for turn in range(len(debate_mode[0]))}
             turn_str = {turn: "_turn_" + str(turn) + "_agent_" + debate_mode[0][turn] for turn in range(num_turns)}
 
             # Add any turns that shouldn't directly add to loss (i.e., calculating Oracle B predictions)
+            # NB: Multiple rounds of b_sl untested
             b_sl_training = (debater is not None) and (debater.reward_method == 'sl')
-            assert (not b_sl_training) or (debate_mode[0] == 'gb'), 'Supervised learning only supported for GT vs. b'
+            debate_mode_with_eval_only_turns = debate_mode[0] if not b_sl_training else debate_mode[0].replace('b', 'Bb')
 
-            # Execute player turns to determine mask. NB: Refactor a player turn into one function
-            sent_reveal_idxs = []
-            sent_reveal_masks = []
-            sent_reveal_probs = []
+            # Execute player turns to determine mask.
+            sent_choice_idxs = []
+            sent_choice_masks = []
+            sent_choice_probs = []
             values = []  # Add -1 * torch.ones(bsz) if no value prediction made
-            for turn, method in enumerate(debate_mode[0] if not b_sl_training else debate_mode[0].replace('b', 'Bb')):
-                # NB: Remove b_sl_training hard-coding below and above. Refactor a player turn into one function
-                if b_sl_training and (method == 'b') and (turn == 2):
-                    turn = 1
+            for debate_mode_with_eval_only_turns_idx, method in enumerate(debate_mode_with_eval_only_turns):
+                # NB: Refactor a player turn into one function
+                turn = len(sent_choice_idxs)  # Excludes eval only turns
+                next_method = ''
+                if (debate_mode_with_eval_only_turns_idx + 1) < len(debate_mode_with_eval_only_turns):
+                    next_method = debate_mode_with_eval_only_turns[debate_mode_with_eval_only_turns_idx + 1]
+                is_eval_only_turn = (b_sl_training and (method == 'B') and (next_method == 'b'))
                 # Variables that must be set after each turn
-                sent_reveal_idx = None
-                sent_reveal_mask = None
-                sent_reveal_prob = None
+                sent_choice_idx = None
+                sent_choice_mask = None
+                sent_choice_prob = None
                 value = None
                 if method == 'r':  # Random selection
-                    sent_reveal_idx = (torch.rand_like(num_sents.float()) * num_sents.float()).trunc().long().unsqueeze(1)
-                    sent_reveal_mask = sent_idxs == sent_reveal_idx
-                    sent_reveal_prob = torch.ones(bsz) / num_sents.float()
+                    sent_choice_idx = (torch.rand_like(num_sents.float()) * num_sents.float()).trunc().long().unsqueeze(1)
+                    sent_choice_mask = sent_idxs == sent_choice_idx
+                    sent_choice_prob = torch.ones(bsz) / num_sents.float()
                     value = -1 * torch.ones(bsz)
-                elif method == 'g':  # Ground truth, answer-containing selection
-                    sent_reveal_idx = sent_answer_idx
-                    sent_reveal_mask = sent_idxs == sent_reveal_idx
-                    sent_reveal_prob = torch.ones(bsz)
+                elif method == 'g':  # Ground truth, answer-containing selection  # TODO: Make SQuAD-only
+                    sent_choice_idx = sent_answer_idx
+                    sent_choice_mask = sent_idxs == sent_choice_idx
+                    sent_choice_prob = torch.ones(bsz)
                     value = -1 * torch.ones(bsz)
                 elif method in ['A', 'B']:  # A/B oracle selection
                     oracle_func = max if method == 'A' else min  # NOTE: Modify if adding another oracle method
-                    oracle_eval_method = 'f1'  # NOTE: Only other option is 'em'
+                    oracle_eval_method = 'f1'  # NOTE: Only other option is 'em'  # TODO: Change for RACE! (start_acc?)
                     # NOTE: Set below to None to make oracle selection simultaneous with other selections
-                    past_sent_reveal_idxs = torch.cat(sent_reveal_idxs, 1) if len(sent_reveal_idxs) > 0 else None
+                    past_sent_choice_idxs = torch.cat(sent_choice_idxs, 1) if len(sent_choice_idxs) > 0 else None
                     opt_idxs = []
                     if b_sl_training:
-                        sc_changes = []
+                        sc_diffs = []
                     oracle_values = []
                     judge_was_training = judge.training
                     judge.eval()
@@ -543,24 +548,45 @@ class Trainer(Registrable):
                         # Batch together all possible next outcomes for a sample
                         oracle_batch = self._create_batch_from_sample(batch, sample_no, num_sents[sample_no])
                         oracle_batch['store_metrics'] = False  # Do not update judge metrics
-                        oracle_sent_reveal_idxs = torch.arange(num_sents[sample_no]).unsqueeze(1)
-                        if past_sent_reveal_idxs is not None:
-                            past_idxs_repeat = past_sent_reveal_idxs[sample_no].repeat(num_sents[sample_no], 1)
-                            oracle_sent_reveal_idxs = torch.cat([past_idxs_repeat, oracle_sent_reveal_idxs], 1)
+                        oracle_sent_choice_idxs = torch.arange(num_sents[sample_no]).unsqueeze(1)
+                        if past_sent_choice_idxs is not None:
+                            past_idxs_repeat = past_sent_choice_idxs[sample_no].repeat(num_sents[sample_no], 1)
+                            oracle_sent_choice_idxs = torch.cat([past_idxs_repeat, oracle_sent_choice_idxs], 1)
 
-                        # Mask passage
+                        # Mask passage  # NB: Refactor into separate function
                         oracle_pad_masks = pad_masks[sample_no].unsqueeze(0)
-                        oracle_sent_reveal_masks = torch.stack([
+                        oracle_sent_choice_masks = torch.stack([
                             sent_idxs[sample_no].unsqueeze(0).expand(num_sents[sample_no], -1) ==
-                            oracle_sent_reveal_idxs[:,i].unsqueeze(1) for i in range(turn+1)]).sum(0)
-                        oracle_sent_reveal_masks = oracle_sent_reveal_masks / (oracle_sent_reveal_masks.clamp(min=1))  # Differentiable clamp to max=1
-                        oracle_batch['passage']['tokens'] = (
-                            (oracle_batch['passage']['tokens'] * oracle_sent_reveal_masks) +
-                            ((1 - oracle_sent_reveal_masks) * eos_token_idx)) * oracle_pad_masks
-                        oracle_batch['passage']['token_characters'] = (
-                            (oracle_batch['passage']['token_characters'] * oracle_sent_reveal_masks.unsqueeze(-1)) +
-                            ((1 - oracle_sent_reveal_masks.unsqueeze(-1)) * eos_token_idx)
-                            ) * oracle_pad_masks.unsqueeze(-1)
+                            oracle_sent_choice_idxs[:,i].unsqueeze(1) for i in range(turn + 1)]).sum(0)
+                        oracle_sent_choice_masks = oracle_sent_choice_masks / (oracle_sent_choice_masks.clamp(min=1))  # Differentiable clamp to max=1
+
+                        # NB: Can make SQuAD deletion-based too
+                        if False:  # TODO: Change to "if race_data"
+                            # Delete tokens
+                            post_delete_toks = torch.zeros_like(oracle_batch['passage']['tokens'])
+                            post_delete_tok_chars = torch.zeros_like(oracle_batch['passage']['token_characters'])
+                            for idx in range(oracle_batch['passage']['tokens'].size(0)):
+                                toks = oracle_batch['passage']['tokens'][idx]
+                                reveal_idxs = (toks * (1. - oracle_sent_choice_masks[idx])).nonzero().squeeze()
+                                post_delete_toks[idx][:toks[reveal_idxs].size(0)] = toks[reveal_idxs]
+
+                                tok_chars = oracle_batch['passage']['tokens'][idx]
+                                # post_delete_tok_chars[idx][:toks[reveal_idxs].size(0)] = tok_chars[reveal_idxs]  # TODO: Fix this line
+                                #
+                                # NB: Must modify span_end, span_start, and metadata for SQuAD. Prefer modify metadata for RACE
+                                # NB: Need to make modifications so gradients don't get passed back?
+                            # oracle_batch['passage']['tokens'] = post_delete_toks
+                            # oracle_batch['passage']['token_characters'] = post_delete_tok_chars
+
+                        else:  # SQuAD
+                            # Mask tokens
+                            oracle_batch['passage']['tokens'] = (
+                                (oracle_batch['passage']['tokens'] * oracle_sent_choice_masks) +
+                                ((1 - oracle_sent_choice_masks) * eos_token_idx)) * oracle_pad_masks
+                            oracle_batch['passage']['token_characters'] = (
+                                (oracle_batch['passage']['token_characters'] * oracle_sent_choice_masks.unsqueeze(-1)) +
+                                ((1 - oracle_sent_choice_masks.unsqueeze(-1)) * eos_token_idx)
+                                ) * oracle_pad_masks.unsqueeze(-1)
 
                         # Get results
                         oracle_output_dict, oracle_metrics = self._forward(oracle_batch, judge)
@@ -569,14 +595,17 @@ class Trainer(Registrable):
                         oracle_values.append(opt_sc)
                         opt_idxs.append(oracle_metrics.index(opt_sc))
                         if b_sl_training:
-                            no_reveal_sc = oracle_metrics[past_sent_reveal_idxs[sample_no, 0]]
-                            sc_changes.append(no_reveal_sc - opt_sc)
+                            baseline_sc = sum(oracle_metrics) / len(oracle_metrics)
+                            # NB: Hard-coding different baseline score based on debate_mode
+                            if debate_mode == 'gb':  # No sent. choiceed is baseline
+                                baseline_sc = oracle_metrics[past_sent_choice_idxs[sample_no, 0]]
+                            sc_diffs.append(baseline_sc - opt_sc)
                     if judge_was_training:
                         judge.train()
 
-                    sent_reveal_idx = torch.LongTensor(opt_idxs).unsqueeze(1)
-                    sent_reveal_mask = sent_idxs == sent_reveal_idx
-                    sent_reveal_prob = torch.ones(bsz)
+                    sent_choice_idx = torch.LongTensor(opt_idxs).unsqueeze(1)
+                    sent_choice_mask = sent_idxs == sent_choice_idx
+                    sent_choice_prob = torch.ones(bsz)
                     value = torch.FloatTensor(oracle_values)
                 elif method in ['a', 'b']:  # A/B trained selection
                     assert debater is not None, 'Cannot use debate method ' + method + ' without debate agents!'
@@ -586,51 +615,49 @@ class Trainer(Registrable):
                     debater.get_metrics(reset=True)  # A/B metrics currently meaningless, so clear
 
                     # Sample from policy's sentence-level distribution
-                    # NB: Examine b preds. F1? Does swapping in Oracle preds swapped lower F1? sent_reveal_idx == 0?
-                    # NB: How accurate is b for samples where Oracle drops Judge score (by a lot / to 0)?
                     if self._breakpoint_level >= 1: import ipdb; ipdb.set_trace()
-                    word_reveal_dist = ab_output_dict['span_start_probs']
+                    word_choice_dist = ab_output_dict['span_start_probs']
                     # TODO: Do argmax on sentence-level distribution!
-                    word_reveal_idx = torch.multinomial(word_reveal_dist, 1)  # if for_training else torch.argmax(word_reveal_dist, dim=1, keepdim=True)
-                    sent_reveal_idx = sent_idxs.gather(1, word_reveal_idx.to(sent_idxs.device))
-                    sent_reveal_mask = sent_idxs == sent_reveal_idx
+                    word_choice_idx = torch.multinomial(word_choice_dist, 1)  # if for_training else torch.argmax(word_choice_dist, dim=1, keepdim=True)
+                    sent_choice_idx = sent_idxs.gather(1, word_choice_idx.to(sent_idxs.device))
+                    sent_choice_mask = sent_idxs == sent_choice_idx
 
                     if b_sl_training:  # SL: No sampling for prediction probs. Forcibly choose Oracle's prediction
-                        b_sl_sampling_acc = (sent_reveal_idx == oracle_sent_reveal_idx).float()
-                        self._update_trainer_metrics('b_sl_sampling_acc', b_sl_sampling_acc.mean())
-                        sc_changes = torch.Tensor(sc_changes)
+                        b_sl_sampling_acc = (sent_choice_idx == oracle_sent_choice_idx).float()
+                        self._update_trainer_metrics('b_sl_sampling_acc' + turn_str[turn], b_sl_sampling_acc.mean())
+                        sc_diffs = torch.Tensor(sc_diffs)
                         for i in range(-1, 10):
                             thres_start = i / 10.
                             thres_end = (i + 1) / 10.
-                            thres_start_mask = (sc_changes.abs() > thres_start).float()
-                            thres_end_mask = (thres_end >= sc_changes.abs()).float()
-                            oracle_sc_change_in_thres_idxs = (thres_start_mask * thres_end_mask).nonzero()
-                            self._update_trainer_metrics('b_sl_num_per_batch_where_' + str(thres_end) + '>=maxF1drop>' + str(thres_start), torch.tensor(float(len(oracle_sc_change_in_thres_idxs))))
-                            for idx in oracle_sc_change_in_thres_idxs:
-                                self._update_trainer_metrics('b_sl_sampling_acc_where_' + str(thres_end) + '>=maxF1drop>' + str(thres_start), b_sl_sampling_acc[idx])
-                        self._update_trainer_metrics('b_sl_nonzero_preds_per_batch', (sent_reveal_idx != 0).float().sum())
-                        sent_reveal_prob = (word_reveal_dist.to(oracle_sent_reveal_mask.device) * oracle_sent_reveal_mask.to(word_reveal_dist.dtype)).sum(1)
+                            thres_start_mask = (sc_diffs.abs() > thres_start).float()
+                            thres_end_mask = (thres_end >= sc_diffs.abs()).float()
+                            oracle_sc_diff_in_thres_idxs = (thres_start_mask * thres_end_mask).nonzero()
+                            self._update_trainer_metrics('b_sl_num_per_batch_where_' + str(thres_end) + '>=maxF1drop>' + str(thres_start) + turn_str[turn], torch.tensor(float(len(oracle_sc_diff_in_thres_idxs))))
+                            for idx in oracle_sc_diff_in_thres_idxs:
+                                self._update_trainer_metrics('b_sl_sampling_acc_where_' + str(thres_end) + '>=maxF1drop>' + str(thres_start) + turn_str[turn], b_sl_sampling_acc[idx])
+                        self._update_trainer_metrics('b_sl_nonzero_preds_per_batch' + turn_str[turn], (sent_choice_idx != 0).float().sum())
+                        sent_choice_prob = (word_choice_dist.to(oracle_sent_choice_mask.device) * oracle_sent_choice_mask.to(word_choice_dist.dtype)).sum(1)
                     else:  # RL: Use prob of sampled sentence to calculate loss
-                        sent_reveal_prob = (word_reveal_dist.to(sent_reveal_mask.device) * sent_reveal_mask.to(word_reveal_dist.dtype)).sum(1)
+                        sent_choice_prob = (word_choice_dist.to(sent_choice_mask.device) * sent_choice_mask.to(word_choice_dist.dtype)).sum(1)
 
                     value = ab_output_dict['value']
                 else:
                     raise NotImplementedError('Unimplemented answer selection debate method', method)
 
                 # Apply masks / use probs only after eval-only turns are finished
-                if b_sl_training and (method == 'B') and (turn == 1):
-                    oracle_sent_reveal_idx = sent_reveal_idx
-                    oracle_sent_reveal_mask = sent_reveal_mask
+                if b_sl_training and is_eval_only_turn:
+                    oracle_sent_choice_idx = sent_choice_idx
+                    oracle_sent_choice_mask = sent_choice_mask
                     continue
 
-                answer_sent_chosen = (sent_reveal_idx == sent_answer_idx).float()  # NOTE: Assumes answer does not cross period boundary
+                answer_sent_chosen = (sent_choice_idx == sent_answer_idx).float()  # NOTE: Assumes answer does not cross period boundary  # TODO: Make SQuAD-only
                 self._update_trainer_metrics('answer_sent_chosen' + turn_str[turn], answer_sent_chosen.mean())
 
-                assert (sent_reveal_idx is not None) and (sent_reveal_mask is not None) and (sent_reveal_prob is not None) and (value is not None), \
+                assert (sent_choice_idx is not None) and (sent_choice_mask is not None) and (sent_choice_prob is not None) and (value is not None), \
                     'Error: Did not fill all necessary variables for turn selection.'
-                sent_reveal_idxs.append(sent_reveal_idx)
-                sent_reveal_masks.append(sent_reveal_mask)
-                sent_reveal_probs.append(sent_reveal_prob)
+                sent_choice_idxs.append(sent_choice_idx)
+                sent_choice_masks.append(sent_choice_mask)
+                sent_choice_probs.append(sent_choice_prob)
                 values.append(value.cpu())
 
             # Remove metadata added for A/B forward pass
@@ -639,18 +666,18 @@ class Trainer(Registrable):
                     batch['metadata'][batch_idx].pop('a_turn')
 
             # Mask passage
-            all_sent_reveal_mask = torch.stack(sent_reveal_masks).sum(0)
-            all_sent_reveal_mask = all_sent_reveal_mask / (all_sent_reveal_mask.clamp(min=1))   # Differentiable clamp to max=1
-            batch['passage']['tokens'] = ((batch['passage']['tokens'] * all_sent_reveal_mask) + ((1 - all_sent_reveal_mask) * eos_token_idx)) * pad_masks
-            batch['passage']['token_characters'] = ((batch['passage']['token_characters'] * all_sent_reveal_mask.unsqueeze(-1)) + ((1 - all_sent_reveal_mask.unsqueeze(-1)) * eos_token_idx)) * pad_masks.unsqueeze(-1)
+            all_sent_choice_mask = torch.stack(sent_choice_masks).sum(0)
+            all_sent_choice_mask = all_sent_choice_mask / (all_sent_choice_mask.clamp(min=1))  # Differentiable clamp to max=1
+            batch['passage']['tokens'] = ((batch['passage']['tokens'] * all_sent_choice_mask) + ((1 - all_sent_choice_mask) * eos_token_idx)) * pad_masks
+            batch['passage']['token_characters'] = ((batch['passage']['token_characters'] * all_sent_choice_mask.unsqueeze(-1)) + ((1 - all_sent_choice_mask.unsqueeze(-1)) * eos_token_idx)) * pad_masks.unsqueeze(-1)
 
             # Normal forward pass with judge
             output_dict = self._forward(batch, judge)
 
             if debater is not None:
                 j_metrics = judge.get_metrics(per_sample=True)
-                j_em = torch.tensor(j_metrics['em'], dtype=sent_reveal_probs[0].dtype, device=sent_reveal_probs[0].device)
-                j_f1 = torch.tensor(j_metrics['f1'], dtype=sent_reveal_probs[0].dtype, device=sent_reveal_probs[0].device)
+                j_em = torch.tensor(j_metrics['em'], dtype=sent_choice_probs[0].dtype, device=sent_choice_probs[0].device)
+                j_f1 = torch.tensor(j_metrics['f1'], dtype=sent_choice_probs[0].dtype, device=sent_choice_probs[0].device)
                 j_score = j_f1 if debater.reward_method == 'f1' else j_em  # Exact match reward by default
 
                 # Add stats on if J chosen a sentence from A or B
@@ -658,7 +685,7 @@ class Trainer(Registrable):
                 j_span_end_sent = sent_idxs.gather(1, output_dict['best_span'][:, 1:].to(sent_idxs.device))
                 j_num_ab_sents_chosen = torch.zeros_like(j_span_start_sent).float()
                 for turn in range(num_turns):
-                    j_sent_chosen = ((j_span_start_sent <= sent_reveal_idxs[turn]) * (sent_reveal_idxs[turn] <= j_span_end_sent)).float()
+                    j_sent_chosen = ((j_span_start_sent <= sent_choice_idxs[turn]) * (sent_choice_idxs[turn] <= j_span_end_sent)).float()
                     self._update_trainer_metrics('j_sent_chosen' + turn_str[turn], j_sent_chosen.mean())
                     j_num_ab_sents_chosen += j_sent_chosen
                 j_chose_no_ab_sents = (j_num_ab_sents_chosen == 0).float()
@@ -673,10 +700,10 @@ class Trainer(Registrable):
                             print('\n***Answers***\n', [answer if isinstance(answer, str) else ' '.join(answer) for answer in batch['metadata'][sample_no]['answer_texts']])
                             toks = batch['metadata'][sample_no]['passage_tokens']
                             for turn, method in enumerate(debate_mode[0]):
-                                turn_sent_idxs = sent_reveal_masks[turn][sample_no].nonzero().squeeze()
+                                turn_sent_idxs = sent_choice_masks[turn][sample_no].nonzero().squeeze()
                                 turn_sent_start_idx = turn_sent_idxs.min()
                                 turn_sent_end_idx = turn_sent_idxs.max() + 1
-                                print('\n---', method.upper(), '--- Sentence', int(sent_reveal_idxs[turn][sample_no]), '\n', ' '.join(toks[turn_sent_start_idx:turn_sent_end_idx]))
+                                print('\n---', method.upper(), '--- Sentence', int(sent_choice_idxs[turn][sample_no]), '\n', ' '.join(toks[turn_sent_start_idx:turn_sent_end_idx]))
                             print('\n--- J --- EM / F1 ', float(j_em[sample_no]), '/', float(j_f1[sample_no]), '!\n', ' '.join(toks[output_dict['best_span'][sample_no][0]:output_dict['best_span'][sample_no][1] + 1]))
 
                 # Initialize loss (including J's supervised loss if necessary)
@@ -686,13 +713,13 @@ class Trainer(Registrable):
                 for turn, method in enumerate(debate_mode[0]):
                     if method in ['a', 'b']:
                         if b_sl_training:
-                            b_sl_loss = (-torch.log(sent_reveal_probs[turn])).mean()  # Upweight prob. of Oracle choice
+                            b_sl_loss = (-torch.log(sent_choice_probs[turn])).mean()  # Upweight prob. of Oracle choice
                             output_dict['loss'] += b_sl_loss
-                            self._update_trainer_metrics('b_sl_loss', b_sl_loss)
+                            self._update_trainer_metrics('b_sl_loss' + turn_str[turn], b_sl_loss)
                         else:
                             grad_dir = -1 if a_turn[turn] else 1
                             baseline = values[turn].to(j_score)
-                            policy_loss = grad_dir * (torch.log(sent_reveal_probs[turn]) * (j_score - baseline.detach())).mean()
+                            policy_loss = grad_dir * (torch.log(sent_choice_probs[turn]) * (j_score - baseline.detach())).mean()
                             output_dict['loss'] += policy_loss
                             value_loss = 0.5 * ((j_score - baseline) ** 2).mean()  # Value loss
                             output_dict['loss'] += value_loss

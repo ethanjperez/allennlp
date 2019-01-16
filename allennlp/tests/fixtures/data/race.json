@@ -1,134 +1,164 @@
 {
-    "data": [
+  "data": [
+    {
+      "title": "middle3540.txt",
+      "paragraphs": [
         {
-            "title": "middle2572.txt",
-            "paragraphs": [
+          "context": "in England SELECT_A in America SELECT_B by Alice SELECT_C in 1910 SELECT_D In a small village in England about 150 years ago, a mail coach (    ) was standing on the street . It didn't come to that village often  . People had to pay a lot to get a letter . The person who sent the letter didn't have to pay the postage (     )  , while the receiver had to .\n\"Here's a letter for Miss Alice Brown , \" said the mailman .\n\" I'm  Alice Brown , \" a girl of about 18 said in a low voice .\nAlice looked at the envelope  for a minute , and then handed it back to the mailman .\n\" I'm sorry I can't take it , I don't have enough money to pay it\", she said .\nA gentleman standing around were very sorry for her . Then he came up and paid the postage for her .\nWhen the gentleman gave the letter to her , she said with a smile , \" Thank you very much ,This letter is from Tom . I'm going to marry him . He went to London to look for work . I've waited a long time for this letter , but now I don't need it , there is nothing in it .\"\n\" Really ? How do you know that ? \" the gentleman said in surprise .\n\" He told me that he would put some signs on the envelope . Look ,sir ,this cross in the corner means that he is well and this circle means he has found work . That's good news .\"\nThe gentleman was Sir Rowland Hill . He didn't forgot Alice and her letter .\n\" The postage to be paid by the receiver has to be changed ,\" he said to himself and had a good plan .\n\" The postage has to be much lower , what about a penny (    ) ? And the person who sends the letter pays the postage . He has to buy a stamp and put it on the envelope .\" he said .\nThe government accepted his plan . Then the first stamp was put out in 1840 . It was called the \" Penny Black \" . It had a picture of the Queen on it .",
+          "qas": [
+            {
+              "answers": [
                 {
-                    "context": "Do you know HFMD? It's short for Hand-Foot-Mouth Disease. This year, in China, thousands of children were suffering from it. What's HFMD? How to prevent it? Now, read the passage please.\nHFMD usually affects babies who are 1~4 years old, but adults can also be infected. Both EV71 and Cox A16 can cause HFMD, which usually starts with a slight fever followed by blisters   and ulcers   in the mouth and rashes   on the hands and feet.\nIt can be spread through people with the mucus   or feces   of an _ person. It usually appears during the summer and autumn months. HFMD isn't Bird Flu, SARS or Mad Cow Disease, but it's not a new one, either. It first appeared in New Zealand in 1957. About forty years later, it appears in Asia. It's reported that it breaks out every 2 or 3 years.\nHFMD is very terrible and there is no vaccine   now, but we can do something helpful to prevent it. 'Children with HFMD should seek medical treatment as early as possible', experts say. They also suggest that parents keep the air fresh in a child's room, which should be kept clean, tidy and dry. Children should be taught to wash their hands regularly. Staying away from crowded public places is also basic. A_START>>> feces A_END<<<  B_START>>> feces of an infected person B_END<<<  C_START>>> water C_END<<<  D_START>>> mucus D_END<<< ",
-                    "qas": [
-                        {
-                            "answers": [
-                                {
-                                    "answer_start": 1221,
-                                    "text": "B_START>>> feces of an infected person B_END<<<"
-                                }
-                            ],
-                            "question": "HFMD is usually spread with   _  .",
-                            "id": "21c5f9f5121603c"
-                        }
-                    ]
-                },
-                {
-                    "context": "Do you know HFMD? It's short for Hand-Foot-Mouth Disease. This year, in China, thousands of children were suffering from it. What's HFMD? How to prevent it? Now, read the passage please.\nHFMD usually affects babies who are 1~4 years old, but adults can also be infected. Both EV71 and Cox A16 can cause HFMD, which usually starts with a slight fever followed by blisters   and ulcers   in the mouth and rashes   on the hands and feet.\nIt can be spread through people with the mucus   or feces   of an _ person. It usually appears during the summer and autumn months. HFMD isn't Bird Flu, SARS or Mad Cow Disease, but it's not a new one, either. It first appeared in New Zealand in 1957. About forty years later, it appears in Asia. It's reported that it breaks out every 2 or 3 years.\nHFMD is very terrible and there is no vaccine   now, but we can do something helpful to prevent it. 'Children with HFMD should seek medical treatment as early as possible', experts say. They also suggest that parents keep the air fresh in a child's room, which should be kept clean, tidy and dry. Children should be taught to wash their hands regularly. Staying away from crowded public places is also basic. A_START>>> to keep the air fresh in a child's room A_END<<<  B_START>>> wash hands regularly B_END<<<  C_START>>> see a doctor C_END<<<  D_START>>> stay in crowded public places D_END<<< ",
-                    "qas": [
-                        {
-                            "answers": [
-                                {
-                                    "answer_start": 1331,
-                                    "text": "D_START>>> stay in crowded public places D_END<<<"
-                                }
-                            ],
-                            "question": "Which isn't helpful to prevent HFMD?",
-                            "id": "xa6e14c02c3b9ccb"
-                        }
-                    ]
-                },
-                {
-                    "context": "Do you know HFMD? It's short for Hand-Foot-Mouth Disease. This year, in China, thousands of children were suffering from it. What's HFMD? How to prevent it? Now, read the passage please.\nHFMD usually affects babies who are 1~4 years old, but adults can also be infected. Both EV71 and Cox A16 can cause HFMD, which usually starts with a slight fever followed by blisters   and ulcers   in the mouth and rashes   on the hands and feet.\nIt can be spread through people with the mucus   or feces   of an _ person. It usually appears during the summer and autumn months. HFMD isn't Bird Flu, SARS or Mad Cow Disease, but it's not a new one, either. It first appeared in New Zealand in 1957. About forty years later, it appears in Asia. It's reported that it breaks out every 2 or 3 years.\nHFMD is very terrible and there is no vaccine   now, but we can do something helpful to prevent it. 'Children with HFMD should seek medical treatment as early as possible', experts say. They also suggest that parents keep the air fresh in a child's room, which should be kept clean, tidy and dry. Children should be taught to wash their hands regularly. Staying away from crowded public places is also basic. A_START>>> It's the same as Mad Cow Disease . A_END<<<  B_START>>> It first appeared in China. B_END<<<  C_START>>> Adults can be infected too. C_END<<<  D_START>>> There is vaccine now. D_END<<< ",
-                    "qas": [
-                        {
-                            "answers": [
-                                {
-                                    "answer_start": 1299,
-                                    "text": "C_START>>> Adults can be infected too. C_END<<<"
-                                }
-                            ],
-                            "question": "About HFMD, which one is right?",
-                            "id": "x7a4a826d6cfc129c"
-                        }
-                    ]
-                },
-                {
-                    "context": "Do you know HFMD? It's short for Hand-Foot-Mouth Disease. This year, in China, thousands of children were suffering from it. What's HFMD? How to prevent it? Now, read the passage please.\nHFMD usually affects babies who are 1~4 years old, but adults can also be infected. Both EV71 and Cox A16 can cause HFMD, which usually starts with a slight fever followed by blisters   and ulcers   in the mouth and rashes   on the hands and feet.\nIt can be spread through people with the mucus   or feces   of an _ person. It usually appears during the summer and autumn months. HFMD isn't Bird Flu, SARS or Mad Cow Disease, but it's not a new one, either. It first appeared in New Zealand in 1957. About forty years later, it appears in Asia. It's reported that it breaks out every 2 or 3 years.\nHFMD is very terrible and there is no vaccine   now, but we can do something helpful to prevent it. 'Children with HFMD should seek medical treatment as early as possible', experts say. They also suggest that parents keep the air fresh in a child's room, which should be kept clean, tidy and dry. Children should be taught to wash their hands regularly. Staying away from crowded public places is also basic. A_START>>> The history of SARS A_END<<<  B_START>>> What's and how to prevent HFMD B_END<<<  C_START>>> HFMD in China C_END<<<  D_START>>> How to prevent HFMD D_END<<< ",
-                    "qas": [
-                        {
-                            "answers": [
-                                {
-                                    "answer_start": 1235,
-                                    "text": "B_START>>> What's and how to prevent HFMD B_END<<<"
-                                }
-                            ],
-                            "question": "Can you give a title for the article?",
-                            "id": "x6f4cbb88e5023f37"
-                        }
-                    ]
+                  "answer_start": 11,
+                  "text": "SELECT_A"
                 }
-            ]
+              ],
+              "question": "The first postage stamp was made   _   .",
+              "id": "27a783957d2b1694"
+            }
+          ]
         },
         {
-            "title": "middle2994.txt",
-            "paragraphs": [
+          "context": "she didn't know whose letter it was SELECT_A she had no money to pay the postage SELECT_B she received the letter but she didn't want to open it SELECT_C she had already known what was written in the letter SELECT_D In a small village in England about 150 years ago, a mail coach (    ) was standing on the street . It didn't come to that village often  . People had to pay a lot to get a letter . The person who sent the letter didn't have to pay the postage (     )  , while the receiver had to .\n\"Here's a letter for Miss Alice Brown , \" said the mailman .\n\" I'm  Alice Brown , \" a girl of about 18 said in a low voice .\nAlice looked at the envelope  for a minute , and then handed it back to the mailman .\n\" I'm sorry I can't take it , I don't have enough money to pay it\", she said .\nA gentleman standing around were very sorry for her . Then he came up and paid the postage for her .\nWhen the gentleman gave the letter to her , she said with a smile , \" Thank you very much ,This letter is from Tom . I'm going to marry him . He went to London to look for work . I've waited a long time for this letter , but now I don't need it , there is nothing in it .\"\n\" Really ? How do you know that ? \" the gentleman said in surprise .\n\" He told me that he would put some signs on the envelope . Look ,sir ,this cross in the corner means that he is well and this circle means he has found work . That's good news .\"\nThe gentleman was Sir Rowland Hill . He didn't forgot Alice and her letter .\n\" The postage to be paid by the receiver has to be changed ,\" he said to himself and had a good plan .\n\" The postage has to be much lower , what about a penny (    ) ? And the person who sends the letter pays the postage . He has to buy a stamp and put it on the envelope .\" he said .\nThe government accepted his plan . Then the first stamp was put out in 1840 . It was called the \" Penny Black \" . It had a picture of the Queen on it .",
+          "qas": [
+            {
+              "answers": [
                 {
-                    "context": "Thomas Edison lit up the world with his invention of the electric light. Without him, the world might still be in the dark. However, the electric light was not his only invention. He also invented the motion picture camera and 1200 other things. About every two weeks he created something new.\nThomas Edison was born in 1847. He attended school for only three months. His mother taught him at home, but Thomas was mostly self-educated. He started experimenting at a young age.\nWhen he was 12 years old, he got his first job. He became a newsboy on a train. He did experiments on the train in his spare time. Unluckily, his first work experience did not end well. They _ him when he accidentally set fire to the floor of the train. Then Edison worked for five years as a telegraph operator, but he continued to spend much of his time in experimenting his first patent  in 1868 for a vote recorder run by electricity.\nThomas Edison was totally deaf in one ear and hard of hearing in the other, but he thought of his deafness as a blessing in many ways. It kept conversations short, so that he could have more time for work. He always worked 16 out of every 24hours. Sometimes his wife had to remind him to sleep and eat.\nThomas Edison died at the age of 84. He left a great many inventions that greatly improved the quality of life all over the world. A_START>>> About every fourteen days A_END<<<  B_START>>> About every seven days B_END<<<  C_START>>> About once a week C_END<<<  D_START>>> About twice a week D_END<<< ",
-                    "qas": [
-                        {
-                            "answers": [
-                                {
-                                    "answer_start": 1350,
-                                    "text": "A_START>>> About every fourteen days A_END<<<"
-                                }
-                            ],
-                            "question": "How often did Edison make a new invention?",
-                            "id": "292c426389b966c2"
-                        }
-                    ]
-                },
-                {
-                    "context": "Thomas Edison lit up the world with his invention of the electric light. Without him, the world might still be in the dark. However, the electric light was not his only invention. He also invented the motion picture camera and 1200 other things. About every two weeks he created something new.\nThomas Edison was born in 1847. He attended school for only three months. His mother taught him at home, but Thomas was mostly self-educated. He started experimenting at a young age.\nWhen he was 12 years old, he got his first job. He became a newsboy on a train. He did experiments on the train in his spare time. Unluckily, his first work experience did not end well. They _ him when he accidentally set fire to the floor of the train. Then Edison worked for five years as a telegraph operator, but he continued to spend much of his time in experimenting his first patent  in 1868 for a vote recorder run by electricity.\nThomas Edison was totally deaf in one ear and hard of hearing in the other, but he thought of his deafness as a blessing in many ways. It kept conversations short, so that he could have more time for work. He always worked 16 out of every 24hours. Sometimes his wife had to remind him to sleep and eat.\nThomas Edison died at the age of 84. He left a great many inventions that greatly improved the quality of life all over the world. A_START>>> something bad A_END<<<  B_START>>> a gift from god B_END<<<  C_START>>> a kind of ability C_END<<<  D_START>>> a disadvantage D_END<<< ",
-                    "qas": [
-                        {
-                            "answers": [
-                                {
-                                    "answer_start": 1385,
-                                    "text": "B_START>>> a gift from god B_END<<<"
-                                }
-                            ],
-                            "question": "Edison considered his deafness as  _  .",
-                            "id": "x51b3abfc12c03a34"
-                        }
-                    ]
-                },
-                {
-                    "context": "Thomas Edison lit up the world with his invention of the electric light. Without him, the world might still be in the dark. However, the electric light was not his only invention. He also invented the motion picture camera and 1200 other things. About every two weeks he created something new.\nThomas Edison was born in 1847. He attended school for only three months. His mother taught him at home, but Thomas was mostly self-educated. He started experimenting at a young age.\nWhen he was 12 years old, he got his first job. He became a newsboy on a train. He did experiments on the train in his spare time. Unluckily, his first work experience did not end well. They _ him when he accidentally set fire to the floor of the train. Then Edison worked for five years as a telegraph operator, but he continued to spend much of his time in experimenting his first patent  in 1868 for a vote recorder run by electricity.\nThomas Edison was totally deaf in one ear and hard of hearing in the other, but he thought of his deafness as a blessing in many ways. It kept conversations short, so that he could have more time for work. He always worked 16 out of every 24hours. Sometimes his wife had to remind him to sleep and eat.\nThomas Edison died at the age of 84. He left a great many inventions that greatly improved the quality of life all over the world. A_START>>> Edison had only 8 hours rest each day after his deafness A_END<<<  B_START>>> Edison got his education mostly by self-teaching B_END<<<  C_START>>> Edison had his first job in 1869 C_END<<<  D_START>>> Edison's inventions greatly improved the quality of people's life D_END<<< ",
-                    "qas": [
-                        {
-                            "answers": [
-                                {
-                                    "answer_start": 1498,
-                                    "text": "C_START>>> Edison had his first job in 1869 C_END<<<"
-                                }
-                            ],
-                            "question": "which of the following sentence is NOT true according to the passage?",
-                            "id": "xd9da7b74efd9d8"
-                        }
-                    ]
-                },
-                {
-                    "context": "Thomas Edison lit up the world with his invention of the electric light. Without him, the world might still be in the dark. However, the electric light was not his only invention. He also invented the motion picture camera and 1200 other things. About every two weeks he created something new.\nThomas Edison was born in 1847. He attended school for only three months. His mother taught him at home, but Thomas was mostly self-educated. He started experimenting at a young age.\nWhen he was 12 years old, he got his first job. He became a newsboy on a train. He did experiments on the train in his spare time. Unluckily, his first work experience did not end well. They _ him when he accidentally set fire to the floor of the train. Then Edison worked for five years as a telegraph operator, but he continued to spend much of his time in experimenting his first patent  in 1868 for a vote recorder run by electricity.\nThomas Edison was totally deaf in one ear and hard of hearing in the other, but he thought of his deafness as a blessing in many ways. It kept conversations short, so that he could have more time for work. He always worked 16 out of every 24hours. Sometimes his wife had to remind him to sleep and eat.\nThomas Edison died at the age of 84. He left a great many inventions that greatly improved the quality of life all over the world. A_START>>> The function of the electric light A_END<<<  B_START>>> Edison and his experiments B_END<<<  C_START>>> The importance of inventions C_END<<<  D_START>>> The whole life of Edison. D_END<<< ",
-                    "qas": [
-                        {
-                            "answers": [
-                                {
-                                    "answer_start": 1504,
-                                    "text": "D_START>>> The whole life of Edison. D_END<<<"
-                                }
-                            ],
-                            "question": "What does the passage mainly talk about?",
-                            "id": "7e84766d61cdab94"
-                        }
-                    ]
+                  "answer_start": 207,
+                  "text": "SELECT_D"
                 }
-            ]
+              ],
+              "question": "The girl handed the letter back to the mailman because   _   .",
+              "id": "54c4b1bed51ff8ff"
+            }
+          ]
+        },
+        {
+          "context": "Tom had told her what the signs meant before leaving SELECT_A Alice was clever and could guess the meaning of the signs SELECT_B Alice had put the signs on the envelope herself SELECT_C Tom had put the signs as Alice had told him to SELECT_D In a small village in England about 150 years ago, a mail coach (    ) was standing on the street . It didn't come to that village often  . People had to pay a lot to get a letter . The person who sent the letter didn't have to pay the postage (     )  , while the receiver had to .\n\"Here's a letter for Miss Alice Brown , \" said the mailman .\n\" I'm  Alice Brown , \" a girl of about 18 said in a low voice .\nAlice looked at the envelope  for a minute , and then handed it back to the mailman .\n\" I'm sorry I can't take it , I don't have enough money to pay it\", she said .\nA gentleman standing around were very sorry for her . Then he came up and paid the postage for her .\nWhen the gentleman gave the letter to her , she said with a smile , \" Thank you very much ,This letter is from Tom . I'm going to marry him . He went to London to look for work . I've waited a long time for this letter , but now I don't need it , there is nothing in it .\"\n\" Really ? How do you know that ? \" the gentleman said in surprise .\n\" He told me that he would put some signs on the envelope . Look ,sir ,this cross in the corner means that he is well and this circle means he has found work . That's good news .\"\nThe gentleman was Sir Rowland Hill . He didn't forgot Alice and her letter .\n\" The postage to be paid by the receiver has to be changed ,\" he said to himself and had a good plan .\n\" The postage has to be much lower , what about a penny (    ) ? And the person who sends the letter pays the postage . He has to buy a stamp and put it on the envelope .\" he said .\nThe government accepted his plan . Then the first stamp was put out in 1840 . It was called the \" Penny Black \" . It had a picture of the Queen on it .",
+          "qas": [
+            {
+              "answers": [
+                {
+                  "answer_start": 53,
+                  "text": "SELECT_A"
+                }
+              ],
+              "question": "We can know from Alice's words that   _   .",
+              "id": "x7f8c925a387c470c"
+            }
+          ]
+        },
+        {
+          "context": "the government SELECT_A Sir Rowland Hill SELECT_B Alice Brown SELECT_C Tom SELECT_D In a small village in England about 150 years ago, a mail coach (    ) was standing on the street . It didn't come to that village often  . People had to pay a lot to get a letter . The person who sent the letter didn't have to pay the postage (     )  , while the receiver had to .\n\"Here's a letter for Miss Alice Brown , \" said the mailman .\n\" I'm  Alice Brown , \" a girl of about 18 said in a low voice .\nAlice looked at the envelope  for a minute , and then handed it back to the mailman .\n\" I'm sorry I can't take it , I don't have enough money to pay it\", she said .\nA gentleman standing around were very sorry for her . Then he came up and paid the postage for her .\nWhen the gentleman gave the letter to her , she said with a smile , \" Thank you very much ,This letter is from Tom . I'm going to marry him . He went to London to look for work . I've waited a long time for this letter , but now I don't need it , there is nothing in it .\"\n\" Really ? How do you know that ? \" the gentleman said in surprise .\n\" He told me that he would put some signs on the envelope . Look ,sir ,this cross in the corner means that he is well and this circle means he has found work . That's good news .\"\nThe gentleman was Sir Rowland Hill . He didn't forgot Alice and her letter .\n\" The postage to be paid by the receiver has to be changed ,\" he said to himself and had a good plan .\n\" The postage has to be much lower , what about a penny (    ) ? And the person who sends the letter pays the postage . He has to buy a stamp and put it on the envelope .\" he said .\nThe government accepted his plan . Then the first stamp was put out in 1840 . It was called the \" Penny Black \" . It had a picture of the Queen on it .",
+          "qas": [
+            {
+              "answers": [
+                {
+                  "answer_start": 41,
+                  "text": "SELECT_B"
+                }
+              ],
+              "question": "The idea of using stamps was thought of by   _   .",
+              "id": "x4e7c645054c0fe57"
+            }
+          ]
+        },
+        {
+          "context": "People never send each other letters SELECT_A lovers almost lose every touch with each other SELECT_B people try their best to avoid  paying it SELECT_C receivers refuse to pay the coming letters SELECT_D In a small village in England about 150 years ago, a mail coach (    ) was standing on the street . It didn't come to that village often  . People had to pay a lot to get a letter . The person who sent the letter didn't have to pay the postage (     )  , while the receiver had to .\n\"Here's a letter for Miss Alice Brown , \" said the mailman .\n\" I'm  Alice Brown , \" a girl of about 18 said in a low voice .\nAlice looked at the envelope  for a minute , and then handed it back to the mailman .\n\" I'm sorry I can't take it , I don't have enough money to pay it\", she said .\nA gentleman standing around were very sorry for her . Then he came up and paid the postage for her .\nWhen the gentleman gave the letter to her , she said with a smile , \" Thank you very much ,This letter is from Tom . I'm going to marry him . He went to London to look for work . I've waited a long time for this letter , but now I don't need it , there is nothing in it .\"\n\" Really ? How do you know that ? \" the gentleman said in surprise .\n\" He told me that he would put some signs on the envelope . Look ,sir ,this cross in the corner means that he is well and this circle means he has found work . That's good news .\"\nThe gentleman was Sir Rowland Hill . He didn't forgot Alice and her letter .\n\" The postage to be paid by the receiver has to be changed ,\" he said to himself and had a good plan .\n\" The postage has to be much lower , what about a penny (    ) ? And the person who sends the letter pays the postage . He has to buy a stamp and put it on the envelope .\" he said .\nThe government accepted his plan . Then the first stamp was put out in 1840 . It was called the \" Penny Black \" . It had a picture of the Queen on it .",
+          "qas": [
+            {
+              "answers": [
+                {
+                  "answer_start": 144,
+                  "text": "SELECT_C"
+                }
+              ],
+              "question": "From the passage we know the high postage made   _   .",
+              "id": "232d0768867e8f6a"
+            }
+          ]
         }
-    ]
+      ]
+    },
+    {
+      "title": "high9216.txt",
+      "paragraphs": [
+        {
+          "context": "You should never eat delicious foods. SELECT_A Drinking some water or soup before eating helps you to eat less. SELECT_B Holidays are happy days but they may bring you weight problems. SELECT_C Physical exercise can reduce the chance of putting on weight. SELECT_D Do you love holidays but hate gaining weight? You are not alone. Holidays are times for celebrating. Many people are worried about their weight. With proper planning, though, it is possible to keep normal weight during the holidays. The idea is to enjoy the holidays but not to eat too much. You don't have to turn away from the foods that you enjoy.\nHere are some tips for preventing weight gain and maintaining physical fitness:\nDon't skip meals. Before you leave home, have a small, low-fat meal or snack . This may help to avoid getting too excited before delicious foods.\nControl the amount of food. Use a small plate that may encourage you to \"load up  \". You should be most comfortable eating an amount of food about the size of your fist  .\nBegin with soup and fruit or vegetables. Fill up beforehand on water-based soup and raw fruit or vegetables, or drink a large glass of water before you eat to help you to feel full.\nAvoid high-fat foods. Dishes that look oily or creamy may have large amount of fat. Choose lean meat . Fill your plate with salad and green vegetables. Use lemon juice instead of creamy food.\nStick to physical activity. Don't let exercise take a break during the holidays. A 20-minute walk helps to burn off extra calories.(238 words)",
+          "qas": [
+            {
+              "answers": [
+                {
+                  "answer_start": 38,
+                  "text": "SELECT_A"
+                }
+              ],
+              "question": "Which of the following statements is WRONG according to the passage?",
+              "id": "126f0b4176a1839"
+            }
+          ]
+        },
+        {
+          "context": "Eating lean meat. SELECT_A Creamy food. SELECT_B Eating raw fruit or vegetables. SELECT_C Physical exercise. SELECT_D Do you love holidays but hate gaining weight? You are not alone. Holidays are times for celebrating. Many people are worried about their weight. With proper planning, though, it is possible to keep normal weight during the holidays. The idea is to enjoy the holidays but not to eat too much. You don't have to turn away from the foods that you enjoy.\nHere are some tips for preventing weight gain and maintaining physical fitness:\nDon't skip meals. Before you leave home, have a small, low-fat meal or snack . This may help to avoid getting too excited before delicious foods.\nControl the amount of food. Use a small plate that may encourage you to \"load up  \". You should be most comfortable eating an amount of food about the size of your fist  .\nBegin with soup and fruit or vegetables. Fill up beforehand on water-based soup and raw fruit or vegetables, or drink a large glass of water before you eat to help you to feel full.\nAvoid high-fat foods. Dishes that look oily or creamy may have large amount of fat. Choose lean meat . Fill your plate with salad and green vegetables. Use lemon juice instead of creamy food.\nStick to physical activity. Don't let exercise take a break during the holidays. A 20-minute walk helps to burn off extra calories.(238 words)",
+          "qas": [
+            {
+              "answers": [
+                {
+                  "answer_start": 40,
+                  "text": "SELECT_B"
+                }
+              ],
+              "question": "Which of the following can NOT help people to lose weight according to the passage?",
+              "id": "787beed8d18c2669"
+            }
+          ]
+        },
+        {
+          "context": "can't help eating too much SELECT_A take part in too many parties SELECT_B enjoy delicious foods sometimes SELECT_C can't help turning away from foods. SELECT_D Do you love holidays but hate gaining weight? You are not alone. Holidays are times for celebrating. Many people are worried about their weight. With proper planning, though, it is possible to keep normal weight during the holidays. The idea is to enjoy the holidays but not to eat too much. You don't have to turn away from the foods that you enjoy.\nHere are some tips for preventing weight gain and maintaining physical fitness:\nDon't skip meals. Before you leave home, have a small, low-fat meal or snack . This may help to avoid getting too excited before delicious foods.\nControl the amount of food. Use a small plate that may encourage you to \"load up  \". You should be most comfortable eating an amount of food about the size of your fist  .\nBegin with soup and fruit or vegetables. Fill up beforehand on water-based soup and raw fruit or vegetables, or drink a large glass of water before you eat to help you to feel full.\nAvoid high-fat foods. Dishes that look oily or creamy may have large amount of fat. Choose lean meat . Fill your plate with salad and green vegetables. Use lemon juice instead of creamy food.\nStick to physical activity. Don't let exercise take a break during the holidays. A 20-minute walk helps to burn off extra calories.(238 words)",
+          "qas": [
+            {
+              "answers": [
+                {
+                  "answer_start": 27,
+                  "text": "SELECT_A"
+                }
+              ],
+              "question": "Many people can't control their weight during the holidays mainly because they   _  .",
+              "id": "65e7822995b4b224"
+            }
+          ]
+        },
+        {
+          "context": "Holidays and Festivals section SELECT_A Health and Fitness section SELECT_B Fashion section SELECT_C Student Times Club section SELECT_D Do you love holidays but hate gaining weight? You are not alone. Holidays are times for celebrating. Many people are worried about their weight. With proper planning, though, it is possible to keep normal weight during the holidays. The idea is to enjoy the holidays but not to eat too much. You don't have to turn away from the foods that you enjoy.\nHere are some tips for preventing weight gain and maintaining physical fitness:\nDon't skip meals. Before you leave home, have a small, low-fat meal or snack . This may help to avoid getting too excited before delicious foods.\nControl the amount of food. Use a small plate that may encourage you to \"load up  \". You should be most comfortable eating an amount of food about the size of your fist  .\nBegin with soup and fruit or vegetables. Fill up beforehand on water-based soup and raw fruit or vegetables, or drink a large glass of water before you eat to help you to feel full.\nAvoid high-fat foods. Dishes that look oily or creamy may have large amount of fat. Choose lean meat . Fill your plate with salad and green vegetables. Use lemon juice instead of creamy food.\nStick to physical activity. Don't let exercise take a break during the holidays. A 20-minute walk helps to burn off extra calories.(238 words)",
+          "qas": [
+            {
+              "answers": [
+                {
+                  "answer_start": 67,
+                  "text": "SELECT_B"
+                }
+              ],
+              "question": "If the passage appeared in a newspaper, which section is the most suitable one?",
+              "id": "753de6cabe8a07cf"
+            }
+          ]
+        },
+        {
+          "context": "How to avoid holiday feasting. SELECT_A Do's and don'ts for keeping slim and fit. SELECT_B How to avoid weight gain over holidays. SELECT_C Wonderful holidays, boring experiences. SELECT_D Do you love holidays but hate gaining weight? You are not alone. Holidays are times for celebrating. Many people are worried about their weight. With proper planning, though, it is possible to keep normal weight during the holidays. The idea is to enjoy the holidays but not to eat too much. You don't have to turn away from the foods that you enjoy.\nHere are some tips for preventing weight gain and maintaining physical fitness:\nDon't skip meals. Before you leave home, have a small, low-fat meal or snack . This may help to avoid getting too excited before delicious foods.\nControl the amount of food. Use a small plate that may encourage you to \"load up  \". You should be most comfortable eating an amount of food about the size of your fist  .\nBegin with soup and fruit or vegetables. Fill up beforehand on water-based soup and raw fruit or vegetables, or drink a large glass of water before you eat to help you to feel full.\nAvoid high-fat foods. Dishes that look oily or creamy may have large amount of fat. Choose lean meat . Fill your plate with salad and green vegetables. Use lemon juice instead of creamy food.\nStick to physical activity. Don't let exercise take a break during the holidays. A 20-minute walk helps to burn off extra calories.(238 words)",
+          "qas": [
+            {
+              "answers": [
+                {
+                  "answer_start": 131,
+                  "text": "SELECT_C"
+                }
+              ],
+              "question": "What is the best title of the passage?",
+              "id": "6013a4dea956f3eb"
+            }
+          ]
+        }
+      ]
+    }
+  ]
 }

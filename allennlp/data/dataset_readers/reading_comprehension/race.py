@@ -154,16 +154,15 @@ if __name__ == "__main__":
                     answer = art_data["answers"][q]
 
                     # Build Context with all Options
-                    span_starts, span_answer_start, span_answer_text = [], None, None
+                    span_answer_start, span_answer_text = None, None
+                    all_pos_answers_text = ""
                     for i, answer_choice in enumerate(["A", "B", "C", "D"]):
-                        span_starts.append(len(base_context) + 1)
-                        base_context += " " + answer_choice + "_START>>> "
-                        base_context += options[i]
-                        base_context += " " + answer_choice + "_END<<< "
-
+                        select_token = "SELECT_" + answer_choice
+                        all_pos_answers_text += options[i] + " " + select_token + " "
                         if answer_choice == answer:
-                            span_answer_start = span_starts[-1]
-                            span_answer_text = answer_choice + "_START>>> " + options[i] + " " + answer_choice + "_END<<<"
+                            span_answer_start = all_pos_answers_text.index(select_token)
+                            span_answer_text = select_token
+                    base_context = all_pos_answers_text + base_context
 
                     # Get Q_ID
                     qid = hex(hash(art_file + question))[2:]
