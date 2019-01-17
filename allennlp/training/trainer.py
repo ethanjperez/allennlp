@@ -734,7 +734,12 @@ class Trainer(Registrable):
                 j_metrics = judge.get_metrics(per_sample=True)
                 j_em = torch.tensor(j_metrics['em'], dtype=sent_choice_probs[0].dtype, device=sent_choice_probs[0].device)
                 j_f1 = torch.tensor(j_metrics['f1'], dtype=sent_choice_probs[0].dtype, device=sent_choice_probs[0].device)
-                j_score = j_f1 if debater.reward_method == 'f1' else j_em  # Exact match reward by default
+                if debater.reward_method == 'f1':
+                    j_score = j_f1
+                elif debater.reward_method == 'ssp':
+                    j_score = torch.Tensor([output_dict['span_start_probs'][i, batch['span_start'][i]] for i in range(bsz)])
+                else:  # EM or SL (where EM is a dummy value)
+                    j_score = j_em
 
                 self._add_debate_metrics(output_dict, sent_idxs, sent_choice_idxs, num_turns, turn_str)
                 if self._evaluate and ((self._batch_num_total % 20) == 0):

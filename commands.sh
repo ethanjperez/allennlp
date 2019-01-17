@@ -12,13 +12,15 @@ allennlp train training_config/bidaf.race.size=half.jsonnet --serialization-dir 
 allennlp train training_config/bidaf.race.size=half.jsonnet --serialization-dir tmp/race.a.m=sl.pt=race.f -j tmp/race.f/model.tar.gz -m sl --debate_mode a
 allennlp train training_config/bidaf.race.size=half.jsonnet --serialization-dir tmp/race.b.m=sl.pt=race.f -j tmp/race.f/model.tar.gz -m sl --debate_mode b
 
-# RACE: RL
+# RACE: RL  TODO: Remove patience!
 allennlp train training_config/bidaf.race.size=half.jsonnet --serialization-dir tmp/race.a.m=em.pt=race.f -j tmp/race.f/model.tar.gz -m em --debate_mode a
 allennlp train training_config/bidaf.race.size=half.jsonnet --serialization-dir tmp/race.b.m=em.pt=race.f -j tmp/race.f/model.tar.gz -m em --debate_mode b
 
-allennlp train training_config/bidaf.race.size=half.jsonnet --serialization-dir tmp/race.a.m=em.pt=race.f -j tmp/race.f/model.tar.gz -m em --debate_mode ab
-allennlp train training_config/bidaf.race.size=half.jsonnet --serialization-dir tmp/race.a.m=em.pt=race.f -j tmp/race.f/model.tar.gz -m em --debate_mode ar
-allennlp train training_config/bidaf.race.size=half.jsonnet --serialization-dir tmp/race.a.m=em.pt=race.f -j tmp/race.f/model.tar.gz -m em --debate_mode br
+allennlp train training_config/bidaf.race.size=half.jsonnet --serialization-dir tmp/race.ab.m=em.pt=race.f -j tmp/race.f/model.tar.gz -m em --debate_mode ab
+allennlp train training_config/bidaf.race.size=half.jsonnet --serialization-dir tmp/race.ar.m=em.pt=race.f -j tmp/race.f/model.tar.gz -m em --debate_mode ar
+allennlp train training_config/bidaf.race.size=half.jsonnet --serialization-dir tmp/race.br.m=em.pt=race.f -j tmp/race.f/model.tar.gz -m em --debate_mode br
+
+# RACE: RL  TODO: ssp reward!
 
 # Training J only:
 allennlp train training_config/bidaf.num_epochs=200.jsonnet --debate_mode rr --serialization-dir tmp/rr.2
