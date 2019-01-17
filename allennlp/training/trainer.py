@@ -621,7 +621,7 @@ class Trainer(Registrable):
                     oracle_eval_method = 'em' if race_data else 'f1'  # NOTE: Only other option is 'em'
                     # NOTE: Set below to None to make oracle selection simultaneous with other selections
                     past_sent_choice_idxs = torch.cat(sent_choice_idxs, 1) if len(sent_choice_idxs) > 0 else None
-                    opt_idxs = []
+                    opt_sent_idxs = []
                     if sl_debate:
                         sc_diffs = []
                     oracle_values = []
@@ -652,7 +652,7 @@ class Trainer(Registrable):
                         oracle_metrics = oracle_metrics.get_metric(reset=True, per_sample=True)[1 if oracle_eval_method == 'f1' else 0]
                         opt_sc = float(oracle_func(oracle_metrics))
                         oracle_values.append(opt_sc)
-                        opt_idxs.append(oracle_metrics.index(opt_sc))
+                        opt_sent_idxs.append(oracle_metrics.index(opt_sc) + num_first_sents_excluded)
                         if sl_debate:
                             baseline_sc = sum(oracle_metrics) / len(oracle_metrics)
                             # NB: Hard-coding different baseline score based on debate_mode
@@ -662,11 +662,12 @@ class Trainer(Registrable):
                     if judge_was_training:
                         judge.train()
 
-                    sent_choice_idx = torch.LongTensor(opt_idxs).unsqueeze(1)
+                    sent_choice_idx = torch.LongTensor(opt_sent_idxs).unsqueeze(1)
                     sent_choice_mask = sent_idxs == sent_choice_idx
                     sent_choice_prob = torch.ones(bsz)
                     value = torch.FloatTensor(oracle_values)
                 elif method in ['a', 'b']:  # A/B trained selection
+                    # TODO: Force choice to exclude answer-containing sentences!
                     assert debater is not None, 'Cannot use debate method ' + method + ' without debate agents!'
                     for batch_idx in range(bsz):  # NB: 'metadata' usually optional but will now cause error if missing
                         batch['metadata'][batch_idx]['a_turn'] = a_turn[turn]
@@ -723,17 +724,15 @@ class Trainer(Registrable):
                 if 'a_turn' in batch['metadata'][batch_idx]:
                     batch['metadata'][batch_idx].pop('a_turn')
 
-            # Mask passage
+            # Mask passage and pass to Judge
             all_sent_choice_mask = torch.stack(sent_choice_masks).sum(0)
             all_sent_choice_mask = all_sent_choice_mask / (all_sent_choice_mask.clamp(min=1))  # Differentiable clamp to max=1
             batch = self._modify_passage(batch, all_sent_choice_mask, pad_masks, mask_tok_val, mod_type)
-
-            # Normal forward pass with judge
             output_dict = self._forward(batch, judge)
 
             # Debate metrics and losses
             if debater is not None:
-                # Debate stats
+                # Debate metrics
                 j_metrics = judge.get_metrics(per_sample=True)
                 j_em = torch.tensor(j_metrics['em'], dtype=sent_choice_probs[0].dtype, device=sent_choice_probs[0].device)
                 j_f1 = torch.tensor(j_metrics['f1'], dtype=sent_choice_probs[0].dtype, device=sent_choice_probs[0].device)
