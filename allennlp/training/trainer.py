@@ -667,7 +667,6 @@ class Trainer(Registrable):
                     sent_choice_prob = torch.ones(bsz)
                     value = torch.FloatTensor(oracle_values)
                 elif method in ['a', 'b']:  # A/B trained selection
-                    # TODO: Force choice to exclude answer-containing sentences!
                     assert debater is not None, 'Cannot use debate method ' + method + ' without debate agents!'
                     for batch_idx in range(bsz):  # NB: 'metadata' usually optional but will now cause error if missing
                         batch['metadata'][batch_idx]['a_turn'] = a_turn[turn]
@@ -679,6 +678,7 @@ class Trainer(Registrable):
                     # TODO: Do argmax on sentence-level distribution!
                     word_choice_idx = torch.multinomial(word_choice_dist, 1) if for_training else torch.argmax(word_choice_dist, dim=1, keepdim=True)
                     sent_choice_idx = sent_idxs.gather(1, word_choice_idx.to(sent_idxs.device))
+                    sent_choice_idx[sent_choice_idx < num_first_sents_excluded] = num_first_sents_excluded  # NB: Force choice to exclude answer-containing sentences! Do in a better way!
                     sent_choice_mask = sent_idxs == sent_choice_idx
 
                     if sl_debate:  # SL: No sampling for prediction probs. Forcibly choose Oracle's prediction
