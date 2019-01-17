@@ -557,6 +557,10 @@ class Trainer(Registrable):
             num_turns = len(debate_mode[0])
             bsz = batch['question']['tokens'].size(0)
             mask_tok_val = self._model.vocab.get_token_index('.')
+            a_turn = {turn: debate_mode[0][turn] == 'a' for turn in range(len(debate_mode[0]))}
+            turn_str = {turn: "_turn_" + str(turn) + "_agent_" + debate_mode[0][turn] for turn in range(num_turns)}
+            sl_debate = (debater is not None) and (debater.reward_method == 'sl')
+            debate_mode_with_eval_only_turns = debate_mode[0] if not sl_debate else debate_mode[0].replace('b', 'Bb').replace('a', 'Aa')
 
             # Precomputation. NB: Move from CPU to GPU if slow
             tok_mask = {'.': (batch['passage']['tokens'] == self._model.vocab.get_token_index('.')).long()}
@@ -581,15 +585,6 @@ class Trainer(Registrable):
             pad_masks = (batch['passage']['tokens'] != 0).long()
             num_sents = (sent_idxs * pad_masks).max(1)[0] + 1
             sent_answer_idx = sent_idxs.gather(1, batch['span_start'].to(sent_idxs.device))
-            a_turn = {turn: debate_mode[0][turn] == 'a' for turn in range(len(debate_mode[0]))}
-            turn_str = {turn: "_turn_" + str(turn) + "_agent_" + debate_mode[0][turn] for turn in range(num_turns)}
-
-            # Add any turns that shouldn't directly add to loss (i.e., calculating Oracle B predictions)
-            # NB: Multiple turns of sl untested
-            assert ((debater is not None) or (debater.reward_method == 'sl')), \
-                'Cannot use Supervised Learning reward method without debating agent(s)'
-            sl_debate = (debater.reward_method == 'sl')
-            debate_mode_with_eval_only_turns = debate_mode[0] if not sl_debate else debate_mode[0].replace('b', 'Bb').replace('a', 'Aa')
 
             # Execute player turns to determine mask.
             sent_choice_idxs = []

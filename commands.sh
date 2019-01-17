@@ -6,15 +6,17 @@
 allennlp train training_config/bidaf.race.size=half.jsonnet --serialization-dir tmp/race.ans_beg.j.pt=f.size=half --debate_mode f
 
 # RACE: Debate baselines
-allennlp train training_config/bidaf.race.size=half.jsonnet --serialization-dir tmp/race.f -e -r --debate_mode B
-allennlp train training_config/bidaf.race.size=half.jsonnet --serialization-dir tmp/race.f -e -r --debate_mode A
-allennlp train training_config/bidaf.race.size=half.jsonnet --serialization-dir tmp/race.f -e -r --debate_mode AB
-allennlp train training_config/bidaf.race.size=half.jsonnet --serialization-dir tmp/race.f -e -r --debate_mode BA
-allennlp train training_config/bidaf.race.size=half.jsonnet --serialization-dir tmp/race.f -e -r --debate_mode BB
-allennlp train training_config/bidaf.race.size=half.jsonnet --serialization-dir tmp/race.f -e -r --debate_mode AA
-allennlp train training_config/bidaf.race.size=half.jsonnet --serialization-dir tmp/race.f -e -r --debate_mode r
-allennlp train training_config/bidaf.race.size=half.jsonnet --serialization-dir tmp/race.f -e -r --debate_mode rr
-allennlp train training_config/bidaf.race.size=half.jsonnet --serialization-dir tmp/race.f -e -r --debate_mode rrrr
+allennlp train training_config/bidaf.race.size=half.jsonnet --serialization-dir tmp/race.f -e -r --debate_mode B  # prince
+allennlp train training_config/bidaf.race.size=half.jsonnet --serialization-dir tmp/race.f -e -r --debate_mode A  # prince
+allennlp train training_config/bidaf.race.size=half.jsonnet --serialization-dir tmp/race.f -e -r --debate_mode r  # cassio
+
+allennlp train training_config/bidaf.race.size=half.jsonnet --serialization-dir tmp/race.f -e -r --debate_mode AB  # cassio
+allennlp train training_config/bidaf.race.size=half.jsonnet --serialization-dir tmp/race.f -e -r --debate_mode BA  # cassio
+allennlp train training_config/bidaf.race.size=half.jsonnet --serialization-dir tmp/race.f -e -r --debate_mode BB  # cassio
+allennlp train training_config/bidaf.race.size=half.jsonnet --serialization-dir tmp/race.f -e -r --debate_mode AA  # cassio
+allennlp train training_config/bidaf.race.size=half.jsonnet --serialization-dir tmp/race.f -e -r --debate_mode rr  # cassio
+
+allennlp train training_config/bidaf.race.size=half.jsonnet --serialization-dir tmp/race.f -e -r --debate_mode rrrr  # cassio
 
 # RACE: SL baselines
 allennlp train training_config/bidaf.race.size=half.jsonnet --serialization-dir tmp/race.b.m=sl.pt=race.f -j tmp/race.f/model.tar.gz -m sl --debate_mode b
