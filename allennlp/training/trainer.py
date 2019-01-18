@@ -746,7 +746,7 @@ class Trainer(Registrable):
                     j_score = j_em
 
                 self._add_debate_metrics(output_dict, sent_idxs, sent_choice_idxs, num_turns, turn_str)
-                if self._evaluate and ((self._batch_num_total % 20) == 0):
+                if self._evaluate and (((self._batch_num_total % 20) == 0) or ((self._batch_num_total % 20) == 1)):
                     self._print_debate(self, batch, num_sents, debate_mode, sent_choice_masks, sent_choice_idxs, j_em, j_f1, output_dict)
 
                 # Initialize loss (including J's supervised loss if necessary)

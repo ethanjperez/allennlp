@@ -12,7 +12,7 @@ allennlp train training_config/bidaf.race.size=half.jsonnet --serialization-dir 
 allennlp train training_config/bidaf.race.size=half.jsonnet --serialization-dir tmp/race.a.m=sl.pt=race.f -j tmp/race.f/model.tar.gz -m sl --debate_mode a
 allennlp train training_config/bidaf.race.size=half.jsonnet --serialization-dir tmp/race.b.m=sl.pt=race.f -j tmp/race.f/model.tar.gz -m sl --debate_mode b
 
-# RACE: RL: EM Reward
+# RACE: RL: EM Reward (OOM on Titan XP 43% through 1 epoch with br)
 allennlp train training_config/bidaf.race.size=half.patience=None.jsonnet --serialization-dir tmp/race.a.m=em.pt=race.f -j tmp/race.f/model.tar.gz -m em --debate_mode a
 allennlp train training_config/bidaf.race.size=half.patience=None.jsonnet --serialization-dir tmp/race.b.m=em.pt=race.f -j tmp/race.f/model.tar.gz -m em --debate_mode b
 allennlp train training_config/bidaf.race.size=half.patience=None.jsonnet --serialization-dir tmp/race.ab.m=em.pt=race.f -j tmp/race.f/model.tar.gz -m em --debate_mode ab
@@ -35,6 +35,7 @@ allennlp train training_config/bidaf.patience=None.num_epochs=200.jsonnet --deba
 
 # Training bg with fixed J
 allennlp train training_config/bidaf.patience=None.num_epochs=200.jsonnet --debate_mode bg --serialization-dir tmp/bg.3.pt=rr.3 -j tmp/rr.3/model.tar.gz
+allennlp train training_config/bidaf.patience=None.num_epochs=200.jsonnet --debate_mode bg --serialization-dir tmp/bg.3.m=ssp.pt=rr.3 -j tmp/rr.3/model.tar.gz -m ssp
 
 # Training abj with initialized J (provide model.tar.gz to -j and use -u)
 allennlp train training_config/bidaf.patience=None.num_epochs=200.jsonnet --debate_mode ab --serialization-dir tmp/ab.3.pt=rr.2.u -j tmp/rr.2/model.tar.gz -u
@@ -57,7 +58,7 @@ allennlp train training_config/bidaf.num_epochs=200.j.no_grad=cwpam.jsonnet --de
 
 # Train b on gb with SL on oracle
 allennlp train training_config/bidaf.cpu.mini.debug.jsonnet --serialization-dir tmp/debug -j training_config/bidaf.cpu.mini.debug.jsonnet -u --debate_mode gb -m sl
-allennlp train training_config/bidaf.patience=None.num_epochs=200.jsonnet --serialization-dir tmp/gb.m=sl.dropout=0.2 -j tmp/rr.3/model.tar.gz --debate_mode gb -m sl-ssp
+allennlp train training_config/bidaf.patience=None.num_epochs=200.jsonnet --serialization-dir tmp/gb.m=sl-ssp.dropout=0.2 -j tmp/rr.3/model.tar.gz --debate_mode gb -m sl-ssp
 
 # Evaluate abj (add -e -r\nno -u)
 allennlp train training_config/bidaf.num_epochs=200.jsonnet --debate_mode rr --serialization-dir tmp/ab.pt\=rr -j tmp/rr.2/model.tar.gz -r -e
