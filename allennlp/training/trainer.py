@@ -560,7 +560,7 @@ class Trainer(Registrable):
             mask_tok_val = self._model.vocab.get_token_index('.')
             a_turn = {turn: debate_mode[0][turn] == 'a' for turn in range(len(debate_mode[0]))}
             turn_str = {turn: "_turn_" + str(turn) + "_agent_" + debate_mode[0][turn] for turn in range(num_turns)}
-            sl_debate = (debater is not None) and (debater.reward_method == 'sl')
+            sl_debate = (debater is not None) and (debater.reward_method.startswith('sl'))
             debate_mode_with_eval_only_turns = debate_mode[0] if not sl_debate else debate_mode[0].replace('b', 'Bb').replace('a', 'Aa')
 
             # Precomputation. NB: Move from CPU to GPU if slow
@@ -614,8 +614,10 @@ class Trainer(Registrable):
                     value = -1 * torch.ones(bsz)
                 elif method in ['A', 'B']:  # A/B oracle selection
                     oracle_func = max if method == 'A' else min  # NOTE: Modify if adding another oracle method
-                    # NB: RACE oracle should preferably use start_acc
+                    # NB: RACE oracle should preferably use span_start_probs
                     oracle_eval_method = 'em' if race_data else 'f1'  # NOTE: Only other option is 'em'
+                    if sl_debate and debater.reward_method == 'sl-ssp':
+                        oracle_eval_method = 'ssp'
                     # NOTE: Set below to None to make oracle selection simultaneous with other selections
                     past_sent_choice_idxs = torch.cat(sent_choice_idxs, 1) if len(sent_choice_idxs) > 0 else None
                     opt_sent_idxs = []
@@ -647,6 +649,8 @@ class Trainer(Registrable):
                         # Get judge results
                         oracle_output_dict, oracle_metrics = self._forward(oracle_batch, judge)
                         oracle_metrics = oracle_metrics.get_metric(reset=True, per_sample=True)[1 if oracle_eval_method == 'f1' else 0]
+                        if oracle_eval_method == 'ssp':
+                            oracle_metrics = [oracle_output_dict['span_start_probs'][i, oracle_batch['span_start'][i]].item() for i in range(oracle_output_dict['span_start_probs'].size(0))]
                         opt_sc = float(oracle_func(oracle_metrics))
                         oracle_values.append(opt_sc)
                         opt_sent_idxs.append(oracle_metrics.index(opt_sc) + num_first_sents_excluded)
