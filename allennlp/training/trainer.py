@@ -760,6 +760,7 @@ class Trainer(Registrable):
                             output_dict['loss'] += sl_loss
                             self._update_trainer_metrics('sl_loss' + turn_str[turn], sl_loss)
                         else:
+                            # Use 1-R_a
                             grad_dir = -1 if a_turn[turn] else 1
                             baseline = values[turn].to(j_score)
                             policy_loss = grad_dir * (torch.log(sent_choice_probs[turn]) * (j_score - baseline.detach())).mean()
