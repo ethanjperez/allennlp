@@ -12,7 +12,8 @@
         "type": "characters",
         "character_tokenizer": {
           "byte_encoding": "utf-8"
-        }
+        },
+        "min_padding_length": 5
       }
     }
   },
