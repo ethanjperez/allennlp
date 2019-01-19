@@ -39,6 +39,28 @@ class TestNnUtil(AllenNlpTestCase):
         lengths = util.get_lengths_from_binary_sequence_mask(binary_mask)
         numpy.testing.assert_array_equal(lengths.data.numpy(), numpy.array([260, 260]))
 
+    def test_clamp_tensor(self):
+        # Test on uncoalesced sparse tensor
+        i = torch.LongTensor([[0, 1, 1, 0],
+                              [2, 0, 2, 2]])
+        v = torch.FloatTensor([3, 4, -5, 3])
+        tensor = torch.sparse.FloatTensor(i, v, torch.Size([2, 3]))
+        clamped_tensor = util.clamp_tensor(tensor, minimum=-3, maximum=3).to_dense()
+        assert_almost_equal(clamped_tensor, [[0, 0, 3], [3, 0, -3]])
+
+        # Test on coalesced sparse tensor
+        i = torch.LongTensor([[0, 1, 1],
+                              [2, 0, 2]])
+        v = torch.FloatTensor([3, 4, -5])
+        tensor = torch.sparse.FloatTensor(i, v, torch.Size([2, 3]))
+        clamped_tensor = util.clamp_tensor(tensor, minimum=-3, maximum=3).to_dense()
+        assert_almost_equal(clamped_tensor, [[0, 0, 3], [3, 0, -3]])
+
+        # Test on dense tensor
+        tensor = torch.tensor([[5, -4, 3], [-3, 0, -30]])
+        clamped_tensor = util.clamp_tensor(tensor, minimum=-3, maximum=3)
+        assert_almost_equal(clamped_tensor, [[3, -3, 3], [-3, 0, -3]])
+
     def test_sort_tensor_by_length(self):
         tensor = torch.rand([5, 7, 9])
         tensor[0, 3:, :] = 0
@@ -282,12 +304,34 @@ class TestNnUtil(AllenNlpTestCase):
         matrix_mean = util.masked_mean(matrix, mask, dim=1).data.numpy()
         assert_array_almost_equal(matrix_mean, numpy.array([[3.0, 0.5], [-1.5, -1.75]]))
 
+    def test_masked_flip(self):
+        tensor = torch.FloatTensor([[[6, 6, 6], [1, 1, 1], [2, 2, 2]], [[3, 3, 3], [4, 4, 4], [5, 5, 5]]])
+        solution = [[[6, 6, 6], [0, 0, 0]], [[4, 4, 4], [3, 3, 3]]]
+        response = util.masked_flip(tensor, [1, 2])
+        assert_almost_equal(response, solution)
+
+        tensor = torch.FloatTensor([[[6, 6, 6], [1, 1, 1], [2, 2, 2], [0, 0, 0]],
+                                    [[3, 3, 3], [4, 4, 4], [5, 5, 5], [1, 2, 3]]])
+        solution = [[[2, 2, 2], [1, 1, 1], [6, 6, 6], [0, 0, 0]],
+                    [[1, 2, 3], [5, 5, 5], [4, 4, 4], [3, 3, 3]]]
+        response = util.masked_flip(tensor, [3, 4])
+        assert_almost_equal(response, solution)
+
+        tensor = torch.FloatTensor([[[6, 6, 6], [1, 1, 1], [2, 2, 2], [0, 0, 0]],
+                                    [[3, 3, 3], [4, 4, 4], [5, 5, 5], [1, 2, 3]],
+                                    [[1, 1, 1], [2, 2, 2], [0, 0, 0], [0, 0, 0]]])
+        solution = [[[2, 2, 2], [1, 1, 1], [6, 6, 6], [0, 0, 0]],
+                    [[1, 2, 3], [5, 5, 5], [4, 4, 4], [3, 3, 3]],
+                    [[2, 2, 2], [1, 1, 1], [0, 0, 0], [0, 0, 0]]]
+        response = util.masked_flip(tensor, [3, 4, 2])
+        assert_almost_equal(response, solution)
+
     def test_get_text_field_mask_returns_a_correct_mask(self):
         text_field_tensors = {
                 "tokens": torch.LongTensor([[3, 4, 5, 0, 0], [1, 2, 0, 0, 0]]),
                 "token_characters": torch.LongTensor([[[1, 2], [3, 0], [2, 0], [0, 0], [0, 0]],
                                                       [[5, 0], [4, 6], [0, 0], [0, 0], [0, 0]]])
-                }
+        }
         assert_almost_equal(util.get_text_field_mask(text_field_tensors).numpy(),
                             [[1, 1, 1, 0, 0], [1, 1, 0, 0, 0]])
 
@@ -295,7 +339,7 @@ class TestNnUtil(AllenNlpTestCase):
         text_field_tensors = {
                 "token_characters": torch.LongTensor([[[1, 2, 3], [3, 0, 1], [2, 1, 0], [0, 0, 0]],
                                                       [[5, 5, 5], [4, 6, 0], [0, 0, 0], [0, 0, 0]]])
-                }
+        }
         assert_almost_equal(util.get_text_field_mask(text_field_tensors).numpy(),
                             [[1, 1, 1, 0], [1, 1, 0, 0]])
 
@@ -303,7 +347,7 @@ class TestNnUtil(AllenNlpTestCase):
         text_field_tensors = {
                 "list_tokens": torch.LongTensor([[[1, 2], [3, 0], [2, 0], [0, 0], [0, 0]],
                                                  [[5, 0], [4, 6], [0, 0], [0, 0], [0, 0]]])
-                }
+        }
         actual_mask = util.get_text_field_mask(text_field_tensors, num_wrapping_dims=1).numpy()
         expected_mask = (text_field_tensors['list_tokens'].numpy() > 0).astype('int32')
         assert_almost_equal(actual_mask, expected_mask)
@@ -312,7 +356,7 @@ class TestNnUtil(AllenNlpTestCase):
         text_field_tensors = {
                 "tokens": torch.LongTensor([[3, 4, 5, 0, 0], [1, 2, 0, 0, 0]]),
                 "mask": torch.LongTensor([[0, 0, 1]])
-                }
+        }
         assert_almost_equal(util.get_text_field_mask(text_field_tensors).numpy(),
                             [[0, 0, 1]])
 
@@ -392,9 +436,9 @@ class TestNnUtil(AllenNlpTestCase):
         _, argmax_indices = torch.max(sequence_logits, 1)
         assert indices == argmax_indices.data.squeeze().tolist()
 
-        # Test that pairwise potentials effect the sequence correctly and that
+        # Test that pairwise potentials affect the sequence correctly and that
         # viterbi_decode can handle -inf values.
-        sequence_logits = torch.FloatTensor([[0, 0, 0, 3, 4],
+        sequence_logits = torch.FloatTensor([[0, 0, 0, 3, 5],
                                              [0, 0, 0, 3, 4],
                                              [0, 0, 0, 3, 4],
                                              [0, 0, 0, 3, 4],
@@ -421,6 +465,7 @@ class TestNnUtil(AllenNlpTestCase):
         transition_matrix = torch.zeros([5, 5])
         transition_matrix[4, 4] = -10
         transition_matrix[4, 3] = -10
+        transition_matrix[3, 4] = -10
         indices, _ = util.viterbi_decode(sequence_logits, transition_matrix)
         assert indices == [3, 3, 3, 3, 3, 3]
 
@@ -449,6 +494,7 @@ class TestNnUtil(AllenNlpTestCase):
         transition_matrix = torch.zeros([5, 5])
         transition_matrix[4, 4] = -10
         transition_matrix[4, 3] = -2
+        transition_matrix[3, 4] = -2
         # The 1st, 4th and 5th sequence elements are observed - they should be
         # equal to 2, 0 and 4. The last tag should be equal to 3, because although
         # the penalty for transitioning to the 4th tag is -2, the unary potential
@@ -494,7 +540,7 @@ class TestNnUtil(AllenNlpTestCase):
             prediction = torch.nn.functional.log_softmax(prediction, dim=-1)
             correct_loss += prediction[label] * 0.9
             # incorrect elements
-            correct_loss += prediction.sum() * 0.1/4
+            correct_loss += prediction.sum() * 0.1 / 4
         # Average over sequence.
         correct_loss = - correct_loss / 3
         numpy.testing.assert_array_almost_equal(loss.data.numpy(), correct_loss.data.numpy())
@@ -515,7 +561,7 @@ class TestNnUtil(AllenNlpTestCase):
 
         vector_loss = util.sequence_cross_entropy_with_logits(tensor, targets, weights, average=None)
         # Batch has one completely padded row, so divide by 4.
-        assert loss.data.numpy() == vector_loss.data.sum() / 4
+        assert loss.data.numpy() == vector_loss.sum().item() / 4
 
     def test_sequence_cross_entropy_with_logits_averages_token_correctly(self):
         # test token average is the same as multiplying the per-batch loss
@@ -531,10 +577,11 @@ class TestNnUtil(AllenNlpTestCase):
 
         loss = util.sequence_cross_entropy_with_logits(tensor, targets, weights, average="token")
 
-        vector_loss = util.sequence_cross_entropy_with_logits(tensor, targets, weights, batch_average=False)
+        vector_loss = util.sequence_cross_entropy_with_logits(tensor, targets, weights,
+                                                              average=None)
         total_token_loss = (vector_loss * weights.float().sum(dim=-1)).sum()
         average_token_loss = (total_token_loss / weights.float().sum()).detach()
-        assert_almost_equal(loss.detach()[0], average_token_loss[0])
+        assert_almost_equal(loss.detach().item(), average_token_loss.item())
 
     def test_replace_masked_values_replaces_masked_values_with_finite_value(self):
         tensor = torch.FloatTensor([[[1, 2, 3, 4], [5, 6, 7, 8], [9, 10, 11, 12]]])
@@ -799,6 +846,24 @@ class TestNnUtil(AllenNlpTestCase):
                 [1, seq_len_1, seq_len_2]
         )
 
+    def test_combine_tensors_and_multiply_with_batch_size_one_and_seq_len_one(self):
+        seq_len_1 = 10
+        seq_len_2 = 1
+        embedding_dim = 8
+
+        combination = "x,y,x*y"
+        t1 = torch.randn(1, seq_len_1, embedding_dim)
+        t2 = torch.randn(1, seq_len_2, embedding_dim)
+        combined_dim = util.get_combined_dim(combination, [embedding_dim, embedding_dim])
+        weight = torch.Tensor(combined_dim)
+
+        result = util.combine_tensors_and_multiply(combination, [t1.unsqueeze(2), t2.unsqueeze(1)], weight)
+
+        assert_almost_equal(
+                result.size(),
+                [1, seq_len_1, seq_len_2]
+        )
+
     def test_has_tensor(self):
         # pylint: disable=bad-continuation
         has_tensor = util.has_tensor
@@ -817,18 +882,30 @@ class TestNnUtil(AllenNlpTestCase):
         assert not has_tensor(3)
 
         assert has_tensor({
-            "x": [
-                0,
-                {
-                    "inside": {
-                        "double_inside": [
-                            3,
-                            [
-                                10,
-                                tensor
-                            ]
-                        ]
-                    }
-                }
-            ]
+                "x": [
+                        0,
+                        {
+                                "inside": {
+                                        "double_inside": [
+                                                3,
+                                                [
+                                                        10,
+                                                        tensor
+                                                ]
+                                        ]
+                                }
+                        }
+                ]
         })
+
+    def test_combine_initial_dims(self):
+        tensor = torch.randn(4, 10, 20, 17, 5)
+
+        tensor2d = util.combine_initial_dims(tensor)
+        assert list(tensor2d.size()) == [4 * 10 * 20 * 17, 5]
+
+    def test_uncombine_initial_dims(self):
+        embedding2d = torch.randn(4 * 10 * 20 * 17 * 5, 12)
+
+        embedding = util.uncombine_initial_dims(embedding2d, torch.Size((4, 10, 20, 17, 5)))
+        assert list(embedding.size()) == [4, 10, 20, 17, 5, 12]

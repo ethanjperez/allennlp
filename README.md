@@ -2,7 +2,6 @@
 
 [![Build Status](http://build.allennlp.org/app/rest/builds/buildType:(id:AllenNLP_AllenNLPCommits)/statusIcon)](http://build.allennlp.org/viewType.html?buildTypeId=AllenNLP_AllenNLPCommits&guest=1)
 [![codecov](https://codecov.io/gh/allenai/allennlp/branch/master/graph/badge.svg)](https://codecov.io/gh/allenai/allennlp)
-[![docker](https://images.microbadger.com/badges/version/allennlp/allennlp.svg)](https://microbadger.com/images/allennlp/allennlp)
 
 An [Apache 2.0](https://github.com/allenai/allennlp/blob/master/LICENSE) NLP research library, built on PyTorch,
 for developing state-of-the-art deep learning models on a wide variety of linguistic tasks.
@@ -16,11 +15,50 @@ for developing state-of-the-art deep learning models on a wide variety of lingui
 * [Model List](MODELS.md)
 * [Continuous Build](http://build.allennlp.org/)
 
+## Package Overview
+
+<table>
+<tr>
+    <td><b> allennlp </b></td>
+    <td> an open-source NLP research library, built on PyTorch </td>
+</tr>
+<tr>
+    <td><b> allennlp.commands </b></td>
+    <td> functionality for a CLI and web service </td>
+</tr>
+<tr>
+    <td><b> allennlp.data </b></td>
+    <td> a data processing module for loading datasets and encoding strings as integers for representation in matrices </td>
+</tr>
+<tr>
+    <td><b> allennlp.models </b></td>
+    <td> a collection of state-of-the-art models </td>
+</tr>
+<tr>
+    <td><b> allennlp.modules </b></td>
+    <td> a collection of PyTorch modules for use with text </td>
+</tr>
+<tr>
+    <td><b> allennlp.nn </b></td>
+    <td> tensor utility functions, such as initializers and activation functions </td>
+</tr>
+<tr>
+    <td><b> allennlp.service </b></td>
+    <td> a web server to that can serve demos for your models </td>
+</tr>
+<tr>
+    <td><b> allennlp.training </b></td>
+    <td> functionality for training models </td>
+</tr>
+</table>
+
 ## Installation
 
 AllenNLP requires Python 3.6.1 or later. The preferred way to install AllenNLP is via `pip`.  Just run `pip install allennlp` in your Python environment and you're good to go!
 
 If you need pointers on setting up an appropriate Python environment or would like to install AllenNLP using a different method, see below.
+
+Windows is currently not officially supported, although we try to fix issues when they are easily addressed.
 
 ### Installing via pip
 
@@ -71,10 +109,10 @@ Once you have [installed Docker](https://docs.docker.com/engine/installation/)
 just run the following command to get an environment that will run on either the cpu or gpu.
 
    ```bash
-   docker run -it -p 8000:8000 --rm allennlp/allennlp:v0.7.0
+   docker run -it -p 8000:8000 --rm allennlp/allennlp:v0.8.1
    ```
 
-You can test the Docker environment with `docker run -it -p 8000:8000 --rm allennlp/allennlp:v0.7.0 test-install`.
+You can test the Docker environment with `docker run -it -p 8000:8000 --rm allennlp/allennlp:v0.8.1 test-install`.
 
 ### Installing from source
 
@@ -121,79 +159,19 @@ optional arguments:
   --version     show program's version number and exit
 
 Commands:
-  
+
     configure   Generate configuration stubs.
     train       Train a model
     evaluate    Evaluate the specified model + dataset
     predict     Use a trained model to make predictions.
     make-vocab  Create a vocabulary
-    elmo        Use a trained model to make predictions.
+    elmo        Create word vectors using a pretrained ELMo model.
     fine-tune   Continue training a model on a new dataset
     dry-run     Create a vocabulary, compute dataset statistics and other
                 training utilities.
     test-install
                 Run the unit tests.
 ```
-
-## What is AllenNLP?
-
-Built on PyTorch, AllenNLP makes it easy to design and evaluate new deep
-learning models for nearly any NLP problem, along with the infrastructure to
-easily run them in the cloud or on your laptop.  AllenNLP was designed with the
-following principles:
-
-* *Hyper-modular and lightweight.* Use the parts which you like seamlessly with PyTorch.
-* *Extensively tested and easy to extend.* Test coverage is above 90% and the example
-  models provide a template for contributions.
-* *Take padding and masking seriously*, making it easy to implement correct
-  models without the pain.
-* *Experiment friendly.*  Run reproducible experiments from a json
-  specification with comprehensive logging.
-
-AllenNLP includes reference implementations of high quality models for Semantic
-Role Labelling, Question and Answering (BiDAF), Entailment (decomposable
-attention), and more (see http://www.allennlp.org/models).
-
-AllenNLP is built and maintained by the Allen Institute for Artificial
-Intelligence, in close collaboration with researchers at the University of
-Washington and elsewhere. With a dedicated team of best-in-field researchers
-and software engineers, the AllenNLP project is uniquely positioned to provide
-state of the art models with high quality engineering.
-
-<table>
-<tr>
-    <td><b> allennlp </b></td>
-    <td> an open-source NLP research library, built on PyTorch </td>
-</tr>
-<tr>
-    <td><b> allennlp.commands </b></td>
-    <td> functionality for a CLI and web service </td>
-</tr>
-<tr>
-    <td><b> allennlp.data </b></td>
-    <td> a data processing module for loading datasets and encoding strings as integers for representation in matrices </td>
-</tr>
-<tr>
-    <td><b> allennlp.models </b></td>
-    <td> a collection of state-of-the-art models </td>
-</tr>
-<tr>
-    <td><b> allennlp.modules </b></td>
-    <td> a collection of PyTorch modules for use with text </td>
-</tr>
-<tr>
-    <td><b> allennlp.nn </b></td>
-    <td> tensor utility functions, such as initializers and activation functions </td>
-</tr>
-<tr>
-    <td><b> allennlp.service </b></td>
-    <td> a web server to that can serve demos for your models </td>
-</tr>
-<tr>
-    <td><b> allennlp.training </b></td>
-    <td> functionality for training models </td>
-</tr>
-</table>
 
 ## Docker images
 
@@ -225,6 +203,16 @@ allennlp/allennlp            latest              b66aee6cb593        5 minutes a
 You can run the image with `docker run --rm -it allennlp/allennlp:latest`.  The `--rm` flag cleans up the image on exit and the `-it` flags make the session interactive so you can use the bash shell the Docker image starts.
 
 You can test your installation by running  `allennlp test-install`.
+
+## Issues
+
+Everyone is welcome to file issues with either feature requests, bug reports, or general questions.  As a small team with our own internal goals, we may ask for contributions if a prompt fix doesn't fit into our roadmap.  We allow users a two week window to follow up on questions, after which we will close issues.  They can be re-opened if there is further discussion.
+
+## Contributions
+
+The AllenNLP team at AI2 (@allenai) welcomes contributions from the greater AllenNLP community, and, if you would like to get a change into the library, this is likely the fastest approach.  If you would like to contribute a larger feature, we recommend first creating an issue with a proposed design for discussion.  This will prevent you from spending significant time on an implementation which has a technical limitation someone could have pointed out early on.  Small contributions can be made directly in a pull request.
+
+Pull requests (PRs) must have one approving review and no requested changes before they are merged.  As AllenNLP is primarily driven by AI2 (@allenai) we reserve the right to reject or revert contributions that we don't think are good additions.
 
 ## Citing
 

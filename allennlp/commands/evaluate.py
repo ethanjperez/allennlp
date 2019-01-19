@@ -32,23 +32,19 @@ and report any metrics calculated by the model.
     --include-package INCLUDE_PACKAGE
                             additional packages to include
 """
-from typing import Dict, Any, Iterable
+from typing import Dict, Any
 import argparse
 import logging
 import json
 
-import torch
 
 from allennlp.commands.subcommand import Subcommand
-from allennlp.common.checks import check_for_gpu
 from allennlp.common.util import prepare_environment
-from allennlp.common.tqdm import Tqdm
-from allennlp.data import Instance
+
 from allennlp.data.dataset_readers.dataset_reader import DatasetReader
 from allennlp.data.iterators import DataIterator
 from allennlp.models.archival import load_archive
-from allennlp.models.model import Model
-from allennlp.nn import util
+from allennlp.training.util import evaluate
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 
@@ -81,117 +77,14 @@ class Evaluate(Subcommand):
                                default="",
                                help='a JSON structure used to override the experiment configuration')
 
-        # Debate: Option to load trained judge from archive. In this case, debating agents only will be trained
-        subparser.add_argument('-j', '--judge_archive_file',
+        subparser.add_argument('--batch-weight-key',
                                type=str,
-                               default=None,
-                               help='path to an archived trained judge model (if training debate agents only)')
+                               default="",
+                               help='If non-empty, name of metric used to weight the loss on a per-batch basis.')
 
         subparser.set_defaults(func=evaluate_from_args)
 
         return subparser
-
-
-def evaluate(model: Model,
-             instances: Iterable[Instance],
-             data_iterator: DataIterator,
-             cuda_device: int,
-             judge: Model = None) -> Dict[str, Any]:
-    _warned_tqdm_ignores_underscores = False
-    check_for_gpu(cuda_device)
-    with torch.no_grad():
-        model.eval()
-        if judge is not None:
-            # Not yet implemented
-            import ipdb; ipdb.set_trace()
-            judge.eval()
-
-        iterator = data_iterator(instances,
-                                 num_epochs=1,
-                                 shuffle=False)
-        logger.info("Iterating over dataset")
-        generator_tqdm = Tqdm.tqdm(iterator, total=data_iterator.get_num_batches(instances))
-        # Debate: Modified evaluation loop for brute force debate
-        sample_metrics = []
-        for batch in generator_tqdm:
-
-            period_token_no = 5
-            num_turns = 2
-            sent_idxs = (batch['passage']['tokens'] == 5).cumsum(1) - (batch['passage']['tokens'] == period_token_no).long()
-            num_sents = sent_idxs.max(1)[0] + 1
-            pad_masks = (batch['passage']['tokens'] != 0).long()
-            if num_sents <= num_turns:
-                # NB: 'max' is a hack below for examples where you have less than num_turns! Need to replace those with full original tokens at the end.
-                rand_sent_idxs = torch.stack([torch.multinomial(torch.ones(max(int(num_sents[i]), num_turns)), num_turns, False) for i in range(num_sents.size(0))])
-                sent_rand_masks = torch.stack([sent_idxs == rand_sent_idxs[:,i].unsqueeze(1) for i in range(num_turns)]).sum(0)
-                batch['passage']['tokens'] = ((batch['passage']['tokens'] * sent_rand_masks) + ((1 - sent_rand_masks) * period_token_no)) * pad_masks
-                batch['passage']['token_characters'] = ((batch['passage']['token_characters'] * sent_rand_masks.unsqueeze(-1)) + ((1 - sent_rand_masks.unsqueeze(-1)) * period_token_no)) * pad_masks.unsqueeze(-1)
-                batch = util.move_to_device(batch, cuda_device)
-                model(**batch)
-                sample_metrics.append(model.get_metrics(reset=True))
-            else:
-                a_metrics = []
-                a_j_output_dicts = []
-                batch_passage_tokens = batch['passage']['tokens'].clone()
-                batch_passage_token_characters = batch['passage']['token_characters'].clone()
-                for a_idx in range(num_sents):
-                    b_metrics = []
-                    b_j_output_dicts = []
-                    for b_idx in range(num_sents):
-                        ab_sent_idxs = torch.stack([batch_passage_tokens.new((a_idx, b_idx)) for _ in range(num_sents.size(0))])
-                        sent_rand_masks = torch.clamp(torch.stack([sent_idxs == ab_sent_idxs[:,i].unsqueeze(1) for i in range(num_turns)]).sum(0), max=1)
-                        batch['passage']['tokens'] = ((batch_passage_tokens * sent_rand_masks) + ((1 - sent_rand_masks) * period_token_no)) * pad_masks
-                        batch['passage']['token_characters'] = ((batch_passage_token_characters * sent_rand_masks.unsqueeze(-1)) + ((1 - sent_rand_masks.unsqueeze(-1)) * period_token_no)) * pad_masks.unsqueeze(-1)
-                        batch = util.move_to_device(batch, cuda_device)
-                        b_j_output_dict = model(**batch)
-                        b_j_output_dicts.append(b_j_output_dict)
-                        b_metrics.append(model.get_metrics(reset=True))
-                    # Min over b's moves
-                    b_em_scores = [metrics['em'] for metrics in b_metrics]
-                    b_opt = b_em_scores.index(min(b_em_scores))
-                    a_metrics.append(b_metrics[b_opt])
-                    a_j_output_dicts.append(b_j_output_dicts[b_opt])
-                a_em_scores = [metrics['em'] for metrics in a_metrics]
-                a_opt = a_em_scores.index(max(a_em_scores))
-                sample_metrics.append(a_metrics[a_opt])
-                j_output_dict = a_j_output_dicts[a_opt]
-                j_correct = a_metrics[a_opt]['em']
-
-            # Combine sample metrics into global metrics
-            metrics = {k: [] for k in sample_metrics[0]}
-            for k in metrics.keys():
-                for sample_metric in sample_metrics:
-                    metrics[k].append(sample_metric[k])
-            metrics = {k: sum(vs) / len(vs) for k, vs in metrics.items()}
-            if num_sents >= 3 and (a_opt != b_opt):
-                a_sent_idxs = (sent_idxs == a_opt).nonzero()[:,1]
-                a_sent_start_idx = a_sent_idxs.min()
-                a_sent_end_idx = a_sent_idxs.max() + 1
-                b_sent_idxs = (sent_idxs == b_opt).nonzero()[:,1]
-                b_sent_start_idx = b_sent_idxs.min()
-                b_sent_end_idx = b_sent_idxs.max() + 1
-                print('\n***Passage***\n', ' '.join(batch['metadata'][0]['passage_tokens']))
-                print('\n***Question***\n', ' '.join(batch['metadata'][0]['question_tokens']))
-                print('\n***Answers***\n', [answer if isinstance(answer, str) else ' '.join(answer) for answer in batch['metadata'][0]['answer_texts']])
-                toks = batch['metadata'][0]['passage_tokens']
-                print('\n---B--- Sentence', b_opt, '\n', ' '.join(toks[b_sent_start_idx:b_sent_end_idx]))
-                print('\n---A--- Sentence', a_opt, '\n', ' '.join(toks[a_sent_start_idx:a_sent_end_idx]))
-                print('\n---J--- EM Score', j_correct, '!\n', ' '.join(toks[j_output_dict['best_span'][0][0]:j_output_dict['best_span'][0][1]+1]))
-                ab_sent_idxs = torch.stack([batch['passage']['tokens'].new((a_opt, b_opt)) for _ in range(num_sents.size(0))])
-                sent_rand_masks = torch.clamp(torch.stack([sent_idxs == ab_sent_idxs[:,i].unsqueeze(1) for i in range(num_turns)]).sum(0), max=1)
-                sent_rand_masks.nonzero()[:,1]
-
-            if (not _warned_tqdm_ignores_underscores and
-                        any(metric_name.startswith("_") for metric_name in metrics)):
-                logger.warning("Metrics with names beginning with \"_\" will "
-                               "not be logged to the tqdm progress bar.")
-                _warned_tqdm_ignores_underscores = True
-            description = ', '.join(["%s: %.2f" % (name, value) for name, value
-                                     in metrics.items() if not name.startswith("_")]) + " ||"
-            generator_tqdm.set_description(description, refresh=False)
-
-        return metrics
-
 
 def evaluate_from_args(args: argparse.Namespace) -> Dict[str, Any]:
     # Disable some of the more verbose logging statements
@@ -200,24 +93,11 @@ def evaluate_from_args(args: argparse.Namespace) -> Dict[str, Any]:
     logging.getLogger('allennlp.modules.token_embedders.embedding').setLevel(logging.INFO)
 
     # Load from archive
-    archive = load_archive(args.archive_file, args.cuda_device, args.overrides, args.weights_file, args.judge_archive_file is None)
+    archive = load_archive(args.archive_file, args.cuda_device, args.overrides, args.weights_file)
     config = archive.config
     prepare_environment(config)
     model = archive.model
     model.eval()
-
-    # Debate: Load judge model from archive (if applicable)
-    judge = None
-    if args.judge_archive_file is not None:
-        # Load from archive (Modified from evaluate.py)
-        judge_archive = load_archive(args.judge_archive_file, cuda_device=args.cuda_device)
-        judge_config = judge_archive.config
-        prepare_environment(judge_config)
-        judge = judge_archive.model
-        judge.eval()
-        # Use judge only for black-box reward (no gradient signal)
-        for param in judge.parameters():
-            param.requires_grad = False
 
     # Load the evaluation data
 
@@ -235,11 +115,10 @@ def evaluate_from_args(args: argparse.Namespace) -> Dict[str, Any]:
     iterator_params = config.pop("validation_iterator", None)
     if iterator_params is None:
         iterator_params = config.pop("iterator")
-    iterator_params.params['batch_size'] = 1  # Debate: Added for simple brute force debate evaluation
     iterator = DataIterator.from_params(iterator_params)
     iterator.index_with(model.vocab)
 
-    metrics = evaluate(model, instances, iterator, args.cuda_device, judge)
+    metrics = evaluate(model, instances, iterator, args.cuda_device, args.batch_weight_key)
 
     logger.info("Finished evaluating.")
     logger.info("Metrics:")

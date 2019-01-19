@@ -23,9 +23,11 @@ class TestTrain(AllenNlpTestCase):
                 "model": {
                         "type": "simple_tagger",
                         "text_field_embedder": {
-                                "tokens": {
-                                        "type": "embedding",
-                                        "embedding_dim": 5
+                                "token_embedders": {
+                                        "tokens": {
+                                                "type": "embedding",
+                                                "embedding_dim": 5
+                                        }
                                 }
                         },
                         "encoder": {
@@ -67,6 +69,17 @@ class TestTrain(AllenNlpTestCase):
         with pytest.raises(ConfigurationError):
             train_model(params(), serialization_dir=os.path.join(self.TEST_DIR, 'test_train_model'))
 
+        # But it's OK if serialization dir exists and --recover is specified:
+        train_model(params(), serialization_dir=os.path.join(self.TEST_DIR, 'test_train_model'), recover=True)
+
+        # It's ok serialization dir exists and --force is specified (it will be deleted):
+        train_model(params(), serialization_dir=os.path.join(self.TEST_DIR, 'test_train_model'), force=True)
+
+        # But --force and --recover cannot both be specified
+        with pytest.raises(ConfigurationError):
+            train_model(params(), serialization_dir=os.path.join(self.TEST_DIR, 'test_train_model'),
+                        force=True, recover=True)
+
     def test_error_is_throw_when_cuda_device_is_not_available(self):
         params = Params({
                 "model": {
@@ -106,9 +119,11 @@ class TestTrain(AllenNlpTestCase):
                 "model": {
                         "type": "simple_tagger",
                         "text_field_embedder": {
-                                "tokens": {
-                                        "type": "embedding",
-                                        "embedding_dim": 5
+                                "token_embedders": {
+                                        "tokens": {
+                                                "type": "embedding",
+                                                "embedding_dim": 5
+                                        }
                                 }
                         },
                         "encoder": {
@@ -176,9 +191,11 @@ class TestTrainOnLazyDataset(AllenNlpTestCase):
                 "model": {
                         "type": "simple_tagger",
                         "text_field_embedder": {
-                                "tokens": {
-                                        "type": "embedding",
-                                        "embedding_dim": 5
+                                "token_embedders": {
+                                        "tokens": {
+                                                "type": "embedding",
+                                                "embedding_dim": 5
+                                        }
                                 }
                         },
                         "encoder": {
@@ -205,9 +222,11 @@ class TestTrainOnLazyDataset(AllenNlpTestCase):
                 "model": {
                         "type": "simple_tagger",
                         "text_field_embedder": {
-                                "tokens": {
-                                        "type": "embedding",
-                                        "embedding_dim": 5
+                                "token_embedders": {
+                                        "tokens": {
+                                                "type": "embedding",
+                                                "embedding_dim": 5
+                                        }
                                 }
                         },
                         "encoder": {
@@ -236,9 +255,11 @@ class TestTrainOnLazyDataset(AllenNlpTestCase):
                 "model": {
                         "type": "simple_tagger",
                         "text_field_embedder": {
-                                "tokens": {
-                                        "type": "embedding",
-                                        "embedding_dim": 5
+                                "token_embedders": {
+                                        "tokens": {
+                                                "type": "embedding",
+                                                "embedding_dim": 5
+                                        }
                                 }
                         },
                         "encoder": {

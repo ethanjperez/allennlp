@@ -6,13 +6,14 @@ import torch
 import torch.nn.functional as F
 from torch.nn.functional import nll_loss
 
-from allennlp.tools import squad_eval
+from allennlp.common.checks import check_dimensions_match
 from allennlp.data import Vocabulary
 from allennlp.models.model import Model
 from allennlp.modules import Seq2SeqEncoder, TimeDistributed, TextFieldEmbedder
-from allennlp.modules.matrix_attention.linear_matrix_attention import LinearMatrixAttention
 from allennlp.modules.input_variational_dropout import InputVariationalDropout
+from allennlp.modules.matrix_attention.linear_matrix_attention import LinearMatrixAttention
 from allennlp.nn import InitializerApplicator, util
+from allennlp.tools import squad_eval
 from allennlp.training.metrics import Average, BooleanAccuracy, CategoricalAccuracy
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
@@ -47,6 +48,8 @@ class DialogQA(Model):
         If greater than 0, the model will consider previous question answering context.
     max_span_length: ``int``, optional (default=0)
         Maximum token length of the output span.
+    max_turn_length: ``int``, optional (default=12)
+        Maximum length of an interaction.
     """
 
     def __init__(self, vocab: Vocabulary,
@@ -59,7 +62,8 @@ class DialogQA(Model):
                  dropout: float = 0.2,
                  num_context_answers: int = 0,
                  marker_embedding_dim: int = 10,
-                 max_span_length: int = 30) -> None:
+                 max_span_length: int = 30,
+                 max_turn_length: int = 12) -> None:
         super().__init__(vocab)
         self._num_context_answers = num_context_answers
         self._max_span_length = max_span_length
@@ -67,7 +71,6 @@ class DialogQA(Model):
         self._phrase_layer = phrase_layer
         self._marker_embedding_dim = marker_embedding_dim
         self._encoding_dim = phrase_layer.get_output_dim()
-        max_turn_length = 12
 
         self._matrix_attention = LinearMatrixAttention(self._encoding_dim, self._encoding_dim, 'x,y,x*y')
         self._merge_atten = TimeDistributed(torch.nn.Linear(self._encoding_dim * 4, self._encoding_dim))
@@ -92,6 +95,12 @@ class DialogQA(Model):
         self._span_end_predictor = TimeDistributed(torch.nn.Linear(self._encoding_dim, 1))
         self._span_yesno_predictor = TimeDistributed(torch.nn.Linear(self._encoding_dim, 3))
         self._span_followup_predictor = TimeDistributed(self._followup_lin)
+
+        check_dimensions_match(phrase_layer.get_input_dim(),
+                               text_field_embedder.get_output_dim() +
+                               marker_embedding_dim * num_context_answers,
+                               "phrase layer input dim",
+                               "embedding dim + marker dim * num context answers")
 
         initializer(self)
 

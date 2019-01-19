@@ -32,13 +32,17 @@ class ElmoTokenEmbedder(TokenEmbedder):
     projection_dim : ``int``, optional
         If given, we will project the ELMo embedding down to this dimension.  We recommend that you
         try using ELMo with a lot of dropout and no projection first, but we have found a few cases
-        where projection helps (particulary where there is very limited training data).
+        where projection helps (particularly where there is very limited training data).
     vocab_to_cache : ``List[str]``, optional, (default = 0.5).
         A list of words to pre-compute and cache character convolutions
         for. If you use this option, the ElmoTokenEmbedder expects that you pass word
         indices of shape (batch_size, timesteps) to forward, instead
         of character indices. If you use this option and pass a word which
         wasn't pre-cached, this will break.
+    scalar_mix_parameters : ``List[int]``, optional, (default=None)
+        If not ``None``, use these scalar mix parameters to weight the representations
+        produced by different layers. These mixing weights are not updated during
+        training.
     """
     def __init__(self,
                  options_file: str,
@@ -47,7 +51,8 @@ class ElmoTokenEmbedder(TokenEmbedder):
                  dropout: float = 0.5,
                  requires_grad: bool = False,
                  projection_dim: int = None,
-                 vocab_to_cache: List[str] = None) -> None:
+                 vocab_to_cache: List[str] = None,
+                 scalar_mix_parameters: List[float] = None) -> None:
         super(ElmoTokenEmbedder, self).__init__()
 
         self._elmo = Elmo(options_file,
@@ -56,14 +61,17 @@ class ElmoTokenEmbedder(TokenEmbedder):
                           do_layer_norm=do_layer_norm,
                           dropout=dropout,
                           requires_grad=requires_grad,
-                          vocab_to_cache=vocab_to_cache)
+                          vocab_to_cache=vocab_to_cache,
+                          scalar_mix_parameters=scalar_mix_parameters)
         if projection_dim:
             self._projection = torch.nn.Linear(self._elmo.get_output_dim(), projection_dim)
+            self.output_dim = projection_dim
         else:
             self._projection = None
+            self.output_dim = self._elmo.get_output_dim()
 
-    def get_output_dim(self):
-        return self._elmo.get_output_dim()
+    def get_output_dim(self) -> int:
+        return self.output_dim
 
     def forward(self, # pylint: disable=arguments-differ
                 inputs: torch.Tensor,
@@ -108,6 +116,7 @@ class ElmoTokenEmbedder(TokenEmbedder):
         else:
             vocab_to_cache = None
         projection_dim = params.pop_int("projection_dim", None)
+        scalar_mix_parameters = params.pop('scalar_mix_parameters', None)
         params.assert_empty(cls.__name__)
         return cls(options_file=options_file,
                    weight_file=weight_file,
@@ -115,4 +124,5 @@ class ElmoTokenEmbedder(TokenEmbedder):
                    dropout=dropout,
                    requires_grad=requires_grad,
                    projection_dim=projection_dim,
-                   vocab_to_cache=vocab_to_cache)
+                   vocab_to_cache=vocab_to_cache,
+                   scalar_mix_parameters=scalar_mix_parameters)

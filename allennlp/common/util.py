@@ -1,9 +1,8 @@
 """
 Various utilities that don't fit anwhere else.
 """
-
 from itertools import zip_longest, islice
-from typing import Any, Callable, Dict, List, Tuple, TypeVar, Iterable, Iterator
+from typing import Any, Callable, Dict, List, Tuple, TypeVar, Iterable, Iterator, Union
 import importlib
 import json
 import logging
@@ -12,6 +11,7 @@ import random
 import subprocess
 import sys
 import os
+import re
 
 try:
     import resource
@@ -99,7 +99,7 @@ A = TypeVar('A')
 
 def lazy_groups_of(iterator: Iterator[A], group_size: int) -> Iterator[List[A]]:
     """
-    Takes an iterator and batches the invididual instances into lists of the
+    Takes an iterator and batches the individual instances into lists of the
     specified size. The last list may be smaller if there are instances left over.
     """
     return iter(lambda: list(islice(iterator, 0, group_size)), [])
@@ -219,9 +219,17 @@ def prepare_global_logging(serialization_dir: str, file_friendly_logging: bool) 
     serializezation_dir : ``str``, required.
         The directory to stream logs to.
     file_friendly_logging : ``bool``, required.
-        Whether logs should clean the output to prevent carridge returns
-        (used to update progress bars on a single terminal line).
+        Whether logs should clean the output to prevent carriage returns
+        (used to update progress bars on a single terminal line). This
+        option is typically only used if you are running in an environment
+        without a terminal.
     """
+
+    # If we don't have a terminal as stdout,
+    # force tqdm to be nicer.
+    if not sys.stdout.isatty():
+        file_friendly_logging = True
+
     Tqdm.set_slower_interval(file_friendly_logging)
     std_out_file = os.path.join(serialization_dir, "stdout.log")
     sys.stdout = TeeLogger(std_out_file, # type: ignore
@@ -276,9 +284,14 @@ def import_submodules(package_name: str) -> None:
     # Import at top level
     module = importlib.import_module(package_name)
     path = getattr(module, '__path__', [])
+    path_string = '' if not path else path[0]
 
     # walk_packages only finds immediate children, so need to recurse.
-    for _, name, _ in pkgutil.walk_packages(path):
+    for module_finder, name, _ in pkgutil.walk_packages(path):
+        # Sometimes when you import third-party libraries that are on your path,
+        # `pkgutil.walk_packages` returns those too, so we need to skip them.
+        if path_string and module_finder.path != path_string:
+            continue
         subpackage = f"{package_name}.{name}"
         import_submodules(subpackage)
 
@@ -353,6 +366,28 @@ def is_lazy(iterable: Iterable[A]) -> bool:
     which here just means it's not a list.
     """
     return not isinstance(iterable, list)
+
+def parse_cuda_device(cuda_device: Union[str, int, List[int]]) -> Union[int, List[int]]:
+    """
+    Disambiguates single GPU and multiple GPU settings for cuda_device param.
+    """
+    def from_list(strings):
+        if len(strings) > 1:
+            return [int(d) for d in strings]
+        elif len(strings) == 1:
+            return int(strings[0])
+        else:
+            return -1
+
+    if isinstance(cuda_device, str):
+        return from_list(re.split(r',\s*', cuda_device))
+    elif isinstance(cuda_device, int):
+        return cuda_device
+    elif isinstance(cuda_device, list):
+        return from_list(cuda_device)
+    else:
+        # TODO(brendanr): Determine why mypy can't tell that this matches the Union.
+        return int(cuda_device)  # type: ignore
 
 def get_frozen_and_tunable_parameter_names(model: torch.nn.Module) -> List:
     frozen_parameter_names = []

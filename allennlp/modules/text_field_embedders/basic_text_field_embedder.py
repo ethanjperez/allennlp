@@ -64,13 +64,32 @@ class BasicTextFieldEmbedder(TextFieldEmbedder):
         return output_dim
 
     def forward(self, text_field_input: Dict[str, torch.Tensor], num_wrapping_dims: int = 0) -> torch.Tensor:
-        if self._token_embedders.keys() != text_field_input.keys():
-            if not self._allow_unmatched_keys:
+        embedder_keys = self._token_embedders.keys()
+        input_keys = text_field_input.keys()
+
+        # Check for unmatched keys
+        if not self._allow_unmatched_keys:
+            if embedder_keys < input_keys:
+                # token embedder keys are a strict subset of text field input keys.
+                message = (f"Your text field is generating more keys ({list(input_keys)}) "
+                           f"than you have token embedders ({list(embedder_keys)}. "
+                           f"If you are using a token embedder that requires multiple keys "
+                           f"(for example, the OpenAI Transformer embedder or the BERT embedder) "
+                           f"you need to add allow_unmatched_keys = True "
+                           f"(and likely an embedder_to_indexer_map) to your "
+                           f"BasicTextFieldEmbedder configuration. "
+                           f"Otherwise, you should check that there is a 1:1 embedding "
+                           f"between your token indexers and token embedders.")
+                raise ConfigurationError(message)
+
+            elif self._token_embedders.keys() != text_field_input.keys():
+                # some other mismatch
                 message = "Mismatched token keys: %s and %s" % (str(self._token_embedders.keys()),
                                                                 str(text_field_input.keys()))
                 raise ConfigurationError(message)
+
         embedded_representations = []
-        keys = sorted(self._token_embedders.keys())
+        keys = sorted(embedder_keys)
         for key in keys:
             # If we pre-specified a mapping explictly, use that.
             if self._embedder_to_indexer_map is not None:
@@ -131,3 +150,13 @@ class BasicTextFieldEmbedder(TextFieldEmbedder):
 
         params.assert_empty(cls.__name__)
         return cls(token_embedders, embedder_to_indexer_map, allow_unmatched_keys)
+
+    def extend_vocab(self, extended_vocab: Vocabulary) -> None:
+        """
+        It assures that ``basic_text_field_embedder`` can embed with the extended vocab.
+        It iterates over each ``token_embedder`` and assures each of them can
+        embed with extended vocab.
+        """
+        for key, _ in self._token_embedders.items():
+            token_embedder = getattr(self, 'token_embedder_{}'.format(key))
+            token_embedder.extend_vocab(extended_vocab)

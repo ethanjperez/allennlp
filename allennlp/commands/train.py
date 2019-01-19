@@ -6,7 +6,8 @@ which to write the results.
 .. code-block:: bash
 
    $ allennlp train --help
-   usage: allennlp train [-h] -s SERIALIZATION_DIR [-r] [-o OVERRIDES]
+
+   usage: allennlp train [-h] -s SERIALIZATION_DIR [-r] [-f] [-o OVERRIDES]
                          [--file-friendly-logging]
                          [--include-package INCLUDE_PACKAGE]
                          param_path
@@ -14,22 +15,23 @@ which to write the results.
    Train the specified model on the specified dataset.
 
    positional arguments:
-   param_path            path to parameter file describing the model to be
+     param_path            path to parameter file describing the model to be
                            trained
 
    optional arguments:
-   -h, --help            show this help message and exit
-   -s SERIALIZATION_DIR, --serialization-dir SERIALIZATION_DIR
+     -h, --help            show this help message and exit
+     -s SERIALIZATION_DIR, --serialization-dir SERIALIZATION_DIR
                            directory in which to save the model and its logs
-   -r, --recover         recover training from the state in serialization_dir
-   -o OVERRIDES, --overrides OVERRIDES
+     -r, --recover         recover training from the state in serialization_dir
+     -f, --force           overwrite the output directory if it exists
+     -o OVERRIDES, --overrides OVERRIDES
                            a JSON structure used to override the experiment
                            configuration
-   --include-package INCLUDE_PACKAGE
-                           additional packages to include
-   --file-friendly-logging
+     --file-friendly-logging
                            outputs tqdm status on separate lines and slows tqdm
                            refresh rate
+     --include-package INCLUDE_PACKAGE
+                            additional packages to include
 """
 from typing import Dict, Iterable, List
 import argparse
@@ -53,7 +55,9 @@ from allennlp.data.dataset_readers.dataset_reader import DatasetReader
 from allennlp.data.iterators.data_iterator import DataIterator
 from allennlp.models.archival import archive_model, CONFIG_NAME, load_archive
 from allennlp.models.model import Model, _DEFAULT_WEIGHTS
-from allennlp.training.trainer import Trainer
+from allennlp.training.trainer import Trainer, TrainerPieces
+from allennlp.training.trainer_base import TrainerBase
+from allennlp.training.util import create_serialization_dir, evaluate
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 
@@ -83,6 +87,11 @@ class Train(Subcommand):
                                action='store_true',
                                default=False,
                                help='recover training from the state in serialization_dir')
+
+        subparser.add_argument('-f', '--force',
+                               action='store_true',
+                               required=False,
+                               help='overwrite the output directory if it exists')
 
         subparser.add_argument('-o', '--overrides',
                                type=str,
@@ -147,6 +156,7 @@ def train_model_from_args(args: argparse.Namespace):
                           args.overrides,
                           args.file_friendly_logging,
                           args.recover,
+                          args.force,
                           args.judge_filename,
                           args.update_judge,
                           args.evaluate,
@@ -161,6 +171,7 @@ def train_model_from_file(parameter_filename: str,
                           overrides: str = "",
                           file_friendly_logging: bool = False,
                           recover: bool = False,
+                          force: bool = False,
                           judge_filename: str = None,
                           update_judge: bool = False,
                           evaluate: bool = False,
@@ -172,7 +183,7 @@ def train_model_from_file(parameter_filename: str,
 
     Parameters
     ----------
-    param_path : ``str``
+    parameter_filename : ``str``
         A json parameter file specifying an AllenNLP experiment.
     serialization_dir : ``str``
         The directory in which to save results and logs. We just pass this along to
@@ -186,13 +197,15 @@ def train_model_from_file(parameter_filename: str,
         If ``True``, we will try to recover a training run from an existing serialization
         directory.  This is only intended for use when something actually crashed during the middle
         of a run.  For continuing training a model on new data, see the ``fine-tune`` command.
+    force : ``bool``, optional (default=False)
+        If ``True``, we will overwrite the serialization directory if it already exists.
     """
     # Load the experiment config from a file and pass it to ``train_model``.
     params = Params.from_file(parameter_filename, overrides)
-    return train_model(params, serialization_dir, debate_mode, file_friendly_logging, recover,
+    return train_model(params, serialization_dir, debate_mode, file_friendly_logging, recover, force,
                        judge_filename, update_judge, evaluate, reward_method, detach_value_head, breakpoint_level)
 
-
+# TODO: Merge into allennlp/training/util.py
 def datasets_from_params(params: Params) -> Dict[str, Iterable[Instance]]:
     """
     Load all the datasets specified by the config.
@@ -225,7 +238,7 @@ def datasets_from_params(params: Params) -> Dict[str, Iterable[Instance]]:
 
     return datasets
 
-
+# TODO: Merge into allennlp/training/util.py
 def create_serialization_dir(params: Params, serialization_dir: str, recover: bool) -> None:
     """
     This function creates the serialization directory if it doesn't exist.  If it already exists
@@ -299,6 +312,7 @@ def train_model(params: Params,
                 debate_mode: List[str],
                 file_friendly_logging: bool = False,
                 recover: bool = False,
+                force: bool = False,
                 judge_filename: str = None,
                 update_judge: bool = False,
                 evaluate: bool = False,
@@ -322,6 +336,8 @@ def train_model(params: Params,
         If ``True``, we will try to recover a training run from an existing serialization
         directory.  This is only intended for use when something actually crashed during the middle
         of a run.  For continuing training a model on new data, see the ``fine-tune`` command.
+    force : ``bool``, optional (default=False)
+        If ``True``, we will overwrite the serialization directory if it already exists.
 
     Returns
     -------
@@ -334,113 +350,134 @@ def train_model(params: Params,
                       '. If this was unintentional, please remove the -j flag.', UserWarning)
 
     prepare_environment(params)
-
-    create_serialization_dir(params, serialization_dir, recover)
+    create_serialization_dir(params, serialization_dir, recover, force)
     prepare_global_logging(serialization_dir, file_friendly_logging)
 
-    cuda_device = params.get('trainer').get('cuda_device', -1)
+    cuda_device = params.params.get('trainer').get('cuda_device', -1)
     check_for_gpu(cuda_device)
 
     params.to_file(os.path.join(serialization_dir, CONFIG_NAME))
 
-    all_datasets = datasets_from_params(params)
-    if evaluate:  # NB: --evaluate does not expand vocab based on test data
-        params["datasets_for_vocab_creation"] = ['train', 'validation']
-    datasets_for_vocab_creation = set(params.pop("datasets_for_vocab_creation", all_datasets))
-
-    for dataset in datasets_for_vocab_creation:
-        if dataset not in all_datasets:
-            raise ConfigurationError(f"invalid 'dataset_for_vocab_creation' {dataset}")
-
-    logger.info("From dataset instances, %s will be considered for vocabulary creation.",
-                ", ".join(datasets_for_vocab_creation))
-    vocab = Vocabulary.from_params(
-            params.pop("vocabulary", {}),
-            (instance for key, dataset in all_datasets.items()
-             for instance in dataset
-             if key in datasets_for_vocab_creation)
-    )
-
-    # Debate: Load judge model from archive (if applicable)
-    judge = None
-    update_judge = update_judge and (judge_filename is not None)
-    if judge_filename is not None:
-        judge_file_ending = judge_filename.split('.')[-1]
-        if judge_file_ending == 'gz':
-            # Load from archive (Modified from evaluate.py)
-            archive = load_archive(judge_filename, cuda_device=cuda_device)
-            config = archive.config
-            prepare_environment(config)
-            judge = archive.model
-        elif judge_file_ending == 'json' or judge_file_ending == 'jsonnet':
-            # NB: No overrides for judge. Also, only 'model' field is used.
-            judge_params = Params.from_file(judge_filename, params_overrides='')
-            judge = Model.from_params(vocab=vocab, params=judge_params.get('model'),
-                                      judge=None, update_judge=False, reward_method=None,  # No judge inside this model
-                                      detach_value_head=False)
-            if not update_judge:
-                warnings.warn('Provided Judge file was a training config file. '
-                              'Training from scratch even though -u was not specified.', UserWarning)
-                update_judge = True
-
-        # Whether to use judge only for black-box reward (no gradient signal)
-        if not update_judge:
-            judge.eval()
-        for parameter in judge.parameters():
-            parameter.requires_grad_(update_judge)
-
-    model = Model.from_params(vocab=vocab, params=params.pop('model'),
-                              judge=judge, update_judge=update_judge, reward_method=reward_method,
-                              detach_value_head=detach_value_head)
-
-    # Initializing the model can have side effect of expanding the vocabulary
-    vocab.save_to_files(os.path.join(serialization_dir, "vocabulary"))
-
-    iterator = DataIterator.from_params(params.pop("iterator"))
-    iterator.index_with(vocab)
-    validation_iterator_params = params.pop("validation_iterator", None)
-    if validation_iterator_params:
-        validation_iterator = DataIterator.from_params(validation_iterator_params)
-        validation_iterator.index_with(vocab)
-    else:
-        validation_iterator = None
-
-    train_data = all_datasets['train']
-    validation_data = all_datasets.get('validation')
-    test_data = all_datasets.get('test')
-    if evaluate and (test_data is not None):
-        validation_data = test_data
-
-    trainer_params = params.pop("trainer")
-    no_grad_regexes = trainer_params.pop("no_grad", ())
-    for name, parameter in model.named_parameters():
-        if any(re.search(regex, name) for regex in no_grad_regexes):
-            parameter.requires_grad_(False)
-
-    frozen_parameter_names, tunable_parameter_names = \
-        get_frozen_and_tunable_parameter_names(model)
-    logger.info("Following parameters are Frozen  (without gradient):")
-    for name in frozen_parameter_names:
-        logger.info(name)
-    logger.info("Following parameters are Tunable (with gradient):")
-    for name in tunable_parameter_names:
-        logger.info(name)
-
-    trainer_choice = trainer_params.pop_choice("type",
-                                               Trainer.list_available(),
-                                               default_to_first_choice=True)
-    trainer = Trainer.by_name(trainer_choice).from_params(model=model,
-                                                          serialization_dir=serialization_dir,
-                                                          debate_mode=debate_mode,
-                                                          iterator=iterator,
-                                                          train_data=train_data,
-                                                          validation_data=validation_data,
-                                                          params=trainer_params,
-                                                          validation_iterator=validation_iterator,
-                                                          evaluate=evaluate,
-                                                          breakpoint_level=breakpoint_level)
-
     evaluate_on_test = params.pop_bool("evaluate_on_test", False)
+
+    trainer_type = params.get("trainer", {}).get("type", "default")
+
+    # TODO: Move to allennlp/training/trainer.py
+    # all_datasets = datasets_from_params(params)
+    # if evaluate:  # NB: --evaluate does not expand vocab based on test data
+    #     params["datasets_for_vocab_creation"] = ['train', 'validation']
+    # datasets_for_vocab_creation = set(params.pop("datasets_for_vocab_creation", all_datasets))
+    #
+    # for dataset in datasets_for_vocab_creation:
+    #     if dataset not in all_datasets:
+    #         raise ConfigurationError(f"invalid 'dataset_for_vocab_creation' {dataset}")
+    #
+    # logger.info("From dataset instances, %s will be considered for vocabulary creation.",
+    #             ", ".join(datasets_for_vocab_creation))
+    # vocab = Vocabulary.from_params(
+    #         params.pop("vocabulary", {}),
+    #         (instance for key, dataset in all_datasets.items()
+    #          for instance in dataset
+    #          if key in datasets_for_vocab_creation)
+    # )
+    #
+    # # Debate: Load judge model from archive (if applicable)
+    # judge = None
+    # update_judge = update_judge and (judge_filename is not None)
+    # if judge_filename is not None:
+    #     judge_file_ending = judge_filename.split('.')[-1]
+    #     if judge_file_ending == 'gz':
+    #         # Load from archive (Modified from evaluate.py)
+    #         archive = load_archive(judge_filename, cuda_device=cuda_device)
+    #         config = archive.config
+    #         prepare_environment(config)
+    #         judge = archive.model
+    #     elif judge_file_ending == 'json' or judge_file_ending == 'jsonnet':
+    #         # NB: No overrides for judge. Also, only 'model' field is used.
+    #         judge_params = Params.from_file(judge_filename, params_overrides='')
+    #         judge = Model.from_params(vocab=vocab, params=judge_params.get('model'),
+    #                                   judge=None, update_judge=False, reward_method=None,  # No judge inside this model
+    #                                   detach_value_head=False)
+    #         if not update_judge:
+    #             warnings.warn('Provided Judge file was a training config file. '
+    #                           'Training from scratch even though -u was not specified.', UserWarning)
+    #             update_judge = True
+    #
+    #     # Whether to use judge only for black-box reward (no gradient signal)
+    #     if not update_judge:
+    #         judge.eval()
+    #     for parameter in judge.parameters():
+    #         parameter.requires_grad_(update_judge)
+    #
+    # model = Model.from_params(vocab=vocab, params=params.pop('model'),
+    #                           judge=judge, update_judge=update_judge, reward_method=reward_method,
+    #                           detach_value_head=detach_value_head)
+    #
+    # # Initializing the model can have side effect of expanding the vocabulary
+    # vocab.save_to_files(os.path.join(serialization_dir, "vocabulary"))
+    #
+    # iterator = DataIterator.from_params(params.pop("iterator"))
+    # iterator.index_with(vocab)
+    # validation_iterator_params = params.pop("validation_iterator", None)
+    # if validation_iterator_params:
+    #     validation_iterator = DataIterator.from_params(validation_iterator_params)
+    #     validation_iterator.index_with(vocab)
+    # else:
+    #     validation_iterator = None
+    #
+    # train_data = all_datasets['train']
+    # validation_data = all_datasets.get('validation')
+    # test_data = all_datasets.get('test')
+    # if evaluate and (test_data is not None):
+    #     validation_data = test_data
+    #
+    # trainer_params = params.pop("trainer")
+    # no_grad_regexes = trainer_params.pop("no_grad", ())
+    # for name, parameter in model.named_parameters():
+    #     if any(re.search(regex, name) for regex in no_grad_regexes):
+    #         parameter.requires_grad_(False)
+    #
+    # frozen_parameter_names, tunable_parameter_names = \
+    #     get_frozen_and_tunable_parameter_names(model)
+    # logger.info("Following parameters are Frozen  (without gradient):")
+    # for name in frozen_parameter_names:
+    #     logger.info(name)
+    # logger.info("Following parameters are Tunable (with gradient):")
+    # for name in tunable_parameter_names:
+    #     logger.info(name)
+    #
+    # trainer_choice = trainer_params.pop_choice("type",
+    #                                            Trainer.list_available(),
+    #                                            default_to_first_choice=True)
+    # trainer = Trainer.by_name(trainer_choice).from_params(model=model,
+    #                                                       serialization_dir=serialization_dir,
+    #                                                       debate_mode=debate_mode,
+    #                                                       iterator=iterator,
+    #                                                       train_data=train_data,
+    #                                                       validation_data=validation_data,
+    #                                                       params=trainer_params,
+    #                                                       validation_iterator=validation_iterator,
+    #                                                       evaluate=evaluate,
+    #                                                       breakpoint_level=breakpoint_level)
+    if trainer_type == "default":
+        # Special logic to instantiate backward-compatible trainer.
+        pieces = TrainerPieces.from_params(params, serialization_dir, recover)  # pylint: disable=no-member
+        trainer = Trainer.from_params(
+                model=pieces.model,
+                serialization_dir=serialization_dir,
+                iterator=pieces.iterator,
+                train_data=pieces.train_dataset,
+                validation_data=pieces.validation_dataset,
+                params=pieces.params,
+                validation_iterator=pieces.validation_iterator)
+        evaluation_iterator = pieces.validation_iterator or pieces.iterator
+        evaluation_dataset = pieces.test_dataset
+
+    else:
+        trainer = TrainerBase.from_params(params, serialization_dir, recover)
+        # TODO(joelgrus): handle evaluation in the general case
+        evaluation_iterator = evaluation_dataset = None
+
     params.assert_empty('base train command')
 
     try:
@@ -453,30 +490,26 @@ def train_model(params: Params,
             archive_model(serialization_dir, files_to_archive=params.files_to_archive)
         raise
 
+    # Evaluate
+    if evaluation_dataset and evaluate_on_test:
+        logger.info("The model will be evaluated using the best epoch weights.")
+        test_metrics = evaluate(trainer.model, evaluation_dataset, evaluation_iterator,
+                                cuda_device=trainer._cuda_devices[0], # pylint: disable=protected-access,
+                                # TODO(brendanr): Pass in an arg following Joel's trainer refactor.
+                                batch_weight_key="")
+
+        for key, value in test_metrics.items():
+            metrics["test_" + key] = value
+
+    elif evaluation_dataset:
+        logger.info("To evaluate on the test set after training, pass the "
+                    "'evaluate_on_test' flag, or use the 'allennlp evaluate' command.")
+
+
     # Now tar up results
     if not evaluate:
         archive_model(serialization_dir, files_to_archive=params.files_to_archive)
-
-    logger.info("Loading the best epoch weights.")
-    best_model_state_path = os.path.join(serialization_dir, 'best.th')
-    best_model_state = torch.load(best_model_state_path)
-    best_model = model
-    best_model.load_state_dict(best_model_state)
-
-    # NB: Evaluate command deprecated for debate
-    # if test_data and evaluate_on_test:
-    #     logger.info("The model will be evaluated using the best epoch weights.")
-    #     test_metrics = evaluate(
-    #             best_model, test_data, validation_iterator or iterator,
-    #             cuda_device=trainer._cuda_devices[0]  # pylint: disable=protected-access
-    #     )
-    #     for key, value in test_metrics.items():
-    #         metrics["test_" + key] = value
-    #
-    # elif test_data:
-    #     logger.info("To evaluate on the test set after training, pass the "
-    #                 "'evaluate_on_test' flag, or use the 'allennlp evaluate' command.")
-
     dump_metrics(os.path.join(serialization_dir, "metrics.json"), metrics, log=True)
 
-    return best_model
+    # We count on the trainer to have the model with best weights
+    return trainer.model
