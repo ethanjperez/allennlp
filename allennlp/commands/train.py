@@ -33,18 +33,16 @@ which to write the results.
      --include-package INCLUDE_PACKAGE
                             additional packages to include
 """
-from typing import Dict, Iterable, List
+from typing import List
 import argparse
 import logging
 import os
 import warnings
 
 from allennlp.commands.subcommand import Subcommand
-from allennlp.common.checks import check_for_gpu, ConfigurationError
+from allennlp.common.checks import check_for_gpu
 from allennlp.common import Params
 from allennlp.common.util import prepare_environment, prepare_global_logging, dump_metrics
-from allennlp.data.instance import Instance
-from allennlp.data.dataset_readers.dataset_reader import DatasetReader
 from allennlp.models.archival import archive_model, CONFIG_NAME
 from allennlp.models.model import Model, _DEFAULT_WEIGHTS
 from allennlp.training.trainer import Trainer, TrainerPieces
@@ -199,99 +197,6 @@ def train_model_from_file(parameter_filename: str,
                        judge_filename, update_judge, eval_mode, reward_method, detach_value_head, breakpoint_level)
 
 
-# TODO: Merge into allennlp/training/util.py
-def datasets_from_params(params: Params) -> Dict[str, Iterable[Instance]]:
-    """
-    Load all the datasets specified by the config.
-    """
-    dataset_reader = DatasetReader.from_params(params.pop('dataset_reader'))
-    validation_dataset_reader_params = params.pop("validation_dataset_reader", None)
-
-    validation_and_test_dataset_reader: DatasetReader = dataset_reader
-    if validation_dataset_reader_params is not None:
-        logger.info("Using a separate dataset reader to load validation and test data.")
-        validation_and_test_dataset_reader = DatasetReader.from_params(validation_dataset_reader_params)
-
-    train_data_path = params.pop('train_data_path')
-    logger.info("Reading training data from %s", train_data_path)
-    train_data = dataset_reader.read(train_data_path)
-
-    datasets: Dict[str, Iterable[Instance]] = {"train": train_data}
-
-    validation_data_path = params.pop('validation_data_path', None)
-    if validation_data_path is not None:
-        logger.info("Reading validation data from %s", validation_data_path)
-        validation_data = validation_and_test_dataset_reader.read(validation_data_path)
-        datasets["validation"] = validation_data
-
-    test_data_path = params.pop("test_data_path", None)
-    if test_data_path is not None:
-        logger.info("Reading test data from %s", test_data_path)
-        test_data = validation_and_test_dataset_reader.read(test_data_path)
-        datasets["test"] = test_data
-
-    return datasets
-
-
-# TODO: Merge into allennlp/training/util.py
-def create_serialization_dir(params: Params, serialization_dir: str, recover: bool) -> None:
-    """
-    This function creates the serialization directory if it doesn't exist.  If it already exists
-    and is non-empty, then it verifies that we're recovering from a training with an identical configuration.
-
-    Parameters
-    ----------
-    params: ``Params``
-        A parameter object specifying an AllenNLP Experiment.
-    serialization_dir: ``str``
-        The directory in which to save results and logs.
-    recover: ``bool``
-        If ``True``, we will try to recover from an existing serialization directory, and crash if
-        the directory doesn't exist, or doesn't match the configuration we're given.
-    """
-    if os.path.exists(serialization_dir) and os.listdir(serialization_dir):
-        if not recover:
-            raise ConfigurationError(f"Serialization directory ({serialization_dir}) already exists and is "
-                                     f"not empty. Specify --recover to recover training from existing output.")
-
-        logger.info(f"Recovering from prior training at {serialization_dir}.")
-
-        recovered_config_file = os.path.join(serialization_dir, CONFIG_NAME)
-        if not os.path.exists(recovered_config_file):
-            raise ConfigurationError("The serialization directory already exists but doesn't "
-                                     "contain a config.json. You probably gave the wrong directory.")
-        else:
-            loaded_params = Params.from_file(recovered_config_file)
-
-            # Check whether any of the training configuration differs from the configuration we are
-            # resuming.  If so, warn the user that training may fail.
-            fail = False
-            flat_params = params.as_flat_dict()
-            flat_loaded = loaded_params.as_flat_dict()
-            for key in flat_params.keys() - flat_loaded.keys():
-                logger.error(f"Key '{key}' found in training configuration but not in the serialization "
-                             f"directory we're recovering from.")
-                fail = True
-            for key in flat_loaded.keys() - flat_params.keys():
-                logger.error(f"Key '{key}' found in the serialization directory we're recovering from "
-                             f"but not in the training config.")
-                fail = True
-            for key in flat_params.keys():
-                if flat_params.get(key, None) != flat_loaded.get(key, None):
-                    logger.error(f"Value for '{key}' in training configuration does not match that the value in "
-                                 f"the serialization directory we're recovering from: "
-                                 f"{flat_params[key]} != {flat_loaded[key]}")
-                    fail = True
-            if fail:
-                raise ConfigurationError("Training configuration does not match the configuration we're "
-                                         "recovering from.")
-    else:
-        if recover:
-            raise ConfigurationError(f"--recover specified but serialization_dir ({serialization_dir}) "
-                                     "does not exist.  There is nothing to recover from.")
-        os.makedirs(serialization_dir, exist_ok=True)
-
-
 def train_model(params: Params,
                 serialization_dir: str,
                 debate_mode: List[str],
@@ -347,117 +252,30 @@ def train_model(params: Params,
 
     trainer_type = params.get("trainer", {}).get("type", "default")
 
-    # TODO: Move to allennlp/training/trainer.py
-    # all_datasets = datasets_from_params(params)
-    # if eval_mode:  # NB: --eval_mode does not expand vocab based on test data
-    #     params["datasets_for_vocab_creation"] = ['train', 'validation']
-    # datasets_for_vocab_creation = set(params.pop("datasets_for_vocab_creation", all_datasets))
-    #
-    # for dataset in datasets_for_vocab_creation:
-    #     if dataset not in all_datasets:
-    #         raise ConfigurationError(f"invalid 'dataset_for_vocab_creation' {dataset}")
-    #
-    # logger.info("From dataset instances, %s will be considered for vocabulary creation.",
-    #             ", ".join(datasets_for_vocab_creation))
-    # vocab = Vocabulary.from_params(
-    #         params.pop("vocabulary", {}),
-    #         (instance for key, dataset in all_datasets.items()
-    #          for instance in dataset
-    #          if key in datasets_for_vocab_creation)
-    # )
-    #
-    # # Debate: Load judge model from archive (if applicable)
-    # judge = None
-    # update_judge = update_judge and (judge_filename is not None)
-    # if judge_filename is not None:
-    #     judge_file_ending = judge_filename.split('.')[-1]
-    #     if judge_file_ending == 'gz':
-    #         archive = load_archive(judge_filename, cuda_device=cuda_device)
-    #         config = archive.config
-    #         prepare_environment(config)
-    #         judge = archive.model
-    #     elif judge_file_ending == 'json' or judge_file_ending == 'jsonnet':
-    #         # NB: No overrides for judge. Also, only 'model' field is used.
-    #         judge_params = Params.from_file(judge_filename, params_overrides='')
-    #         judge = Model.from_params(vocab=vocab, params=judge_params.get('model'),
-    #                                   judge=None, update_judge=False, reward_method=None,  # No judge inside this model
-    #                                   detach_value_head=False)
-    #         if not update_judge:
-    #             warnings.warn('Provided Judge file was a training config file. '
-    #                           'Training from scratch even though -u was not specified.', UserWarning)
-    #             update_judge = True
-    #
-    #     # Whether to use judge only for black-box reward (no gradient signal)
-    #     if not update_judge:
-    #         judge.eval()
-    #     for parameter in judge.parameters():
-    #         parameter.requires_grad_(update_judge)
-    #
-    # model = Model.from_params(vocab=vocab, params=params.pop('model'),
-    #                           judge=judge, update_judge=update_judge, reward_method=reward_method,
-    #                           detach_value_head=detach_value_head)
-    #
-    # # Initializing the model can have side effect of expanding the vocabulary
-    # vocab.save_to_files(os.path.join(serialization_dir, "vocabulary"))
-    #
-    # iterator = DataIterator.from_params(params.pop("iterator"))
-    # iterator.index_with(vocab)
-    # validation_iterator_params = params.pop("validation_iterator", None)
-    # if validation_iterator_params:
-    #     validation_iterator = DataIterator.from_params(validation_iterator_params)
-    #     validation_iterator.index_with(vocab)
-    # else:
-    #     validation_iterator = None
-    #
-    # train_data = all_datasets['train']
-    # validation_data = all_datasets.get('validation')
-    # test_data = all_datasets.get('test')
-    # if eval_mode and (test_data is not None):
-    #     validation_data = test_data
-    #
-    # trainer_params = params.pop("trainer")
-    # no_grad_regexes = trainer_params.pop("no_grad", ())
-    # for name, parameter in model.named_parameters():
-    #     if any(re.search(regex, name) for regex in no_grad_regexes):
-    #         parameter.requires_grad_(False)
-    #
-    # frozen_parameter_names, tunable_parameter_names = \
-    #     get_frozen_and_tunable_parameter_names(model)
-    # logger.info("Following parameters are Frozen  (without gradient):")
-    # for name in frozen_parameter_names:
-    #     logger.info(name)
-    # logger.info("Following parameters are Tunable (with gradient):")
-    # for name in tunable_parameter_names:
-    #     logger.info(name)
-    #
-    # trainer_choice = trainer_params.pop_choice("type",
-    #                                            Trainer.list_available(),
-    #                                            default_to_first_choice=True)
-    # trainer = Trainer.by_name(trainer_choice).from_params(model=model,
-    #                                                       serialization_dir=serialization_dir,
-    #                                                       debate_mode=debate_mode,
-    #                                                       iterator=iterator,
-    #                                                       train_data=train_data,
-    #                                                       validation_data=validation_data,
-    #                                                       params=trainer_params,
-    #                                                       validation_iterator=validation_iterator,
-    #                                                       eval_mode=eval_mode,
-    #                                                       breakpoint_level=breakpoint_level)
     if trainer_type == "default":
         # Special logic to instantiate backward-compatible trainer.
-        pieces = TrainerPieces.from_params(params, serialization_dir, recover)  # pylint: disable=no-member
+        pieces = TrainerPieces.from_params(params, serialization_dir, cuda_device, recover,
+                                           judge_filename=judge_filename,
+                                           update_judge=update_judge,
+                                           eval_mode=eval_mode,
+                                           reward_method=reward_method,
+                                           detach_value_head=detach_value_head)  # pylint: disable=no-member
         trainer = Trainer.from_params(
                 model=pieces.model,
                 serialization_dir=serialization_dir,
+                debate_mode=debate_mode,
                 iterator=pieces.iterator,
                 train_data=pieces.train_dataset,
                 validation_data=pieces.validation_dataset,
                 params=pieces.params,
-                validation_iterator=pieces.validation_iterator)
+                validation_iterator=pieces.validation_iterator,
+                eval_mode=eval_mode,
+                breakpoint_level=breakpoint_level)
         evaluation_iterator = pieces.validation_iterator or pieces.iterator
         evaluation_dataset = pieces.test_dataset
-
+        # TODO: Check you're not modifying variables important for later on, in TrainerPieces
     else:
+        assert (len(debate_mode) == 1) and (debate_mode[0] == 'f'), 'TrainerBase untested for debate training.'
         trainer = TrainerBase.from_params(params, serialization_dir, recover)
         # TODO(joelgrus): handle evaluation in the general case
         evaluation_iterator = evaluation_dataset = None

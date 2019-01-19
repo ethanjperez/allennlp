@@ -6,21 +6,22 @@ import time
 import re
 import datetime
 import traceback
+import warnings
 from typing import Dict, Optional, List, Tuple, Union, Iterable, Any, NamedTuple
 
 import torch
 import torch.optim.lr_scheduler
-from torch.nn.parallel import replicate, parallel_apply
-from torch.nn.parallel.scatter_gather import scatter_kwargs, gather
 
 from allennlp.common import Params
 from allennlp.common.checks import ConfigurationError
 from allennlp.common.util import (dump_metrics, gpu_memory_mb, parse_cuda_device, peak_memory_mb,
                                   get_frozen_and_tunable_parameter_names, lazy_groups_of)
 from allennlp.common.tqdm import Tqdm
+from allennlp.common.util import prepare_environment
 from allennlp.data.instance import Instance
 from allennlp.data.iterators.data_iterator import DataIterator, TensorDict
 from allennlp.data.vocabulary import Vocabulary
+from allennlp.models.archival import load_archive
 from allennlp.models.model import Model
 from allennlp.nn import util as nn_util
 from allennlp.training.checkpointer import Checkpointer
@@ -227,22 +228,6 @@ class Trainer(TrainerBase):
     def rescale_gradients(self) -> Optional[float]:
         return training_util.rescale_gradients(self.model, self._grad_norm)
 
-    def _data_parallel(self, batch, model):
-        """
-        Do the forward pass using multiple GPUs.  This is a simplification
-        of torch.nn.parallel.data_parallel to support the allennlp model
-        interface.
-        """
-        inputs, module_kwargs = scatter_kwargs((), batch, self._cuda_devices, 0)
-        used_device_ids = self._cuda_devices[:len(inputs)]
-        replicas = replicate(model, used_device_ids)
-        outputs = parallel_apply(replicas, inputs, module_kwargs, used_device_ids)
-
-        # Only the 'loss' is needed.
-        # a (num_gpu, ) tensor with loss on each GPU
-        losses = gather([output['loss'].unsqueeze(0) for output in outputs], used_device_ids[0], 0)
-        return {'loss': losses.mean()}
-
     def _forward(self, batch_group, model):
         """
         Does a forward pass on the appropriate model and device(s) and returns the result.
@@ -352,7 +337,7 @@ class Trainer(TrainerBase):
         return
 
     # TODO: batch Tensor -> batch_group List[TensorDict]
-    def _batch_loss(self, batch_group: List[TensorDict], for_training: bool, debate_mode: List[str] = None) -> torch.Tensor:
+    def batch_loss(self, batch_group: List[TensorDict], for_training: bool, debate_mode: List[str] = None) -> torch.Tensor:
         """
         Does a forward pass on the given batches and returns the ``loss`` value in the result.
         If ``for_training`` is `True` also applies regularization penalty.
@@ -363,7 +348,7 @@ class Trainer(TrainerBase):
 
         # Set output_dict['loss'] to do gradient descent on.
         if debate_mode[0] == "f":  # Full passage training: Normal SL training
-            self._forward(batch_group, self.model)
+            output_dict = self._forward(batch_group, self.model)
         else:  # Training on subset of sentence (judge or debate training)
             # Set a few useful variables/aliases
             debater = None if self.model.is_judge else self.model
@@ -564,7 +549,7 @@ class Trainer(TrainerBase):
 
                 self._add_debate_metrics(output_dict, sent_idxs, sent_choice_idxs, num_turns, turn_str)
                 if self._eval_mode and (((self._batch_num_total % 20) == 0) or ((self._batch_num_total % 20) == 1)):
-                    print_debate(self, batch_group, num_sents, debate_mode, sent_choice_masks, sent_choice_idxs, j_em, j_f1, output_dict)
+                    Trainer.print_debate(self, batch_group, num_sents, debate_mode, sent_choice_masks, sent_choice_idxs, j_em, j_f1, output_dict)
 
                 # Initialize loss (including J's supervised loss if necessary)
                 output_dict = output_dict if self.model.update_judge else {'loss': torch.Tensor([0])}
@@ -602,20 +587,6 @@ class Trainer(TrainerBase):
 
         return loss
 
-    # TODO: Move to appropriate util file
-    def _get_metrics(self, total_loss: float, num_batches: int, reset: bool = False) -> Dict[str, float]:
-        """
-        Gets the metrics but sets ``"loss"`` to
-        the total loss divided by the ``num_batches`` so that
-        the ``"loss"`` metric is "average loss per batch".
-        """
-        judge = self.model if self.model.is_judge else self.model.judge
-        metrics = judge.get_metrics(reset=reset)
-        metrics["loss"] = float(total_loss / num_batches) if num_batches > 0 else 0.0
-        trainer_metrics = {name: metric.get_metric(reset).item() for name, metric in self._trainer_metrics.items()}
-        metrics.update(trainer_metrics)
-        return metrics
-
     def _train_epoch(self, epoch: int) -> Dict[str, float]:
         """
         Trains one epoch and returns metrics.
@@ -630,9 +601,9 @@ class Trainer(TrainerBase):
 
         train_loss = 0.0
         # Set the model to "train" mode.
-        self._model.train()
-        if (not self._model.update_judge) and (self._model.judge is not None):
-            self._model.judge.eval()
+        self.model.train()
+        if (not self.model.update_judge) and (self.model.judge is not None):
+            self.model.judge.eval()
 
         num_gpus = len(self._cuda_devices)
 
@@ -695,7 +666,7 @@ class Trainer(TrainerBase):
                 self.optimizer.step()
 
             # Update the description with the latest metrics
-            metrics = training_util.get_metrics(self.model, train_loss, batches_this_epoch)
+            metrics = training_util.get_metrics(self.model, train_loss, batches_this_epoch, self._trainer_metrics)
             description = training_util.description_from_metrics(metrics)
 
             train_generator_tqdm.set_description(description, refresh=False)
@@ -728,7 +699,7 @@ class Trainer(TrainerBase):
                 self._save_checkpoint(
                         '{0}.{1}'.format(epoch, training_util.time_to_str(int(last_save_time)))
                 )
-        metrics = training_util.get_metrics(self.model, train_loss, batches_this_epoch, reset=True)
+        metrics = training_util.get_metrics(self.model, train_loss, batches_this_epoch, self._trainer_metrics, reset=True)
         metrics['cpu_memory_MB'] = peak_cpu_usage
         for (gpu_num, memory) in gpu_usage:
             metrics['gpu_'+str(gpu_num)+'_memory_MB'] = memory
@@ -773,7 +744,7 @@ class Trainer(TrainerBase):
                 val_loss += loss.detach().cpu().numpy()
 
             # Update the description with the latest metrics
-            val_metrics = training_util.get_metrics(self.model, val_loss, batches_this_epoch)
+            val_metrics = training_util.get_metrics(self.model, val_loss, batches_this_epoch, self._trainer_metrics)
             description = training_util.description_from_metrics(val_metrics)
             val_generator_tqdm.set_description(description, refresh=False)
 
@@ -818,12 +789,12 @@ class Trainer(TrainerBase):
             if self._validation_data is not None:
                 with torch.no_grad():
                     # pretrain_task_val_loss, pretrain_task_num_batches = self._validation_loss(debate_mode=['rr'])
-                    # pretrain_task_val_metrics = self._get_metrics(pretrain_task_val_loss, pretrain_task_num_batches, reset=True)
+                    # pretrain_task_val_metrics = training_util.get_metrics(pretrain_task_val_loss, pretrain_task_num_batches, self._trainer_metrics, reset=True)
                     # NOTE: Can add a "pretrain_task" metric (instead of train or valid). However, this would slow training.
 
                     # We have a validation set, so compute all the metrics on it.
                     val_loss, num_batches = self._validation_loss()
-                    val_metrics = training_util.get_metrics(self.model, val_loss, num_batches, reset=True)
+                    val_metrics = training_util.get_metrics(self.model, val_loss, num_batches, self._trainer_metrics, reset=True)
 
                     # Check validation metric for early stopping
                     this_epoch_val_metric = val_metrics[self._validation_metric]
@@ -1064,8 +1035,15 @@ class TrainerPieces(NamedTuple):
     params: Params
 
     @staticmethod
-    def from_params(params: Params, serialization_dir: str, recover: bool = False) -> 'TrainerPieces':
+    def from_params(params: Params, serialization_dir: str, cuda_device: int, recover: bool = False,
+                    judge_filename: str = None,
+                    update_judge: bool = False,
+                    eval_mode: bool = False,
+                    reward_method: str = None,
+                    detach_value_head: bool = False) -> 'TrainerPieces':
         all_datasets = training_util.datasets_from_params(params)
+        if eval_mode:  # NB: --eval_mode does not expand vocab based on test data
+            params["datasets_for_vocab_creation"] = ['train', 'validation']
         datasets_for_vocab_creation = set(params.pop("datasets_for_vocab_creation", all_datasets))
 
         for dataset in datasets_for_vocab_creation:
@@ -1085,7 +1063,36 @@ class TrainerPieces(NamedTuple):
                      if key in datasets_for_vocab_creation)
             )
 
-        model = Model.from_params(vocab=vocab, params=params.pop('model'))
+        # Debate: Load judge model from archive (if applicable)
+        judge = None
+        update_judge = update_judge and (judge_filename is not None)
+        if judge_filename is not None:
+            judge_file_ending = judge_filename.split('.')[-1]
+            if judge_file_ending == 'gz':
+                archive = load_archive(judge_filename, cuda_device=cuda_device)
+                config = archive.config
+                prepare_environment(config)
+                judge = archive.model
+            elif judge_file_ending == 'json' or judge_file_ending == 'jsonnet':
+                # NB: No overrides for judge. Also, only 'model' field is used.
+                judge_params = Params.from_file(judge_filename, params_overrides='')
+                judge = Model.from_params(vocab=vocab, params=judge_params.get('model'),
+                                          judge=None, update_judge=False, reward_method=None,  # No judge inside this model
+                                          detach_value_head=False)
+                if not update_judge:
+                    warnings.warn('Provided Judge file was a training config file. '
+                                  'Training from scratch even though -u was not specified.', UserWarning)
+                    update_judge = True
+
+            # Whether to use judge only for black-box reward (no gradient signal)
+            if not update_judge:
+                judge.eval()
+            for parameter in judge.parameters():
+                parameter.requires_grad_(update_judge)
+
+        model = Model.from_params(vocab=vocab, params=params.pop('model'),
+                                  judge=judge, update_judge=update_judge, reward_method=reward_method,
+                                  detach_value_head=detach_value_head)
 
         # Initializing the model can have side effect of expanding the vocabulary
         vocab.save_to_files(os.path.join(serialization_dir, "vocabulary"))
@@ -1102,6 +1109,8 @@ class TrainerPieces(NamedTuple):
         train_data = all_datasets['train']
         validation_data = all_datasets.get('validation')
         test_data = all_datasets.get('test')
+        if eval_mode and (test_data is not None):
+            validation_data = test_data
 
         trainer_params = params.pop("trainer")
         no_grad_regexes = trainer_params.pop("no_grad", ())

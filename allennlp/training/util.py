@@ -266,14 +266,18 @@ def rescale_gradients(model: Model, grad_norm: Optional[float] = None) -> Option
         return sparse_clip_norm(parameters_to_clip, grad_norm)
     return None
 
-def get_metrics(model: Model, total_loss: float, num_batches: int, reset: bool = False) -> Dict[str, float]:
+def get_metrics(model: Model, total_loss: float, num_batches: int, trainer_metrics: dict,
+                 reset: bool = False) -> Dict[str, float]:
     """
     Gets the metrics but sets ``"loss"`` to
     the total loss divided by the ``num_batches`` so that
     the ``"loss"`` metric is "average loss per batch".
     """
-    metrics = model.get_metrics(reset=reset)
+    judge = model if model.is_judge else model.judge
+    metrics = judge.get_metrics(reset=reset)
     metrics["loss"] = float(total_loss / num_batches) if num_batches > 0 else 0.0
+    trainer_metrics = {name: metric.get_metric(reset).item() for name, metric in trainer_metrics.items()}
+    metrics.update(trainer_metrics)
     return metrics
 
 
