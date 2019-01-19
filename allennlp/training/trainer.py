@@ -1,22 +1,19 @@
-
 import copy
 import logging
 import math
 import os
-import shutil
 import time
 import re
 import datetime
 import traceback
-from typing import Dict, Optional, List, Tuple, Union, Iterable, Any, Set, NamedTuple
+from typing import Dict, Optional, List, Tuple, Union, Iterable, Any, NamedTuple
 
 import torch
 import torch.optim.lr_scheduler
 from torch.nn.parallel import replicate, parallel_apply
 from torch.nn.parallel.scatter_gather import scatter_kwargs, gather
-from tensorboardX import SummaryWriter
 
-from allennlp.common import Params, Registrable
+from allennlp.common import Params
 from allennlp.common.checks import ConfigurationError
 from allennlp.common.util import (dump_metrics, gpu_memory_mb, parse_cuda_device, peak_memory_mb,
                                   get_frozen_and_tunable_parameter_names, lazy_groups_of)
@@ -65,7 +62,7 @@ class Trainer(TrainerBase):
                  should_log_parameter_statistics: bool = True,
                  should_log_learning_rate: bool = False,
                  log_batch_size_period: Optional[int] = None,
-                 evaluate: bool = False,
+                 eval_mode: bool = False,
                  breakpoint_level: int = 0) -> None:
         """
         A trainer for doing supervised learning. It just takes a labeled dataset
@@ -176,7 +173,7 @@ class Trainer(TrainerBase):
         self.optimizer = optimizer
         self.train_data = train_dataset
         self._validation_data = validation_dataset
-        self._evaluate = evaluate
+        self._eval_mode = eval_mode
         self._breakpoint_level = breakpoint_level
 
         self._trainer_metrics = {}
@@ -246,7 +243,7 @@ class Trainer(TrainerBase):
         losses = gather([output['loss'].unsqueeze(0) for output in outputs], used_device_ids[0], 0)
         return {'loss': losses.mean()}
 
-    def _forward(self, batch, model):
+    def _forward(self, batch_group, model):
         """
         Does a forward pass on the appropriate model and device(s) and returns the result.
         """
@@ -257,6 +254,7 @@ class Trainer(TrainerBase):
             batch = batch_group[0]
             batch = nn_util.move_to_device(batch, self._cuda_devices[0])
             output_dict = model(**batch)
+        return output_dict
 
     def _create_batch_from_sample(self, batch, sample_no, bsz):
         """
@@ -333,7 +331,8 @@ class Trainer(TrainerBase):
         j_chose_no_ab_sents = (j_num_ab_sents_chosen == 0).float()
         self._update_trainer_metrics('j_sent_chosen_not_a_or_b', j_chose_no_ab_sents.mean())
 
-    def _print_debate(self, batch, num_sents, debate_mode, sent_choice_masks, sent_choice_idxs, j_em, j_f1, output_dict):
+    @staticmethod
+    def _print_debate(batch, num_sents, debate_mode, sent_choice_masks, sent_choice_idxs, j_em, j_f1, output_dict):
         """
         Neatly prints all debates from a batch.
         """
@@ -352,28 +351,29 @@ class Trainer(TrainerBase):
                 print('\n--- J --- EM / F1 ', float(j_em[sample_no]), '/', float(j_f1[sample_no]), '!\n', ' '.join(toks[output_dict['best_span'][sample_no][0]:output_dict['best_span'][sample_no][1] + 1]))
         return
 
+    # TODO: batch Tensor -> batch_group List[TensorDict]
     def _batch_loss(self, batch_group: List[TensorDict], for_training: bool, debate_mode: List[str] = None) -> torch.Tensor:
         """
         Does a forward pass on the given batches and returns the ``loss`` value in the result.
         If ``for_training`` is `True` also applies regularization penalty.
         """
-        # If overriding default passage choiceing method
+        # If overriding default passage choosing method
         if debate_mode is None:
             debate_mode = self._debate_mode
 
         # Set output_dict['loss'] to do gradient descent on.
         if debate_mode[0] == "f":  # Full passage training: Normal SL training
-            self._forward(batch, self.model)
+            self._forward(batch_group, self.model)
         else:  # Training on subset of sentence (judge or debate training)
             # Set a few useful variables/aliases
             debater = None if self.model.is_judge else self.model
             judge = self.model if self.model.is_judge else self.model.judge
-            race_data = ('SELECT_' in batch['metadata'][0]['answer_texts'][0])  # NB: Fix this to be cleaner!
+            race_data = ('SELECT_' in batch_group['metadata'][0]['answer_texts'][0])  # NB: Fix this to be cleaner!
             mod_type = 'delete' if race_data else 'mask'
             num_rounds = len(debate_mode)
             assert num_rounds <= 1, 'No implementation yet for # rounds =' + str(num_rounds)
             num_turns = len(debate_mode[0])
-            bsz = batch['question']['tokens'].size(0)
+            bsz = batch_group['question']['tokens'].size(0)
             mask_tok_val = self.model.vocab.get_token_index('.')
             a_turn = {turn: debate_mode[0][turn] == 'a' for turn in range(len(debate_mode[0]))}
             turn_str = {turn: "_turn_" + str(turn) + "_agent_" + debate_mode[0][turn] for turn in range(num_turns)}
@@ -381,18 +381,18 @@ class Trainer(TrainerBase):
             debate_mode_with_eval_only_turns = debate_mode[0] if not sl_debate else debate_mode[0].replace('b', 'Bb').replace('a', 'Aa')
 
             # Precomputation. NB: Move from CPU to GPU if slow
-            tok_mask = {'.': (batch['passage']['tokens'] == self.model.vocab.get_token_index('.')).long()}
+            tok_mask = {'.': (batch_group['passage']['tokens'] == self.model.vocab.get_token_index('.')).long()}
             eos_tok_mask = tok_mask['.']  # TODO: Add '?' and '!'
             # If last non-padding token isn't a period, make it also an eos token in the mask
             if not race_data:  # NB: Remove 'if' later. SQuAD models trained without this clause (slight inaccuracy possibly)
                 for i in range(bsz):
-                    eos_tok_mask[i, batch['passage']['tokens'][i].nonzero()[-1]] = 1
+                    eos_tok_mask[i, batch_group['passage']['tokens'][i].nonzero()[-1]] = 1
 
             if race_data:  # Each answer choice counts as 1 sentence no matter what
                 ans_toks = ['select_a', 'select_b', 'select_c', 'select_d']
                 for tok_str in ans_toks:
                     tok_val = self.model.vocab.get_token_index(tok_str)
-                    tok_mask[tok_str] = (batch['passage']['tokens'] == tok_val).long()
+                    tok_mask[tok_str] = (batch_group['passage']['tokens'] == tok_val).long()
 
                 # Replace original sent_idxs vector for that portion with sliced vector
                 not_ans_mask = tok_mask['select_d'].cumsum(1) - tok_mask['select_d']
@@ -400,9 +400,9 @@ class Trainer(TrainerBase):
                 for ans_tok in ans_toks:
                     eos_tok_mask += tok_mask[ans_tok]
             sent_idxs = eos_tok_mask.cumsum(1) - eos_tok_mask  # NOTE: Padding regions have sent_idxs == num_sents
-            pad_masks = (batch['passage']['tokens'] != 0).long()
+            pad_masks = (batch_group['passage']['tokens'] != 0).long()
             num_sents = (sent_idxs * pad_masks).max(1)[0] + 1
-            sent_answer_idx = sent_idxs.gather(1, batch['span_start'].to(sent_idxs.device))
+            sent_answer_idx = sent_idxs.gather(1, batch_group['span_start'].to(sent_idxs.device))
 
             # Execute player turns to determine mask.
             sent_choice_idxs = []
@@ -447,7 +447,7 @@ class Trainer(TrainerBase):
                         # Batch together all possible next outcomes for a sample
                         # RACE: Removes Oracle choices selecting answer sentences (which'll always be shown)
                         num_sent_options = num_sents[sample_no] - num_first_sents_excluded
-                        oracle_batch = self._create_batch_from_sample(batch, sample_no, num_sent_options)
+                        oracle_batch = self._create_batch_from_sample(batch_group, sample_no, num_sent_options)
                         oracle_batch['store_metrics'] = False  # Do not update judge metrics
                         oracle_sent_choice_idxs = torch.arange(num_sent_options).unsqueeze(1) + num_first_sents_excluded
                         if past_sent_choice_idxs is not None:
@@ -486,8 +486,8 @@ class Trainer(TrainerBase):
                 elif method in ['a', 'b']:  # A/B trained selection
                     assert debater is not None, 'Cannot use debate method ' + method + ' without debate agents!'
                     for batch_idx in range(bsz):  # NB: 'metadata' usually optional but will now cause error if missing
-                        batch['metadata'][batch_idx]['a_turn'] = a_turn[turn]
-                    ab_output_dict = self._forward(batch, debater)
+                        batch_group['metadata'][batch_idx]['a_turn'] = a_turn[turn]
+                    ab_output_dict = self._forward(batch_group, debater)
                     debater.get_metrics(reset=True)  # A/B metrics currently meaningless, so clear
 
                     # Sample from policy's sentence-level distribution
@@ -539,15 +539,15 @@ class Trainer(TrainerBase):
 
             # Remove metadata added for A/B forward pass
             for batch_idx in range(bsz):
-                if 'a_turn' in batch['metadata'][batch_idx]:
-                    batch['metadata'][batch_idx].pop('a_turn')
+                if 'a_turn' in batch_group['metadata'][batch_idx]:
+                    batch_group['metadata'][batch_idx].pop('a_turn')
 
             # Mask passage and pass to Judge
             sent_choice_masks = [(sent_idxs == sent_choice_idx) for sent_choice_idx in sent_choice_idxs]
             all_sent_choice_mask = torch.stack(sent_choice_masks).sum(0)
             all_sent_choice_mask = all_sent_choice_mask / (all_sent_choice_mask.clamp(min=1))  # Differentiable clamp to max=1
-            batch = self._modify_passage(batch, all_sent_choice_mask, pad_masks, mask_tok_val, mod_type)
-            output_dict = self._forward(batch, judge)
+            batch_group = self._modify_passage(batch_group, all_sent_choice_mask, pad_masks, mask_tok_val, mod_type)
+            output_dict = self._forward(batch_group, judge)
 
             # Debate metrics and losses
             if debater is not None:
@@ -558,13 +558,13 @@ class Trainer(TrainerBase):
                 if debater.reward_method == 'f1':
                     j_score = j_f1
                 elif debater.reward_method == 'ssp':
-                    j_score = torch.Tensor([output_dict['span_start_probs'][i, batch['span_start'][i]] for i in range(bsz)])
+                    j_score = torch.Tensor([output_dict['span_start_probs'][i, batch_group['span_start'][i]] for i in range(bsz)])
                 else:  # EM or SL (where EM is a dummy value)
                     j_score = j_em
 
                 self._add_debate_metrics(output_dict, sent_idxs, sent_choice_idxs, num_turns, turn_str)
-                if self._evaluate and (((self._batch_num_total % 20) == 0) or ((self._batch_num_total % 20) == 1)):
-                    self._print_debate(self, batch, num_sents, debate_mode, sent_choice_masks, sent_choice_idxs, j_em, j_f1, output_dict)
+                if self._eval_mode and (((self._batch_num_total % 20) == 0) or ((self._batch_num_total % 20) == 1)):
+                    print_debate(self, batch_group, num_sents, debate_mode, sent_choice_masks, sent_choice_idxs, j_em, j_f1, output_dict)
 
                 # Initialize loss (including J's supervised loss if necessary)
                 output_dict = output_dict if self.model.update_judge else {'loss': torch.Tensor([0])}
@@ -602,7 +602,7 @@ class Trainer(TrainerBase):
 
         return loss
 
-# TODO: Move to appropriate util file
+    # TODO: Move to appropriate util file
     def _get_metrics(self, total_loss: float, num_batches: int, reset: bool = False) -> Dict[str, float]:
         """
         Gets the metrics but sets ``"loss"`` to
@@ -650,7 +650,6 @@ class Trainer(TrainerBase):
             self._batch_num_total = 0
 
         histogram_parameters = set(self.model.get_parameters_for_histogram_tensorboard_logging())
-
 
         logger.info("Training")
         train_generator_tqdm = Tqdm.tqdm(train_generator,
@@ -735,8 +734,7 @@ class Trainer(TrainerBase):
             metrics['gpu_'+str(gpu_num)+'_memory_MB'] = memory
         return metrics
 
-
-    def _validation_loss(self) -> Tuple[float, int]:
+    def _validation_loss(self, debate_mode: List[str] = None) -> Tuple[float, int]:
         """
         Computes the validation loss. Returns it and the number of batches.
         """
@@ -804,8 +802,8 @@ class Trainer(TrainerBase):
         epochs_trained = 0
         training_start_time = time.time()
 
-        for epoch in range(epoch_counter, self._num_epochs + self._evaluate):
-            if not self._evaluate:
+        for epoch in range(epoch_counter, self._num_epochs + self._eval_mode):
+            if not self._eval_mode:
                 epoch_start_time = time.time()
                 train_metrics = self._train_epoch(epoch)
 
@@ -856,7 +854,7 @@ class Trainer(TrainerBase):
                 for key, value in val_metrics.items():
                     metrics["best_validation_" + key] = value
 
-            if self._evaluate:
+            if self._eval_mode:
                 return metrics
 
             if self._serialization_dir:
@@ -970,7 +968,7 @@ class Trainer(TrainerBase):
         if batch_num_total is not None:
             self._batch_num_total = batch_num_total
 
-        return epoch_to_return, val_metric_per_epoch
+        return epoch_to_return
 
     # Requires custom from_params.
     @classmethod
@@ -983,7 +981,7 @@ class Trainer(TrainerBase):
                     validation_data: Optional[Iterable[Instance]],
                     params: Params,
                     validation_iterator: DataIterator = None,
-                    evaluate: bool = False,
+                    eval_mode: bool = False,
                     breakpoint_level: int = 0) -> 'Trainer':
         # pylint: disable=arguments-differ
         patience = params.pop_int("patience", None)
@@ -1044,7 +1042,7 @@ class Trainer(TrainerBase):
                    should_log_parameter_statistics=should_log_parameter_statistics,
                    should_log_learning_rate=should_log_learning_rate,
                    log_batch_size_period=log_batch_size_period,
-                   evaluate=evaluate,
+                   eval_mode=eval_mode,
                    breakpoint_level=breakpoint_level)
 
 
@@ -1111,8 +1109,7 @@ class TrainerPieces(NamedTuple):
             if any(re.search(regex, name) for regex in no_grad_regexes):
                 parameter.requires_grad_(False)
 
-        frozen_parameter_names, tunable_parameter_names = \
-                    get_frozen_and_tunable_parameter_names(model)
+        frozen_parameter_names, tunable_parameter_names = get_frozen_and_tunable_parameter_names(model)
         logger.info("Following parameters are Frozen  (without gradient):")
         for name in frozen_parameter_names:
             logger.info(name)

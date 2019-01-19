@@ -37,23 +37,15 @@ from typing import Dict, Iterable, List
 import argparse
 import logging
 import os
-import re
-import shutil
 import warnings
 
-import torch
-
-from allennlp.commands.evaluate import evaluate
 from allennlp.commands.subcommand import Subcommand
-from allennlp.common.checks import ConfigurationError, check_for_gpu
+from allennlp.common.checks import check_for_gpu, ConfigurationError
 from allennlp.common import Params
-from allennlp.common.util import prepare_environment, prepare_global_logging, \
-                                 get_frozen_and_tunable_parameter_names, dump_metrics
-from allennlp.data import Vocabulary
+from allennlp.common.util import prepare_environment, prepare_global_logging, dump_metrics
 from allennlp.data.instance import Instance
 from allennlp.data.dataset_readers.dataset_reader import DatasetReader
-from allennlp.data.iterators.data_iterator import DataIterator
-from allennlp.models.archival import archive_model, CONFIG_NAME, load_archive
+from allennlp.models.archival import archive_model, CONFIG_NAME
 from allennlp.models.model import Model, _DEFAULT_WEIGHTS
 from allennlp.training.trainer import Trainer, TrainerPieces
 from allennlp.training.trainer_base import TrainerBase
@@ -119,7 +111,7 @@ class Train(Subcommand):
                                help='update judge while training debate agents')
 
         # NB: --evaluate does not expand vocab based on test data
-        subparser.add_argument('-e', '--evaluate',
+        subparser.add_argument('-e', '--eval_mode',
                                action='store_true',
                                default=False,
                                help='run in evaluation-only mode on test_data_path (validation if no test given)')
@@ -146,6 +138,7 @@ class Train(Subcommand):
 
         return subparser
 
+
 def train_model_from_args(args: argparse.Namespace):
     """
     Just converts from an ``argparse.Namespace`` object to string paths.
@@ -159,7 +152,7 @@ def train_model_from_args(args: argparse.Namespace):
                           args.force,
                           args.judge_filename,
                           args.update_judge,
-                          args.evaluate,
+                          args.eval_mode,
                           args.reward_method,
                           args.detach_value_head,
                           args.breakpoint_level)
@@ -174,7 +167,7 @@ def train_model_from_file(parameter_filename: str,
                           force: bool = False,
                           judge_filename: str = None,
                           update_judge: bool = False,
-                          evaluate: bool = False,
+                          eval_mode: bool = False,
                           reward_method: str = None,
                           detach_value_head: bool = False,
                           breakpoint_level: int = 0) -> Model:
@@ -203,7 +196,8 @@ def train_model_from_file(parameter_filename: str,
     # Load the experiment config from a file and pass it to ``train_model``.
     params = Params.from_file(parameter_filename, overrides)
     return train_model(params, serialization_dir, debate_mode, file_friendly_logging, recover, force,
-                       judge_filename, update_judge, evaluate, reward_method, detach_value_head, breakpoint_level)
+                       judge_filename, update_judge, eval_mode, reward_method, detach_value_head, breakpoint_level)
+
 
 # TODO: Merge into allennlp/training/util.py
 def datasets_from_params(params: Params) -> Dict[str, Iterable[Instance]]:
@@ -238,6 +232,7 @@ def datasets_from_params(params: Params) -> Dict[str, Iterable[Instance]]:
 
     return datasets
 
+
 # TODO: Merge into allennlp/training/util.py
 def create_serialization_dir(params: Params, serialization_dir: str, recover: bool) -> None:
     """
@@ -254,10 +249,7 @@ def create_serialization_dir(params: Params, serialization_dir: str, recover: bo
         If ``True``, we will try to recover from an existing serialization directory, and crash if
         the directory doesn't exist, or doesn't match the configuration we're given.
     """
-    if os.path.exists(serialization_dir) and serialization_dir.endswith('debug'):
-        shutil.rmtree(serialization_dir)  # Overwrite "debug" directory automatically (if nec.)
-
-    if os.path.exists(serialization_dir) and os.listdir(serialization_dir) and len(os.listdir(serialization_dir)) > 0:
+    if os.path.exists(serialization_dir) and os.listdir(serialization_dir):
         if not recover:
             raise ConfigurationError(f"Serialization directory ({serialization_dir}) already exists and is "
                                      f"not empty. Specify --recover to recover training from existing output.")
@@ -276,34 +268,27 @@ def create_serialization_dir(params: Params, serialization_dir: str, recover: bo
             fail = False
             flat_params = params.as_flat_dict()
             flat_loaded = loaded_params.as_flat_dict()
-            no_error_check_keys = ['test_data_path']
             for key in flat_params.keys() - flat_loaded.keys():
-                if key in no_error_check_keys:
-                    continue
                 logger.error(f"Key '{key}' found in training configuration but not in the serialization "
                              f"directory we're recovering from.")
                 fail = True
             for key in flat_loaded.keys() - flat_params.keys():
-                if key in no_error_check_keys:
-                    continue
                 logger.error(f"Key '{key}' found in the serialization directory we're recovering from "
                              f"but not in the training config.")
                 fail = True
             for key in flat_params.keys():
-                if key in no_error_check_keys:
-                    continue
                 if flat_params.get(key, None) != flat_loaded.get(key, None):
                     logger.error(f"Value for '{key}' in training configuration does not match that the value in "
                                  f"the serialization directory we're recovering from: "
                                  f"{flat_params[key]} != {flat_loaded[key]}")
                     fail = True
-            # if fail:
-            #     raise ConfigurationError("Training configuration does not match the configuration we're "
-            #                              "recovering from.")
+            if fail:
+                raise ConfigurationError("Training configuration does not match the configuration we're "
+                                         "recovering from.")
     else:
-        # if recover:
-        #     raise ConfigurationError(f"--recover specified but serialization_dir ({serialization_dir}) "
-        #                              "does not exist.  There is nothing to recover from.")
+        if recover:
+            raise ConfigurationError(f"--recover specified but serialization_dir ({serialization_dir}) "
+                                     "does not exist.  There is nothing to recover from.")
         os.makedirs(serialization_dir, exist_ok=True)
 
 
@@ -315,7 +300,7 @@ def train_model(params: Params,
                 force: bool = False,
                 judge_filename: str = None,
                 update_judge: bool = False,
-                evaluate: bool = False,
+                eval_mode: bool = False,
                 reward_method: str = None,
                 detach_value_head: bool = False,
                 breakpoint_level: int = 0) -> Model:
@@ -364,7 +349,7 @@ def train_model(params: Params,
 
     # TODO: Move to allennlp/training/trainer.py
     # all_datasets = datasets_from_params(params)
-    # if evaluate:  # NB: --evaluate does not expand vocab based on test data
+    # if eval_mode:  # NB: --eval_mode does not expand vocab based on test data
     #     params["datasets_for_vocab_creation"] = ['train', 'validation']
     # datasets_for_vocab_creation = set(params.pop("datasets_for_vocab_creation", all_datasets))
     #
@@ -387,7 +372,6 @@ def train_model(params: Params,
     # if judge_filename is not None:
     #     judge_file_ending = judge_filename.split('.')[-1]
     #     if judge_file_ending == 'gz':
-    #         # Load from archive (Modified from evaluate.py)
     #         archive = load_archive(judge_filename, cuda_device=cuda_device)
     #         config = archive.config
     #         prepare_environment(config)
@@ -428,7 +412,7 @@ def train_model(params: Params,
     # train_data = all_datasets['train']
     # validation_data = all_datasets.get('validation')
     # test_data = all_datasets.get('test')
-    # if evaluate and (test_data is not None):
+    # if eval_mode and (test_data is not None):
     #     validation_data = test_data
     #
     # trainer_params = params.pop("trainer")
@@ -457,7 +441,7 @@ def train_model(params: Params,
     #                                                       validation_data=validation_data,
     #                                                       params=trainer_params,
     #                                                       validation_iterator=validation_iterator,
-    #                                                       evaluate=evaluate,
+    #                                                       eval_mode=eval_mode,
     #                                                       breakpoint_level=breakpoint_level)
     if trainer_type == "default":
         # Special logic to instantiate backward-compatible trainer.
@@ -484,7 +468,7 @@ def train_model(params: Params,
         metrics = trainer.train()
     except KeyboardInterrupt:
         # if we have completed an epoch, try to create a model archive.
-        if os.path.exists(os.path.join(serialization_dir, _DEFAULT_WEIGHTS)) and not evaluate:
+        if os.path.exists(os.path.join(serialization_dir, _DEFAULT_WEIGHTS)) and not eval_mode:
             logging.info("Training interrupted by the user. Attempting to create "
                          "a model archive using the current best epoch weights.")
             archive_model(serialization_dir, files_to_archive=params.files_to_archive)
@@ -505,9 +489,8 @@ def train_model(params: Params,
         logger.info("To evaluate on the test set after training, pass the "
                     "'evaluate_on_test' flag, or use the 'allennlp evaluate' command.")
 
-
     # Now tar up results
-    if not evaluate:
+    if not eval_mode:
         archive_model(serialization_dir, files_to_archive=params.files_to_archive)
     dump_metrics(os.path.join(serialization_dir, "metrics.json"), metrics, log=True)
 
