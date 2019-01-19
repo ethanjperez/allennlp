@@ -57,29 +57,29 @@
       "type": "lstm",
       "bidirectional": true,
       "input_size": 868,
-      "hidden_size": 50,
+      "hidden_size": 25,
       "num_layers": 1,
       "dropout": 0.2
     },
     "similarity_function": {
       "type": "linear",
       "combination": "x,y,x*y",
-      "tensor_1_dim": 100,
-      "tensor_2_dim": 100
+      "tensor_1_dim": 50,
+      "tensor_2_dim": 50
     },
     "modeling_layer": {
       "type": "lstm",
       "bidirectional": true,
-      "input_size": 400,
-      "hidden_size": 50,
+      "input_size": 200,
+      "hidden_size": 25,
       "num_layers": 1,
       "dropout": 0.2
     },
     "span_end_encoder": {
       "type": "lstm",
       "bidirectional": true,
-      "input_size": 700,
-      "hidden_size": 50,
+      "input_size": 350,
+      "hidden_size": 25,
       "num_layers": 1,
       "dropout": 0.2
     },
@@ -88,7 +88,7 @@
   "iterator": {
     "type": "bucket",
     "sorting_keys": [["passage", "num_tokens"], ["question", "num_tokens"]],
-    "batch_size": 40
+    "batch_size": 16
   },
 
   "trainer": {

@@ -2,8 +2,11 @@
 
 ### AllenNLP Commands
 
+# SQuAD+BERT: Training J on full passage (normal supervised training)
+allennlp train training_config/bidaf_bert.jsonnet --serialization-dir tmp/bert.f --debate_mode f
+
 # RACE: Training J on full passage (normal supervised training)
-allennlp train training_config/bidaf.race.size=half.jsonnet --serialization-dir tmp/race.ans_beg.j.pt=f.size=half --debate_mode f
+allennlp train training_config/bidaf.race.size=half.jsonnet --serialization-dir tmp/race.f --debate_mode f
 
 # RACE: Debate baselines
 allennlp train training_config/bidaf.race.size=half.jsonnet --serialization-dir tmp/race.f -e -r --debate_mode BAA
