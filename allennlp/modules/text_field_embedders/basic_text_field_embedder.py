@@ -106,7 +106,11 @@ class BasicTextFieldEmbedder(TextFieldEmbedder):
                 embedder = TimeDistributed(embedder)
             token_vectors = embedder(*tensors)
             embedded_representations.append(token_vectors)
-        return torch.cat(embedded_representations, dim=-1)
+        try:
+            return torch.cat(embedded_representations, dim=-1)
+        except:
+            import ipdb; ipdb.set_trace()
+            return
 
     # This is some unusual logic, it needs a custom from_params.
     @classmethod
