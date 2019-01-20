@@ -24,7 +24,7 @@
                 "type": "bert-pretrained",
                 "pretrained_model": "bert-base-uncased",
                 "requires_grad": false,
-                "top_layer_only": false
+                "top_layer_only": true
             }
         }
     },
