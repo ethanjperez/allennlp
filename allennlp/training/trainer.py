@@ -337,6 +337,7 @@ class Trainer(TrainerBase):
         return
 
     # TODO: batch Tensor -> batch_group List[TensorDict]
+    # TODO: Make token_character operations optional (i.e., for BERT models)
     def batch_loss(self, batch_group: List[TensorDict], for_training: bool, debate_mode: List[str] = None) -> torch.Tensor:
         """
         Does a forward pass on the given batches and returns the ``loss`` value in the result.
