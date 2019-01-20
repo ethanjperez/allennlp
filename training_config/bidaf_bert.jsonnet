@@ -7,15 +7,6 @@
           "pretrained_model": "datasets/bert/uncased_L-12_H-768_A-12/vocab.txt",
           "do_lowercase": false,
           "use_starting_offsets": true
-      },
-      "token_characters": {
-        "type": "characters",
-        "character_tokenizer": {
-          "byte_encoding": "utf-8",
-          "start_tokens": [259],
-          "end_tokens": [260]
-        },
-        "min_padding_length": 5
       }
     }
   },
@@ -26,8 +17,7 @@
     "text_field_embedder": {
         "allow_unmatched_keys": true,
         "embedder_to_indexer_map": {
-            "bert": ["bert", "bert-offsets"],
-            "token_characters": ["token_characters"],
+            "bert": ["bert", "bert-offsets"]
         },
         "token_embedders": {
             "bert": {
@@ -35,31 +25,17 @@
                 "pretrained_model": "bert-base-uncased",
                 "requires_grad": true,
                 "top_layer_only": false
-            },
-            "token_characters": {
-                "type": "character_encoding",
-                "embedding": {
-                "num_embeddings": 262,
-                "embedding_dim": 16
-                },
-                "encoder": {
-                "type": "cnn",
-                "embedding_dim": 16,
-                "num_filters": 100,
-                "ngram_filter_sizes": [5]
-                },
-                "dropout": 0.2
             }
         }
     },
-    "num_highway_layers": 2,
+    "num_highway_layers": 1,
     "phrase_layer": {
       "type": "lstm",
       "bidirectional": true,
-      "input_size": 868,
+      "input_size": 768,
       "hidden_size": 25,
       "num_layers": 1,
-      "dropout": 0.2
+      "dropout": 0.0
     },
     "similarity_function": {
       "type": "linear",
@@ -73,7 +49,7 @@
       "input_size": 200,
       "hidden_size": 25,
       "num_layers": 1,
-      "dropout": 0.2
+      "dropout": 0.0
     },
     "span_end_encoder": {
       "type": "lstm",
@@ -81,9 +57,9 @@
       "input_size": 350,
       "hidden_size": 25,
       "num_layers": 1,
-      "dropout": 0.2
+      "dropout": 0.0
     },
-    "dropout": 0.2
+    "dropout": 0.0
   },
   "iterator": {
     "type": "bucket",
@@ -92,20 +68,20 @@
   },
 
   "trainer": {
-    "num_epochs": 20,
-    "grad_norm": 5.0,
-    "patience": 10,
+    "num_epochs": 4,
+    "patience": 4,
     "validation_metric": "+em",
     "cuda_device": 0,
     "learning_rate_scheduler": {
       "type": "reduce_on_plateau",
-      "factor": 0.5,
+      "factor": 0.67,
       "mode": "max",
-      "patience": 2
+      "patience": 1
     },
     "optimizer": {
+      "lr": 0.00003,
       "type": "adam",
-      "betas": [0.9, 0.9]
+      "betas": [0.9, 0.999]
     }
   }
 }
