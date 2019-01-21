@@ -37,8 +37,8 @@ allennlp train training_config/bidaf.patience=None.num_epochs=200.jsonnet -d ab 
 allennlp train training_config/bidaf.patience=None.num_epochs=200.jsonnet -d ab -s tmp/ab.3.pt=gr.2 -j tmp/gr.2/model.tar.gz
 
 # Training bg with fixed J
-allennlp train training_config/bidaf.patience=None.num_epochs=200.jsonnet -d bg -s tmp/bg.3.pt=rr.3 -j tmp/rr.3/model.tar.gz
-allennlp train training_config/bidaf.patience=None.num_epochs=200.jsonnet -d bg -s tmp/bg.3.m=ssp.pt=rr.3 -j tmp/rr.3/model.tar.gz -m ssp
+allennlp train training_config/bidaf.patience=None.num_epochs=200.jsonnet -d bg -s tmp/bg.3.rb=1-ra.pt=rr.3 -j tmp/rr.3/model.tar.gz
+allennlp train training_config/bidaf.patience=None.num_epochs=200.jsonnet -d bg -s tmp/bg.3.m=ssp.rb=1-ra.pt=rr.3 -j tmp/rr.3/model.tar.gz -m ssp
 
 # Training abj with initialized J (provide model.tar.gz to -j and use -u)
 allennlp train training_config/bidaf.patience=None.num_epochs=200.jsonnet -d ab -s tmp/ab.3.pt=rr.2.u -j tmp/rr.2/model.tar.gz -u
