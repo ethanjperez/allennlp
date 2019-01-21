@@ -17,17 +17,17 @@ allennlp train training_config/bidaf.race.size=half.jsonnet -s tmp/race.b.m=sl.p
 
 # RACE: RL: EM Reward (OOM on Titan XP 43% through 1 epoch with br)
 allennlp train training_config/bidaf.race.size=half.patience=None.jsonnet -s tmp/race.a.m=em.pt=race.f -j tmp/race.f/model.tar.gz -m em -d a
-allennlp train training_config/bidaf.race.size=half.patience=None.jsonnet -s tmp/race.b.m=em.pt=race.f -j tmp/race.f/model.tar.gz -m em -d b
-allennlp train training_config/bidaf.race.size=half.patience=None.jsonnet -s tmp/race.ab.m=em.pt=race.f -j tmp/race.f/model.tar.gz -m em -d ab
+allennlp train training_config/bidaf.race.size=half.patience=None.jsonnet -s tmp/race.b.m=em.rb=1-ra.pt=race.f -j tmp/race.f/model.tar.gz -m em -d b
+allennlp train training_config/bidaf.race.size=half.patience=None.jsonnet -s tmp/race.ab.m=em.rb=1-ra.pt=race.f -j tmp/race.f/model.tar.gz -m em -d ab
 allennlp train training_config/bidaf.race.size=half.patience=None.jsonnet -s tmp/race.ar.m=em.pt=race.f -j tmp/race.f/model.tar.gz -m em -d ar
-allennlp train training_config/bidaf.race.size=half.patience=None.jsonnet -s tmp/race.br.m=em.pt=race.f -j tmp/race.f/model.tar.gz -m em -d br
+allennlp train training_config/bidaf.race.size=half.patience=None.jsonnet -s tmp/race.br.m=em.rb=1-ra.pt=race.f -j tmp/race.f/model.tar.gz -m em -d br
 
 # RACE: RL: SSP Reward
 allennlp train training_config/bidaf.race.size=half.patience=None.jsonnet -s tmp/race.a.m=ssp.pt=race.f -j tmp/race.f/model.tar.gz -m ssp -d a
-allennlp train training_config/bidaf.race.size=half.patience=None.jsonnet -s tmp/race.b.m=ssp.pt=race.f -j tmp/race.f/model.tar.gz -m ssp -d b
-allennlp train training_config/bidaf.race.size=half.patience=None.jsonnet -s tmp/race.ab.m=ssp.pt=race.f -j tmp/race.f/model.tar.gz -m ssp -d ab
+allennlp train training_config/bidaf.race.size=half.patience=None.jsonnet -s tmp/race.b.m=ssp.rb=1-ra.pt=race.f -j tmp/race.f/model.tar.gz -m ssp -d b
+allennlp train training_config/bidaf.race.size=half.patience=None.jsonnet -s tmp/race.ab.m=ssp.rb=1-ra.pt=race.f -j tmp/race.f/model.tar.gz -m ssp -d ab
 allennlp train training_config/bidaf.race.size=half.patience=None.jsonnet -s tmp/race.ar.m=ssp.pt=race.f -j tmp/race.f/model.tar.gz -m ssp -d ar
-allennlp train training_config/bidaf.race.size=half.patience=None.jsonnet -s tmp/race.br.m=ssp.pt=race.f -j tmp/race.f/model.tar.gz -m ssp -d br
+allennlp train training_config/bidaf.race.size=half.patience=None.jsonnet -s tmp/race.br.m=ssp.rb=1-ra.pt=race.f -j tmp/race.f/model.tar.gz -m ssp -d br
 
 # Training J only:
 allennlp train training_config/bidaf.num_epochs=200.jsonnet -d rr -s tmp/rr.2
