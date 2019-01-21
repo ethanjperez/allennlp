@@ -3,7 +3,7 @@
     "type": "race",
     "lazy": true,
     "token_indexers": {
-      "bert": {
+      "tokens": {
           "type": "bert-pretrained",
           "pretrained_model": "datasets/bert/uncased_L-12_H-768_A-12/vocab.txt",
           "do_lowercase": false,
@@ -18,10 +18,10 @@
     "text_field_embedder": {
         "allow_unmatched_keys": true,
         "embedder_to_indexer_map": {
-            "bert": ["bert", "bert-offsets"]
+            "tokens": ["tokens", "tokens-offsets"]
         },
         "token_embedders": {
-            "bert": {
+            "tokens": {
                 "type": "bert-pretrained",
                 "pretrained_model": "bert-base-uncased",
                 "requires_grad": true,

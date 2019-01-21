@@ -267,7 +267,7 @@ def rescale_gradients(model: Model, grad_norm: Optional[float] = None) -> Option
     return None
 
 def get_metrics(model: Model, total_loss: float, num_batches: int, trainer_metrics: dict,
-                 reset: bool = False) -> Dict[str, float]:
+                reset: bool = False) -> Dict[str, float]:
     """
     Gets the metrics but sets ``"loss"`` to
     the total loss divided by the ``num_batches`` so that
@@ -276,7 +276,12 @@ def get_metrics(model: Model, total_loss: float, num_batches: int, trainer_metri
     judge = model if model.is_judge else model.judge
     metrics = judge.get_metrics(reset=reset)
     metrics["loss"] = float(total_loss / num_batches) if num_batches > 0 else 0.0
-    trainer_metrics = {name: metric.get_metric(reset).item() for name, metric in trainer_metrics.items()}
+    # NOTE: Temporary fix while figuring out why isinstance(metric.get_metric(reset), int) for RACE a/b SL training
+    # Replaces: trainer_metrics = {name: metric.get_metric(reset).item() for name, metric in trainer_metrics.items()}
+    trainer_metrics = {name: metric.get_metric(reset) for name, metric in trainer_metrics.items()}
+    for name, metric in trainer_metrics:
+        if not isinstance(trainer_metrics[name], int):
+            trainer_metrics[name] = trainer_metrics[name].item()
     metrics.update(trainer_metrics)
     return metrics
 
