@@ -44,7 +44,7 @@ allennlp train training_config/bidaf.patience=None.num_epochs=200.jsonnet -d bg 
 allennlp train training_config/bidaf.patience=None.num_epochs=200.jsonnet -d ab -s tmp/ab.3.pt=rr.2.u -j tmp/rr.2/model.tar.gz -u
 allennlp train training_config/bidaf.patience=None.num_epochs=200.jsonnet -d ab -s tmp/ab.3.pt=gr.2.u -j tmp/gr.2/model.tar.gz -u
 
-# Train abj\narj\nbrj from scratch with F1 reward
+# Train abj\arj\brj from scratch with F1 reward
 allennlp train training_config/bidaf.patience=None.num_epochs=200.jsonnet -d ab -s tmp/ab.3.j.dropout=0.4 -j training_config/bidaf.dropout=0.4.jsonnet -u
 allennlp train training_config/bidaf.patience=None.num_epochs=200.jsonnet -d ar -s tmp/ar.3.j.dropout=0.4 -j training_config/bidaf.dropout=0.4.jsonnet -u
 allennlp train training_config/bidaf.patience=None.num_epochs=200.jsonnet -d br -s tmp/br.3.j.dropout=0.4 -j training_config/bidaf.dropout=0.4.jsonnet -u
