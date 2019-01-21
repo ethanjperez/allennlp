@@ -279,7 +279,7 @@ def get_metrics(model: Model, total_loss: float, num_batches: int, trainer_metri
     # NOTE: Temporary fix while figuring out why isinstance(metric.get_metric(reset), int) for RACE a/b SL training
     # Replaces: trainer_metrics = {name: metric.get_metric(reset).item() for name, metric in trainer_metrics.items()}
     trainer_metrics = {name: metric.get_metric(reset) for name, metric in trainer_metrics.items()}
-    for name, metric in trainer_metrics:
+    for name, metric in trainer_metrics.items():
         if not isinstance(trainer_metrics[name], int):
             trainer_metrics[name] = trainer_metrics[name].item()
     metrics.update(trainer_metrics)
