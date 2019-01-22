@@ -1,6 +1,7 @@
 {
   "dataset_reader": {
     "type": "squad",
+    "lazy": true,
     "token_indexers": {
       "tokens": {
         "type": "single_id",
