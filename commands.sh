@@ -2,8 +2,9 @@
 
 ### AllenNLP Commands
 
-# SQuAD+BERT: Training J on full passage (normal supervised training)
+# SQuAD+BERT/OpenAI: Training J on full passage (normal supervised training)
 allennlp train training_config/bidaf_bert.jsonnet -s tmp/bert.f -d f
+allennlp train training_config/bidaf_openai.jsonnet -s tmp/openai.f -d f
 
 # RACE: Training J on full passage (normal supervised training)
 allennlp train training_config/bidaf.race.size=half.jsonnet -s tmp/race.f -d f
@@ -31,6 +32,7 @@ allennlp train training_config/bidaf.race.size=half.patience=None.jsonnet -s tmp
 
 # Training J only:
 allennlp train training_config/bidaf.num_epochs=200.jsonnet -d rr -s tmp/rr.2
+allennlp train training_config/bidaf.squad_xl.num_epochs=200.jsonnet -d rr -s tmp/squad_xl.rr.2
 
 # Training ab with fixed J
 allennlp train training_config/bidaf.patience=None.num_epochs=200.jsonnet -d ab -s tmp/ab.3.pt=rr.3 -j tmp/rr.3/model.tar.gz

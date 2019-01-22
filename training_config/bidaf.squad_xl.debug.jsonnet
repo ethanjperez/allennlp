@@ -14,8 +14,8 @@
       }
     }
   },
-  "train_data_path": "allennlp/tests/fixtures/data/squad.json",
-  "validation_data_path": "allennlp/tests/fixtures/data/squad.json",
+  "train_data_path": "datasets/squad_xl/doc-train-v1.1.json",
+  "validation_data_path": "datasets/squad_xl/doc-dev-v1.1.json",
   "model": {
     "type": "bidaf",
     "text_field_embedder": {
