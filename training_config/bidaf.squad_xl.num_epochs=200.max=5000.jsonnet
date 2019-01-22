@@ -86,7 +86,7 @@
     "type": "bucket",
     "sorting_keys": [["passage", "num_tokens"], ["question", "num_tokens"]],
     "batch_size": 40,
-    "max_instances_in_memory": 10000
+    "max_instances_in_memory": 5000
   },
 
   "trainer": {
