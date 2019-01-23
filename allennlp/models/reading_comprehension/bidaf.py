@@ -213,6 +213,7 @@ class BidirectionalAttentionFlow(Model):
             encoded_question = self._dropout(self._phrase_layer(embedded_question, question_lstm_mask))
             encoded_passage = self._dropout(self._phrase_layer(embedded_passage, passage_lstm_mask))
         except:
+            # Just truncate passage_lstm_mask to same size as embedded_passage along dim 1 (of 2)
             import ipdb; ipdb.set_trace()
         encoding_dim = encoded_question.size(-1)
 
