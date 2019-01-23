@@ -209,12 +209,8 @@ class BidirectionalAttentionFlow(Model):
         question_lstm_mask = question_mask if self._mask_lstms else None
         passage_lstm_mask = passage_mask if self._mask_lstms else None
 
-        try:
-            encoded_question = self._dropout(self._phrase_layer(embedded_question, question_lstm_mask))
-            encoded_passage = self._dropout(self._phrase_layer(embedded_passage, passage_lstm_mask))
-        except:
-            # Just truncate passage_lstm_mask to same size as embedded_passage along dim 1 (of 2)
-            import ipdb; ipdb.set_trace()
+        encoded_question = self._dropout(self._phrase_layer(embedded_question, question_lstm_mask))
+        encoded_passage = self._dropout(self._phrase_layer(embedded_passage, passage_lstm_mask))
         encoding_dim = encoded_question.size(-1)
 
         # Shape: (batch_size, passage_length, question_length)
@@ -257,10 +253,7 @@ class BidirectionalAttentionFlow(Model):
             # NB: Using heuristic to get mask
             final_merged_passage_mask = (final_merged_passage != 0).float()
             final_merged_passage = self._film(final_merged_passage, turn_gammas - 1., turn_betas) * final_merged_passage_mask
-        try:
-            modeled_passage = self._dropout(self._modeling_layer(final_merged_passage, passage_lstm_mask))
-        except:
-            import ipdb; ipdb.set_trace()
+        modeled_passage = self._dropout(self._modeling_layer(final_merged_passage, passage_lstm_mask))
         modeling_dim = modeled_passage.size(-1)
 
         # Shape: (batch_size, passage_length, encoding_dim * 4 + modeling_dim))
@@ -292,11 +285,8 @@ class BidirectionalAttentionFlow(Model):
                                              modeled_passage * tiled_start_representation],
                                             dim=-1)
         # Shape: (batch_size, passage_length, encoding_dim)
-        try:
-            encoded_span_end = self._dropout(self._span_end_encoder(span_end_representation,
-                                                                    passage_lstm_mask))
-        except:
-            import ipdb; ipdb.set_trace()
+        encoded_span_end = self._dropout(self._span_end_encoder(span_end_representation,
+                                                                passage_lstm_mask))
         # Shape: (batch_size, passage_length, encoding_dim * 4 + span_end_encoding_dim)
         span_end_input = self._dropout(torch.cat([final_merged_passage, encoded_span_end], dim=-1))
         span_end_logits = self._span_end_predictor(span_end_input).squeeze(-1)
