@@ -1,4 +1,5 @@
 import copy
+import json
 import logging
 import math
 import os
@@ -64,7 +65,8 @@ class Trainer(TrainerBase):
                  should_log_learning_rate: bool = False,
                  log_batch_size_period: Optional[int] = None,
                  eval_mode: bool = False,
-                 breakpoint_level: int = 0) -> None:
+                 breakpoint_level: int = 0,
+                 id_to_oracle_filename: str = None) -> None:
         """
         A trainer for doing supervised learning. It just takes a labeled dataset
         and a ``DataIterator``, and uses the supplied ``Optimizer`` to learn the weights
@@ -176,6 +178,12 @@ class Trainer(TrainerBase):
         self._validation_data = validation_dataset
         self._eval_mode = eval_mode
         self._breakpoint_level = breakpoint_level
+
+        self._id_to_oracle_is_complete = (id_to_oracle_filename is not None)
+        self._id_to_oracle = {}
+        if id_to_oracle_filename is not None:
+            with open(id_to_oracle_filename) as id_to_oracle_file:
+                self._id_to_oracle = json.load(id_to_oracle_file)
 
         self._trainer_metrics = {}
         if patience is None:  # no early stopping
@@ -441,7 +449,13 @@ class Trainer(TrainerBase):
                 sent_choice_idx = sent_answer_idx
                 sent_choice_prob = torch.ones(bsz)
                 value = -1 * torch.ones(bsz)
-            elif method in ['A', 'B']:  # A/B oracle selection
+            elif (method in ['A', 'B']) and self._id_to_oracle_is_complete:  # A/B oracle selection (loaded)
+                oracle_infos = [self._id_to_oracle[md['id']] for md in batch['metadata']]
+                sc_diffs = [oracle_info['sc_diff'] for oracle_info in oracle_infos]
+                sent_choice_idx = torch.LongTensor([oracle_info['sent_choice_idx'] for oracle_info in oracle_infos]).unsqueeze(1)
+                sent_choice_prob = torch.ones(bsz)
+                value = torch.LongTensor([oracle_info['value'] for oracle_info in oracle_infos]).unsqueeze(1)
+            elif (method in ['A', 'B']) and (not self._id_to_oracle_is_complete):  # A/B oracle selection (computed)
                 oracle_func = max if method == 'A' else min  # NOTE: Modify if adding another oracle method
                 # NB: RACE oracle should preferably use span_start_probs
                 oracle_eval_method = 'em' if race_data else 'f1'  # NOTE: Only other option is 'em'
@@ -539,6 +553,13 @@ class Trainer(TrainerBase):
             # Apply masks / use probs only after eval-only turns are finished
             if is_eval_only_turn and sl_debate:
                 oracle_sent_choice_idx = sent_choice_idx
+                if not self._id_to_oracle_is_complete:
+                    for sample_no in range(bsz):
+                        self._id_to_oracle[batch['metadata'][sample_no]['id']] = {
+                            'sent_choice_idx': oracle_sent_choice_idx[sample_no].item(),
+                            'value': value[sample_no].item(),
+                            'sc_diff': sc_diffs[sample_no],
+                        }
                 continue
 
             assert (sent_choice_idx is not None) and (sent_choice_prob is not None) and (value is not None), \
@@ -849,6 +870,9 @@ class Trainer(TrainerBase):
                 return metrics
 
             if self._serialization_dir:
+                if not self._id_to_oracle_is_complete:  # Save id_to_label mapping if it's newly computed
+                    self._id_to_oracle_is_complete = True
+                    dump_metrics(os.path.join(self._serialization_dir, f'id_to_oracle.json'), self._id_to_oracle, log=False)
                 dump_metrics(os.path.join(self._serialization_dir, f'metrics_epoch_{epoch}.json'), metrics)
 
             if self._learning_rate_scheduler:
@@ -973,7 +997,8 @@ class Trainer(TrainerBase):
                     params: Params,
                     validation_iterator: DataIterator = None,
                     eval_mode: bool = False,
-                    breakpoint_level: int = 0) -> 'Trainer':
+                    breakpoint_level: int = 0,
+                    id_to_oracle_filename: str = None) -> 'Trainer':
         # pylint: disable=arguments-differ
         patience = params.pop_int("patience", None)
         validation_metric = params.pop("validation_metric", "-loss")
@@ -1034,7 +1059,8 @@ class Trainer(TrainerBase):
                    should_log_learning_rate=should_log_learning_rate,
                    log_batch_size_period=log_batch_size_period,
                    eval_mode=eval_mode,
-                   breakpoint_level=breakpoint_level)
+                   breakpoint_level=breakpoint_level,
+                   id_to_oracle_filename=id_to_oracle_filename)
 
 
 class TrainerPieces(NamedTuple):
