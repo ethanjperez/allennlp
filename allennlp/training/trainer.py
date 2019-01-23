@@ -326,7 +326,7 @@ class Trainer(TrainerBase):
         """
         Neatly prints all debates from a batch.
         """
-        bsz = batch['question']['tokens'].size(0)
+        bsz = batch['passage']['tokens'].size(0)
         for sample_no in range(bsz):
             if bool(num_sents[sample_no] >= 3):
                 print('\n***Passage***\n', ' '.join(batch['metadata'][sample_no]['passage_tokens']))
@@ -385,7 +385,7 @@ class Trainer(TrainerBase):
         num_rounds = len(debate_mode)
         assert num_rounds <= 1, 'No implementation yet for # rounds =' + str(num_rounds)
         num_turns = len(debate_mode[0])
-        bsz = batch['question']['tokens'].size(0)
+        bsz = batch['passage']['tokens'].size(0)
         mask_tok_val = self.model.vocab.get_token_index('.')
         a_turn = {turn: debate_mode[0][turn] == 'a' for turn in range(len(debate_mode[0]))}
         turn_str = {turn: "_turn_" + str(turn) + "_agent_" + debate_mode[0][turn] for turn in range(num_turns)}

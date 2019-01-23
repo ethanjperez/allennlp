@@ -67,7 +67,8 @@ class SquadReader(DatasetReader):
                                                      paragraph,
                                                      zip(span_starts, span_ends),
                                                      answer_texts,
-                                                     tokenized_paragraph)
+                                                     tokenized_paragraph,
+                                                     question_answer['id'])
                     yield instance
 
     @overrides
@@ -76,7 +77,8 @@ class SquadReader(DatasetReader):
                          passage_text: str,
                          char_spans: List[Tuple[int, int]] = None,
                          answer_texts: List[str] = None,
-                         passage_tokens: List[Token] = None) -> Instance:
+                         passage_tokens: List[Token] = None,
+                         qa_id: str = None) -> Instance:
         # pylint: disable=arguments-differ
         if not passage_tokens:
             passage_tokens = self._tokenizer.tokenize(passage_text)
@@ -104,4 +106,5 @@ class SquadReader(DatasetReader):
                                                         self._token_indexers,
                                                         passage_text,
                                                         token_spans,
-                                                        answer_texts)
+                                                        answer_texts,
+                                                        {'id': qa_id})

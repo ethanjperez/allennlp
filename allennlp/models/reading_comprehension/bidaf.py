@@ -311,6 +311,9 @@ class BidirectionalAttentionFlow(Model):
                 loss = nll_loss(util.masked_log_softmax(span_start_logits, passage_mask), span_start.squeeze(-1))
             except:
                 import ipdb; ipdb.set_trace()
+                # valid_span_start = span_start.squeeze(-1).clone
+                # valid_span_start[valid_span_start > passage_mask.size(1)] = -100
+                # loss = nll_loss(util.masked_log_softmax(span_start_logits, passage_mask), valid_span_start.squeeze(-1))
             if store_metrics:
                 self._span_start_accuracy(span_start_logits, span_start.squeeze(-1))
             loss += nll_loss(util.masked_log_softmax(span_end_logits, passage_mask), span_end.squeeze(-1))
