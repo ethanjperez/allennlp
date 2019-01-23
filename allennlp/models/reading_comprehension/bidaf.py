@@ -307,9 +307,11 @@ class BidirectionalAttentionFlow(Model):
 
         # Compute the loss for training.
         if span_start is not None:
+            span_start[span_start >= passage_mask.size(1)] = -100  # NB: Hacky. Don't add to loss if span not in input
             loss = nll_loss(util.masked_log_softmax(span_start_logits, passage_mask), span_start.squeeze(-1))
             if store_metrics:
                 self._span_start_accuracy(span_start_logits, span_start.squeeze(-1))
+            span_end[span_end >= passage_mask.size(1)] = -100  # NB: Hacky. Don't add to loss if span not in input
             loss += nll_loss(util.masked_log_softmax(span_end_logits, passage_mask), span_end.squeeze(-1))
             if store_metrics:
                 self._span_end_accuracy(span_end_logits, span_end.squeeze(-1))

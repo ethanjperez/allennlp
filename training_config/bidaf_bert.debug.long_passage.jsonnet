@@ -10,23 +10,23 @@
       }
     }
   },
-  "train_data_path": "datasets/squad/squad-train-v1.1.json",
-  "validation_data_path": "datasets/squad/squad-dev-v1.1.json",
+  "train_data_path": "allennlp/tests/fixtures/data/squad.debug.json",
+  "validation_data_path": "allennlp/tests/fixtures/data/squad.debug.json",
   "model": {
     "type": "bidaf",
     "text_field_embedder": {
-        "allow_unmatched_keys": true,
-        "embedder_to_indexer_map": {
-            "tokens": ["tokens", "tokens-offsets"]
-        },
-        "token_embedders": {
-            "tokens": {
-                "type": "bert-pretrained",
-                "pretrained_model": "bert-base-uncased",
-                "requires_grad": true,
-                "top_layer_only": true
-            }
+      "allow_unmatched_keys": true,
+      "embedder_to_indexer_map": {
+        "tokens": ["tokens", "tokens-offsets"]
+      },
+      "token_embedders": {
+        "tokens": {
+          "type": "bert-pretrained",
+          "pretrained_model": "bert-base-uncased",
+          "requires_grad": true,
+          "top_layer_only": true
         }
+      }
     },
     "num_highway_layers": 1,
     "phrase_layer": {
@@ -64,14 +64,14 @@
   "iterator": {
     "type": "bucket",
     "sorting_keys": [["passage", "num_tokens"], ["question", "num_tokens"]],
-    "batch_size": 8
+    "batch_size": 16
   },
 
   "trainer": {
     "num_epochs": 4,
     "patience": 4,
     "validation_metric": "+em",
-    "cuda_device": 0,
+    "cuda_device": -1,
     "learning_rate_scheduler": {
       "type": "reduce_on_plateau",
       "factor": 0.67,

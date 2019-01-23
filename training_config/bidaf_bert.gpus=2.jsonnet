@@ -71,7 +71,7 @@
     "num_epochs": 4,
     "patience": 4,
     "validation_metric": "+em",
-    "cuda_device": 0,
+    "cuda_device": [0, 1],
     "learning_rate_scheduler": {
       "type": "reduce_on_plateau",
       "factor": 0.67,

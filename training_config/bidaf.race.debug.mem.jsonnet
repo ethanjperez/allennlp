@@ -4,7 +4,6 @@
 {
   "dataset_reader": {
     "type": "race",
-    "lazy": true,
     "token_indexers": {
       "tokens": {
         "type": "single_id",
@@ -20,8 +19,8 @@
       }
     }
   },
-  "train_data_path": "datasets/race/race-train-v1.0.json",
-  "validation_data_path": "datasets/race/race-dev-v1.0.json",
+  "train_data_path": "datasets/race/race-dev-v1.0.json",
+  "validation_data_path": "allennlp/tests/fixtures/data/race.json",
   "model": {
     "type": "bidaf",
     "text_field_embedder": {
@@ -44,7 +43,7 @@
                 "num_filters": 100,
                 "ngram_filter_sizes": [5]
                 },
-                "dropout": 0.6
+                "dropout": 0.2
             }
         }
     },
@@ -55,7 +54,7 @@
       "input_size": 200,
       "hidden_size": 50,
       "num_layers": 1,
-      "dropout": 0.6
+      "dropout": 0.2
     },
     "similarity_function": {
       "type": "linear",
@@ -69,7 +68,7 @@
       "input_size": 400,
       "hidden_size": 50,
       "num_layers": 2,
-      "dropout": 0.6
+      "dropout": 0.2
     },
     "span_end_encoder": {
       "type": "lstm",
@@ -77,9 +76,9 @@
       "input_size": 700,
       "hidden_size": 50,
       "num_layers": 1,
-      "dropout": 0.6
+      "dropout": 0.2
     },
-    "dropout": 0.6
+    "dropout": 0.2
   },
   "iterator": {
     "type": "bucket",

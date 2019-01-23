@@ -15,6 +15,8 @@ allennlp train training_config/bidaf.race.size=half.jsonnet -s tmp/race.f -e -r 
 # RACE: SL baselines
 allennlp train training_config/bidaf.race.size=half.jsonnet -s tmp/race.a.m=sl.pt=race.f -j tmp/race.f/model.tar.gz -m sl -d a
 allennlp train training_config/bidaf.race.size=half.jsonnet -s tmp/race.b.m=sl.pt=race.f -j tmp/race.f/model.tar.gz -m sl -d b
+allennlp train training_config/bidaf.race.size=half.jsonnet -s tmp/race.a.m=sl-ssp.pt=race.f -j tmp/race.f/model.tar.gz -m sl-ssp -d a
+allennlp train training_config/bidaf.race.size=half.jsonnet -s tmp/race.b.m=sl-spp.pt=race.f -j tmp/race.f/model.tar.gz -m sl-ssp -d b
 
 # RACE: RL: EM Reward (OOM on Titan XP 43% through 1 epoch with br)
 allennlp train training_config/bidaf.race.size=half.patience=None.jsonnet -s tmp/race.a.m=em.pt=race.f -j tmp/race.f/model.tar.gz -m em -d a
@@ -32,7 +34,8 @@ allennlp train training_config/bidaf.race.size=half.patience=None.jsonnet -s tmp
 
 # Training J only:
 allennlp train training_config/bidaf.num_epochs=200.jsonnet -d rr -s tmp/rr.2
-allennlp train training_config/bidaf.squad_xl.num_epochs=200.jsonnet -d rr -s tmp/squad_xl.rr.2
+allennlp train training_config/bidaf.squad_xl.num_epochs=200.jsonnet -d f -s tmp/squad_xl.f
+allennlp train training_config/bidaf.squad_xl.num_epochs=200.jsonnet -d rr -s tmp/squad_xl.rr
 
 # Training ab with fixed J
 allennlp train training_config/bidaf.patience=None.num_epochs=200.jsonnet -d ab -s tmp/ab.3.pt=rr.3 -j tmp/rr.3/model.tar.gz

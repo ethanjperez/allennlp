@@ -1,6 +1,7 @@
 {
   "dataset_reader": {
     "type": "squad",
+    "lazy": true,
     "token_indexers": {
       "tokens": {
         "type": "single_id",
@@ -70,7 +71,8 @@
     "type": "bucket",
     "sorting_keys": [["passage", "num_tokens"], ["question", "num_tokens"]],
     "padding_noise": 0.0,
-    "batch_size": 40
+    "batch_size": 40,
+    "max_instances_in_memory": 10000
   },
   "trainer": {
     "num_epochs": 1,
