@@ -36,7 +36,9 @@ allennlp train training_config/bidaf.race.size=half.patience=None.jsonnet -s tmp
 
 # Training J only:
 allennlp train training_config/bidaf.num_epochs=200.jsonnet -d rr -s tmp/rr.2
-allennlp train training_config/bidaf.squad_xl.num_epochs=200.jsonnet -d f -s tmp/squad_xl.f
+allennlp train training_config/bidaf.squad_xl.num_epochs=200.batch_size=20.jsonnet -d f -s tmp/squad_xl.f  # bg
+allennlp train training_config/bidaf.squad_xl.num_epochs=200.size=half.jsonnet -d f -s tmp/squad_xl.size=half.f  # ??
+allennlp train training_config/bidaf.squad_xl.num_epochs=200.size=quarter.jsonnet -d f -s tmp/squad_xl.size=quarter.f  # ??
 allennlp train training_config/bidaf.squad_xl.num_epochs=200.jsonnet -d rr -s tmp/squad_xl.rr
 
 # Training ab with fixed J
