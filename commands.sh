@@ -71,6 +71,8 @@ allennlp train training_config/bidaf.num_epochs=200.j.no_grad=cwpam.jsonnet -d g
 # Train b on gb with SL on oracle
 allennlp train training_config/bidaf.cpu.mini.debug.jsonnet -s tmp/debug -j training_config/bidaf.cpu.mini.debug.jsonnet -u -d gb -m sl
 allennlp train training_config/bidaf.patience=None.num_epochs=200.dropout=0.0.jsonnet -s tmp/gb.m=sl-ssp.dropout=0.0 -j tmp/rr.3/model.tar.gz -d gb -m sl-ssp  # eval.1
+allennlp train training_config/bidaf.patience=None.num_epochs=200.size=2.dropout=0.0.jsonnet -s tmp/gb.m=sl-ssp.size=2.dropout=0.0 -j tmp/rr.3/model.tar.gz -d gb -m sl-ssp  # tmp
+allennlp train training_config/bidaf.patience=None.num_epochs=200.size=2.jsonnet -s tmp/gb.m=sl-ssp.size=2 -j tmp/rr.3/model.tar.gz -d gb -m sl-ssp  # ?
 
 # Evaluate abj (add -e -r no -u)
 allennlp train training_config/bidaf.num_epochs=200.jsonnet -d rr -s tmp/ab.pt\=rr -j tmp/rr.2/model.tar.gz -r -e
