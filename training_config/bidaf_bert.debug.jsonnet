@@ -5,13 +5,13 @@
       "tokens": {
           "type": "bert-pretrained",
           "pretrained_model": "datasets/bert/uncased_L-12_H-768_A-12/vocab.txt",
-          "do_lowercase": false,
+          "do_lowercase": true,
           "use_starting_offsets": true
       }
     }
   },
-  "train_data_path": "allennlp/tests/fixtures/data/squad.json",
-  "validation_data_path": "allennlp/tests/fixtures/data/squad.json",
+  "train_data_path": "allennlp/tests/fixtures/data/squad.bert.json",
+  "validation_data_path": "allennlp/tests/fixtures/data/squad.bert.json",
   "model": {
     "type": "bidaf",
     "text_field_embedder": {
@@ -68,8 +68,8 @@
   },
 
   "trainer": {
-    "num_epochs": 4,
-    "patience": 4,
+    "num_epochs": 20,
+    "patience": 3,
     "validation_metric": "+em",
     "cuda_device": -1,
     "learning_rate_scheduler": {

@@ -1,4 +1,5 @@
 import copy
+import json
 import logging
 import math
 import os
@@ -64,7 +65,8 @@ class Trainer(TrainerBase):
                  should_log_learning_rate: bool = False,
                  log_batch_size_period: Optional[int] = None,
                  eval_mode: bool = False,
-                 breakpoint_level: int = 0) -> None:
+                 breakpoint_level: int = 0,
+                 id_to_oracle_filename: str = None) -> None:
         """
         A trainer for doing supervised learning. It just takes a labeled dataset
         and a ``DataIterator``, and uses the supplied ``Optimizer`` to learn the weights
@@ -176,6 +178,13 @@ class Trainer(TrainerBase):
         self._validation_data = validation_dataset
         self._eval_mode = eval_mode
         self._breakpoint_level = breakpoint_level
+        self._using_bert = False  # May be set to True during training if self.model uses BertTokenEmbedder
+
+        self._id_to_oracle_is_complete = (id_to_oracle_filename is not None)
+        self._id_to_oracle = {}
+        if id_to_oracle_filename is not None:
+            with open(id_to_oracle_filename) as id_to_oracle_file:
+                self._id_to_oracle = json.load(id_to_oracle_file)
 
         self._trainer_metrics = {}
         if patience is None:  # no early stopping
@@ -341,6 +350,14 @@ class Trainer(TrainerBase):
                 print('\n--- J --- EM / F1 ', float(j_em[sample_no]), '/', float(j_f1[sample_no]), '!\n', ' '.join(toks[output_dict['best_span'][sample_no][0]:output_dict['best_span'][sample_no][1] + 1]))
         return
 
+    def _print_tokens(self, tokens):
+        """
+        Prints BERT wordpiece tokens from token indices.
+        """
+        if self._using_bert:
+            print(' '.join([self.model.vocab._index_to_token['bert'][tok.item()] for tok in tokens]))
+        return
+
     def batch_loss(self, batch_group: List[TensorDict], for_training: bool, debate_mode: List[str] = None) -> torch.Tensor:
         """
         Does a forward pass on the given batches and returns the ``loss`` value in the result.
@@ -349,6 +366,20 @@ class Trainer(TrainerBase):
         # If overriding default passage choosing method
         if debate_mode is None:
             debate_mode = self._debate_mode
+
+        # Optional debugging sanity check
+        if self._breakpoint_level >= 1:
+            for batch in batch_group:
+                for i in range(batch['passage']['tokens'].size(0)):
+                    char_span_start = batch['metadata'][i]['token_offsets'][batch['span_start'][i]][0]
+                    char_span_end = batch['metadata'][i]['token_offsets'][batch['span_end'][i]][1]
+                    answer_text = batch['metadata'][i]['answer_texts'][0]
+                    post_processing_answer_text = batch['metadata'][i]['original_passage'][char_span_start: char_span_end]
+                    if not post_processing_answer_text.startswith(answer_text):  # Something went wrong! Print what's up
+                        self._print_tokens(batch['passage']['tokens'][i, :])
+                        print('answer_text =', answer_text)
+                        print('post_processing_answer_text =', post_processing_answer_text)
+                        import ipdb; ipdb.set_trace()
 
         # Set output_dict['loss'] to do gradient descent on.
         if debate_mode[0] == "f":  # Full passage training: Normal SL training
@@ -386,7 +417,7 @@ class Trainer(TrainerBase):
         assert num_rounds <= 1, 'No implementation yet for # rounds =' + str(num_rounds)
         num_turns = len(debate_mode[0])
         bsz = batch['passage']['tokens'].size(0)
-        mask_tok_val = self.model.vocab.get_token_index('.')
+        mask_tok_val = self.model.vocab.get_token_index('.')  # TODO: BERT: self.model.vocab._token_to_index['bert']['[UNK]']. Optionally make it this for non-BERT too.
         a_turn = {turn: debate_mode[0][turn] == 'a' for turn in range(len(debate_mode[0]))}
         turn_str = {turn: "_turn_" + str(turn) + "_agent_" + debate_mode[0][turn] for turn in range(num_turns)}
         sl_debate = (debater is not None) and (debater.reward_method.startswith('sl'))
@@ -441,7 +472,13 @@ class Trainer(TrainerBase):
                 sent_choice_idx = sent_answer_idx
                 sent_choice_prob = torch.ones(bsz)
                 value = -1 * torch.ones(bsz)
-            elif method in ['A', 'B']:  # A/B oracle selection
+            elif (method in ['A', 'B']) and self._id_to_oracle_is_complete:  # A/B oracle selection (loaded)
+                oracle_infos = [self._id_to_oracle[md['id']] for md in batch['metadata']]
+                sc_diffs = [oracle_info['sc_diff'] for oracle_info in oracle_infos]
+                sent_choice_idx = torch.LongTensor([oracle_info['sent_choice_idx'] for oracle_info in oracle_infos]).unsqueeze(1)
+                sent_choice_prob = torch.ones(bsz)
+                value = torch.LongTensor([oracle_info['value'] for oracle_info in oracle_infos]).unsqueeze(1)
+            elif (method in ['A', 'B']) and (not self._id_to_oracle_is_complete):  # A/B oracle selection (computed)
                 oracle_func = max if method == 'A' else min  # NOTE: Modify if adding another oracle method
                 # NB: RACE oracle should preferably use span_start_probs
                 oracle_eval_method = 'em' if race_data else 'f1'  # NOTE: Only other option is 'em'
@@ -539,6 +576,13 @@ class Trainer(TrainerBase):
             # Apply masks / use probs only after eval-only turns are finished
             if is_eval_only_turn and sl_debate:
                 oracle_sent_choice_idx = sent_choice_idx
+                if not self._id_to_oracle_is_complete:
+                    for sample_no in range(bsz):
+                        self._id_to_oracle[batch['metadata'][sample_no]['id']] = {
+                            'sent_choice_idx': oracle_sent_choice_idx[sample_no].item(),
+                            'value': value[sample_no].item(),
+                            'sc_diff': sc_diffs[sample_no],
+                        }
                 continue
 
             assert (sent_choice_idx is not None) and (sent_choice_prob is not None) and (value is not None), \
@@ -574,6 +618,7 @@ class Trainer(TrainerBase):
                 j_score = torch.Tensor([output_dict['span_start_probs'][i, batch['span_start'][i]] for i in range(bsz)])
             else:  # EM or SL (where EM is a dummy value)
                 j_score = j_em
+            j_score = j_score.detach()  # Judge shouldn't get gradients through j_score, used to reward A/B
 
             self._add_debate_metrics(output_dict, sent_idxs, sent_choice_idxs, num_turns, turn_str)
             if self._eval_mode and (((self._batch_num_total % 20) == 0) or ((self._batch_num_total % 20) == 1)):
@@ -624,6 +669,9 @@ class Trainer(TrainerBase):
         self.model.train()
         if (not self.model.update_judge) and (self.model.judge is not None):
             self.model.judge.eval()
+        self._using_bert = hasattr(self.model, '_text_field_embedder') and \
+                           hasattr(self.model._text_field_embedder, 'token_embedder_tokens') and \
+                           'bert_token_embedder' in str(type(self.model._text_field_embedder.token_embedder_tokens))
 
         num_gpus = len(self._cuda_devices)
 
@@ -849,6 +897,13 @@ class Trainer(TrainerBase):
                 return metrics
 
             if self._serialization_dir:
+                # Save id_to_oracle mapping if it's newly computed
+                if (not self._id_to_oracle_is_complete) and (
+                        ((self.model.reward_method is not None) and self.model.reward_method.startswith('sl')) or
+                        ('A' in self._debate_mode) or
+                        ('B' in self._debate_mode)):
+                    self._id_to_oracle_is_complete = True
+                    dump_metrics(os.path.join(self._serialization_dir, f'id_to_oracle.json'), self._id_to_oracle, log=False)
                 dump_metrics(os.path.join(self._serialization_dir, f'metrics_epoch_{epoch}.json'), metrics)
 
             if self._learning_rate_scheduler:
@@ -973,7 +1028,8 @@ class Trainer(TrainerBase):
                     params: Params,
                     validation_iterator: DataIterator = None,
                     eval_mode: bool = False,
-                    breakpoint_level: int = 0) -> 'Trainer':
+                    breakpoint_level: int = 0,
+                    id_to_oracle_filename: str = None) -> 'Trainer':
         # pylint: disable=arguments-differ
         patience = params.pop_int("patience", None)
         validation_metric = params.pop("validation_metric", "-loss")
@@ -1034,7 +1090,8 @@ class Trainer(TrainerBase):
                    should_log_learning_rate=should_log_learning_rate,
                    log_batch_size_period=log_batch_size_period,
                    eval_mode=eval_mode,
-                   breakpoint_level=breakpoint_level)
+                   breakpoint_level=breakpoint_level,
+                   id_to_oracle_filename=id_to_oracle_filename)
 
 
 class TrainerPieces(NamedTuple):

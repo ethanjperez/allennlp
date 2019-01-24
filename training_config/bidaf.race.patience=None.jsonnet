@@ -3,7 +3,7 @@
 //   ArXiv/1611.01603 (2016)
 {
   "dataset_reader": {
-    "type": "squad",
+    "type": "race",
     "lazy": true,
     "token_indexers": {
       "tokens": {
@@ -16,13 +16,12 @@
           "byte_encoding": "utf-8",
           "start_tokens": [259],
           "end_tokens": [260]
-        },
-        "min_padding_length": 5
+        }
       }
     }
   },
-  "train_data_path": "datasets/squad_xl/doc-train-v1.1.json",
-  "validation_data_path": "datasets/squad_xl/doc-dev-v1.1.json",
+  "train_data_path": "datasets/race/race-train-v1.0.json",
+  "validation_data_path": "datasets/race/race-dev-v1.0.json",
   "model": {
     "type": "bidaf",
     "text_field_embedder": {
@@ -85,14 +84,12 @@
   "iterator": {
     "type": "bucket",
     "sorting_keys": [["passage", "num_tokens"], ["question", "num_tokens"]],
-    "batch_size": 40,
-    "max_instances_in_memory": 5000
+    "batch_size": 40
   },
 
   "trainer": {
     "num_epochs": 200,
     "grad_norm": 5.0,
-    "patience": 10,
     "validation_metric": "+em",
     "cuda_device": 0,
     "learning_rate_scheduler": {

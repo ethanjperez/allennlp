@@ -54,29 +54,29 @@
       "type": "lstm",
       "bidirectional": true,
       "input_size": 200,
-      "hidden_size": 100,
+      "hidden_size": 50,
       "num_layers": 1,
       "dropout": 0.2
     },
     "similarity_function": {
       "type": "linear",
       "combination": "x,y,x*y",
-      "tensor_1_dim": 200,
-      "tensor_2_dim": 200
+      "tensor_1_dim": 100,
+      "tensor_2_dim": 100
     },
     "modeling_layer": {
       "type": "lstm",
       "bidirectional": true,
-      "input_size": 800,
-      "hidden_size": 100,
-      "num_layers": 2,
+      "input_size": 400,
+      "hidden_size": 50,
+      "num_layers": 1,
       "dropout": 0.2
     },
     "span_end_encoder": {
       "type": "lstm",
       "bidirectional": true,
-      "input_size": 1400,
-      "hidden_size": 100,
+      "input_size": 700,
+      "hidden_size": 50,
       "num_layers": 1,
       "dropout": 0.2
     },

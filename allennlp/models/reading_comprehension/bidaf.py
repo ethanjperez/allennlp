@@ -201,7 +201,7 @@ class BidirectionalAttentionFlow(Model):
             question.
         """
         embedded_question = self._highway_layer(self._text_field_embedder(question))
-        embedded_passage = self._highway_layer(self._text_field_embedder(passage))
+        embedded_passage = self._highway_layer(self._text_field_embedder(passage))  # TODO: BERT Debate: Use token_type_ids to condition on a_turn
         batch_size = embedded_question.size(0)
         passage_length = embedded_passage.size(1)
         question_mask = util.get_text_field_mask(question).float()

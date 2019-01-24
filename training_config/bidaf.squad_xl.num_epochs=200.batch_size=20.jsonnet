@@ -85,7 +85,7 @@
   "iterator": {
     "type": "bucket",
     "sorting_keys": [["passage", "num_tokens"], ["question", "num_tokens"]],
-    "batch_size": 40,
+    "batch_size": 20,
     "max_instances_in_memory": 5000
   },
 
