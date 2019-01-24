@@ -349,6 +349,12 @@ class Trainer(TrainerBase):
                 print('\n--- J --- EM / F1 ', float(j_em[sample_no]), '/', float(j_f1[sample_no]), '!\n', ' '.join(toks[output_dict['best_span'][sample_no][0]:output_dict['best_span'][sample_no][1] + 1]))
         return
 
+    def _print_bert_tokens(self, tokens):
+        """
+        Prints BERT wordpiece tokens from token indices.
+        """
+        print(' '.join([self.model.vocab._index_to_token['bert'][tok.item()] for tok in tokens]))
+
     def batch_loss(self, batch_group: List[TensorDict], for_training: bool, debate_mode: List[str] = None) -> torch.Tensor:
         """
         Does a forward pass on the given batches and returns the ``loss`` value in the result.
@@ -357,6 +363,20 @@ class Trainer(TrainerBase):
         # If overriding default passage choosing method
         if debate_mode is None:
             debate_mode = self._debate_mode
+
+        # Optional debugging sanity check
+        if self._breakpoint_level >= 0:
+            for batch in batch_group:
+                for i in range(batch['passage']['tokens'].size(0)):
+                    char_span_start = batch['metadata'][i]['token_offsets'][batch['span_start'][i]][0]
+                    char_span_end = batch['metadata'][i]['token_offsets'][batch['span_end'][i]][1]
+                    answer_text = batch['metadata'][i]['answer_texts'][0]
+                    post_processing_answer_text = batch['metadata'][i]['original_passage'][char_span_start: char_span_end]
+                    if answer_text != post_processing_answer_text:  # Something went wrong! Could make an assertion.
+                        self._print_bert_tokens(batch['passage']['tokens'])
+                        print('answer_text =', answer_text)
+                        print('post_processing_answer_text', post_processing_answer_text)
+                        import ipdb; ipdb.set_trace()
 
         # Set output_dict['loss'] to do gradient descent on.
         if debate_mode[0] == "f":  # Full passage training: Normal SL training
@@ -394,7 +414,7 @@ class Trainer(TrainerBase):
         assert num_rounds <= 1, 'No implementation yet for # rounds =' + str(num_rounds)
         num_turns = len(debate_mode[0])
         bsz = batch['passage']['tokens'].size(0)
-        mask_tok_val = self.model.vocab.get_token_index('.')
+        mask_tok_val = self.model.vocab.get_token_index('.')  # TODO: BERT: self.model.vocab._token_to_index['bert']['[UNK]']. Optionally make it this for non-BERT too.
         a_turn = {turn: debate_mode[0][turn] == 'a' for turn in range(len(debate_mode[0]))}
         turn_str = {turn: "_turn_" + str(turn) + "_agent_" + debate_mode[0][turn] for turn in range(num_turns)}
         sl_debate = (debater is not None) and (debater.reward_method.startswith('sl'))
@@ -871,7 +891,8 @@ class Trainer(TrainerBase):
                 return metrics
 
             if self._serialization_dir:
-                if not self._id_to_oracle_is_complete:  # Save id_to_label mapping if it's newly computed
+                # Save id_to_oracle mapping if it's newly computed
+                if (not self._id_to_oracle_is_complete) and (self.reward_method.startswith('sl') or ('A' in self._debate_mode) or ('B' in self._debate_mode)):
                     self._id_to_oracle_is_complete = True
                     dump_metrics(os.path.join(self._serialization_dir, f'id_to_oracle.json'), self._id_to_oracle, log=False)
                 dump_metrics(os.path.join(self._serialization_dir, f'metrics_epoch_{epoch}.json'), metrics)
