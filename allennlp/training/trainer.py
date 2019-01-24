@@ -375,7 +375,7 @@ class Trainer(TrainerBase):
                     char_span_end = batch['metadata'][i]['token_offsets'][batch['span_end'][i]][1]
                     answer_text = batch['metadata'][i]['answer_texts'][0]
                     post_processing_answer_text = batch['metadata'][i]['original_passage'][char_span_start: char_span_end]
-                    if not post_processing_answer_text.startswith(answer_text):  # Something went wrong! Print what's up
+                    if answer_text in post_processing_answer_text:  # Print: unexpected mismatch against true answer
                         self._print_tokens(batch['passage']['tokens'][i, :])
                         print('answer_text =', answer_text)
                         print('post_processing_answer_text =', post_processing_answer_text)
