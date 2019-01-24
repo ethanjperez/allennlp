@@ -368,7 +368,7 @@ class Trainer(TrainerBase):
             debate_mode = self._debate_mode
 
         # Optional debugging sanity check
-        if self._breakpoint_level >= 0:
+        if self._breakpoint_level >= 1:
             for batch in batch_group:
                 for i in range(batch['passage']['tokens'].size(0)):
                     char_span_start = batch['metadata'][i]['token_offsets'][batch['span_start'][i]][0]
