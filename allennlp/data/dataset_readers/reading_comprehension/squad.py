@@ -1,6 +1,5 @@
 import json
 import logging
-from copy import copy
 from typing import Dict, List, Tuple
 
 from overrides import overrides
@@ -43,8 +42,9 @@ class SquadReader(DatasetReader):
         super().__init__(lazy)
         self._tokenizer = tokenizer or WordTokenizer()
         self._token_indexers = token_indexers or {'tokens': SingleIdTokenIndexer()}
-        # self._using_bert = self._token_indexers['tokens']._namespace == 'bert'
-        self._using_bert = False
+        self._using_bert = hasattr(self._token_indexers['tokens'], '_namespace') and self._token_indexers['tokens']._namespace == 'bert'
+        if self._using_bert:
+            print('BEEEEEEEEEEEEEEEEEEEERT!')
 
     @overrides
     def _read(self, file_path: str):

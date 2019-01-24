@@ -178,6 +178,7 @@ class Trainer(TrainerBase):
         self._validation_data = validation_dataset
         self._eval_mode = eval_mode
         self._breakpoint_level = breakpoint_level
+        self._using_bert = False  # May be set to True during training if self.model uses BertTokenEmbedder
 
         self._id_to_oracle_is_complete = (id_to_oracle_filename is not None)
         self._id_to_oracle = {}
@@ -349,11 +350,13 @@ class Trainer(TrainerBase):
                 print('\n--- J --- EM / F1 ', float(j_em[sample_no]), '/', float(j_f1[sample_no]), '!\n', ' '.join(toks[output_dict['best_span'][sample_no][0]:output_dict['best_span'][sample_no][1] + 1]))
         return
 
-    def _print_bert_tokens(self, tokens):
+    def _print_tokens(self, tokens):
         """
         Prints BERT wordpiece tokens from token indices.
         """
-        print(' '.join([self.model.vocab._index_to_token['bert'][tok.item()] for tok in tokens]))
+        if self._using_bert:
+            print(' '.join([self.model.vocab._index_to_token['bert'][tok.item()] for tok in tokens]))
+        return
 
     def batch_loss(self, batch_group: List[TensorDict], for_training: bool, debate_mode: List[str] = None) -> torch.Tensor:
         """
@@ -372,10 +375,10 @@ class Trainer(TrainerBase):
                     char_span_end = batch['metadata'][i]['token_offsets'][batch['span_end'][i]][1]
                     answer_text = batch['metadata'][i]['answer_texts'][0]
                     post_processing_answer_text = batch['metadata'][i]['original_passage'][char_span_start: char_span_end]
-                    if answer_text != post_processing_answer_text:  # Something went wrong! Could make an assertion.
-                        self._print_bert_tokens(batch['passage']['tokens'])
+                    if not post_processing_answer_text.startswith(answer_text):  # Something went wrong! Print what's up
+                        self._print_tokens(batch['passage']['tokens'][i, :])
                         print('answer_text =', answer_text)
-                        print('post_processing_answer_text', post_processing_answer_text)
+                        print('post_processing_answer_text =', post_processing_answer_text)
                         import ipdb; ipdb.set_trace()
 
         # Set output_dict['loss'] to do gradient descent on.
@@ -666,6 +669,9 @@ class Trainer(TrainerBase):
         self.model.train()
         if (not self.model.update_judge) and (self.model.judge is not None):
             self.model.judge.eval()
+        self._using_bert = hasattr(self.model, '_text_field_embedder') and \
+                           hasattr(self.model._text_field_embedder, 'token_embedder_tokens') and \
+                           'bert_token_embedder' in str(type(self.model._text_field_embedder.token_embedder_tokens))
 
         num_gpus = len(self._cuda_devices)
 
@@ -892,7 +898,10 @@ class Trainer(TrainerBase):
 
             if self._serialization_dir:
                 # Save id_to_oracle mapping if it's newly computed
-                if (not self._id_to_oracle_is_complete) and (self.reward_method.startswith('sl') or ('A' in self._debate_mode) or ('B' in self._debate_mode)):
+                if (not self._id_to_oracle_is_complete) and (
+                        ((self.model.reward_method is not None) and self.model.reward_method.startswith('sl')) or
+                        ('A' in self._debate_mode) or
+                        ('B' in self._debate_mode)):
                     self._id_to_oracle_is_complete = True
                     dump_metrics(os.path.join(self._serialization_dir, f'id_to_oracle.json'), self._id_to_oracle, log=False)
                 dump_metrics(os.path.join(self._serialization_dir, f'metrics_epoch_{epoch}.json'), metrics)
