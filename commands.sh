@@ -13,8 +13,6 @@ allennlp train training_config/bidaf.race.size=half.jsonnet -s tmp/race.f -d f
 allennlp train training_config/bidaf.race.size=half.jsonnet -s tmp/race.f -e -r -d BAA
 
 # RACE: SL baselines
-allennlp train training_config/bidaf.race.size=half.jsonnet -s tmp/race.a.m=sl.pt=race.f -j tmp/race.f/model.tar.gz -m sl -d a
-allennlp train training_config/bidaf.race.size=half.jsonnet -s tmp/race.b.m=sl.pt=race.f -j tmp/race.f/model.tar.gz -m sl -d b
 allennlp train training_config/bidaf.race.size=half.patience=None.dropout=0.0.jsonnet -s tmp/race.a.m=sl-ssp.dropout=0.0.pt=race.f -j tmp/race.f/model.tar.gz -m sl-ssp -d a  # eval.2
 allennlp train training_config/bidaf.race.size=half.patience=None.dropout=0.0.jsonnet -s tmp/race.b.m=sl-spp.dropout=0.0.pt=race.f -j tmp/race.f/model.tar.gz -m sl-ssp -d b  # eval.3
 allennlp train training_config/bidaf.race.patience=None.jsonnet -s tmp/race.a.m=sl-ssp.size=full.pt=race.f -j tmp/race.f/model.tar.gz -m sl-ssp -d a  # eval.4
