@@ -3,7 +3,7 @@
 ### AllenNLP Commands
 
 # SQuAD+BERT/OpenAI: Training J on full passage (normal supervised training)
-allennlp train training_config/bidaf_bert.batch_size=8.jsonnet -s tmp/bert.f -d f  # race.b
+allennlp train training_config/bidaf_bert.batch_size=8.jsonnet -s tmp/bert.f -d f
 allennlp train training_config/bidaf_openai.jsonnet -s tmp/openai.f -d f
 
 # RACE: Training J on full passage (normal supervised training)
@@ -72,7 +72,7 @@ allennlp train training_config/bidaf.num_epochs=200.j.no_grad=cwpam.jsonnet -d g
 allennlp train training_config/bidaf.cpu.mini.debug.jsonnet -s tmp/debug -j training_config/bidaf.cpu.mini.debug.jsonnet -u -d gb -m sl
 allennlp train training_config/bidaf.patience=None.num_epochs=200.dropout=0.0.jsonnet -s tmp/gb.m=sl-ssp.dropout=0.0 -j tmp/rr.3/model.tar.gz -d gb -m sl-ssp  # eval.1
 allennlp train training_config/bidaf.patience=None.num_epochs=200.size=2.dropout=0.0.jsonnet -s tmp/gb.m=sl-ssp.size=2.dropout=0.0 -j tmp/rr.3/model.tar.gz -d gb -m sl-ssp  # tmp
-allennlp train training_config/bidaf.patience=None.num_epochs=200.size=2.jsonnet -s tmp/gb.m=sl-ssp.size=2 -j tmp/rr.3/model.tar.gz -d gb -m sl-ssp  # ?
+allennlp train training_config/bidaf.patience=None.num_epochs=200.size=2.jsonnet -s tmp/gb.m=sl-ssp.size=2 -j tmp/rr.3/model.tar.gz -d gb -m sl-ssp  # race.b
 
 # Evaluate abj (add -e -r no -u)
 allennlp train training_config/bidaf.num_epochs=200.jsonnet -d rr -s tmp/ab.pt\=rr -j tmp/rr.2/model.tar.gz -r -e
