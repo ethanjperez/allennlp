@@ -1,7 +1,6 @@
 {
   "dataset_reader": {
     "type": "race",
-    "lazy": true,
     "token_indexers": {
       "tokens": {
           "type": "bert-pretrained",
