@@ -15,8 +15,12 @@ allennlp train training_config/bidaf.race.size=half.jsonnet -s tmp/race.f -e -r 
 # RACE: SL baselines
 allennlp train training_config/bidaf.race.size=half.jsonnet -s tmp/race.a.m=sl.pt=race.f -j tmp/race.f/model.tar.gz -m sl -d a
 allennlp train training_config/bidaf.race.size=half.jsonnet -s tmp/race.b.m=sl.pt=race.f -j tmp/race.f/model.tar.gz -m sl -d b
-allennlp train training_config/bidaf.race.size=half.jsonnet -s tmp/race.a.m=sl-ssp.pt=race.f -j tmp/race.f/model.tar.gz -m sl-ssp -d a
-allennlp train training_config/bidaf.race.size=half.jsonnet -s tmp/race.b.m=sl-spp.pt=race.f -j tmp/race.f/model.tar.gz -m sl-ssp -d b
+allennlp train training_config/bidaf.race.size=half.patience=None.dropout=0.0.jsonnet -s tmp/race.a.m=sl-ssp.dropout=0.0.pt=race.f -j tmp/race.f/model.tar.gz -m sl-ssp -d a  # eval.2
+allennlp train training_config/bidaf.race.size=half.patience=None.dropout=0.0.jsonnet -s tmp/race.b.m=sl-spp.dropout=0.0.pt=race.f -j tmp/race.f/model.tar.gz -m sl-ssp -d b  # eval.3
+allennlp train training_config/bidaf.race.patience=None.jsonnet -s tmp/race.a.m=sl-ssp.size=full.pt=race.f -j tmp/race.f/model.tar.gz -m sl-ssp -d a  # eval.4
+allennlp train training_config/bidaf.race.patience=None.jsonnet -s tmp/race.b.m=sl-spp.size=full.pt=race.f -j tmp/race.f/model.tar.gz -m sl-ssp -d b  # eval.5
+allennlp train training_config/bidaf.race.patience=None.dropout=0.0.jsonnet -s tmp/race.a.m=sl-ssp.size=full.dropout=0.0.pt=race.f -j tmp/race.f/model.tar.gz -m sl-ssp -d a  # eval.6
+allennlp train training_config/bidaf.race.patience=None.dropout=0.0.jsonnet -s tmp/race.b.m=sl-spp.size=full.dropout=0.0.pt=race.f -j tmp/race.f/model.tar.gz -m sl-ssp -d b  # ??
 
 # RACE: RL: EM Reward (OOM on Titan XP 43% through 1 epoch with br)
 allennlp train training_config/bidaf.race.size=half.patience=None.jsonnet -s tmp/race.a.m=em.pt=race.f -j tmp/race.f/model.tar.gz -m em -d a
@@ -66,7 +70,7 @@ allennlp train training_config/bidaf.num_epochs=200.j.no_grad=cwpam.jsonnet -d g
 
 # Train b on gb with SL on oracle
 allennlp train training_config/bidaf.cpu.mini.debug.jsonnet -s tmp/debug -j training_config/bidaf.cpu.mini.debug.jsonnet -u -d gb -m sl
-allennlp train training_config/bidaf.patience=None.num_epochs=200.jsonnet -s tmp/gb.m=sl-ssp.dropout=0.2 -j tmp/rr.3/model.tar.gz -d gb -m sl-ssp
+allennlp train training_config/bidaf.patience=None.num_epochs=200.dropout=0.0.jsonnet -s tmp/gb.m=sl-ssp.dropout=0.0 -j tmp/rr.3/model.tar.gz -d gb -m sl-ssp  # eval.1
 
 # Evaluate abj (add -e -r no -u)
 allennlp train training_config/bidaf.num_epochs=200.jsonnet -d rr -s tmp/ab.pt\=rr -j tmp/rr.2/model.tar.gz -r -e

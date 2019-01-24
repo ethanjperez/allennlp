@@ -595,6 +595,7 @@ class Trainer(TrainerBase):
                 j_score = torch.Tensor([output_dict['span_start_probs'][i, batch['span_start'][i]] for i in range(bsz)])
             else:  # EM or SL (where EM is a dummy value)
                 j_score = j_em
+            j_score = j_score.detach()  # Judge shouldn't get gradients through j_score, used to reward A/B
 
             self._add_debate_metrics(output_dict, sent_idxs, sent_choice_idxs, num_turns, turn_str)
             if self._eval_mode and (((self._batch_num_total % 20) == 0) or ((self._batch_num_total % 20) == 1)):
