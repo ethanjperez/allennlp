@@ -45,6 +45,8 @@ class RaceReader(DatasetReader):
         self._using_bert = hasattr(self._token_indexers['tokens'], '_namespace') and self._token_indexers['tokens']._namespace == 'bert'
         if self._using_bert:
             print('BEEEEEEEEEEEEEEEEEEEERT!')
+            self._ans_to_wordpiece_ans = {
+                'SELECT_A': '1st     ', 'SELECT_B': '2nd     ', 'SELECT_C': '3rd     ', 'SELECT_D': '4th     '}
 
     @overrides
     def _read(self, file_path: str):
@@ -59,9 +61,16 @@ class RaceReader(DatasetReader):
         for article in dataset:
             for paragraph_json in article['paragraphs']:
                 paragraph = paragraph_json["context"]
+                if self._using_bert:
+                    for ans_tok in self._ans_to_wordpiece_ans.keys():
+                        paragraph = paragraph.replace(ans_tok, self._ans_to_wordpiece_ans[ans_tok])
+
                 tokenized_paragraph = self._tokenizer.tokenize(paragraph)
 
                 for question_answer in paragraph_json['qas']:
+                    if self._using_bert:
+                        for i, answer in enumerate(question_answer['answers']):
+                            question_answer['answers'][i]['text'] = self._ans_to_wordpiece_ans[answer['text']].strip()
                     question_text = question_answer["question"].strip().replace("\n", "")
                     answer_texts = [answer['text'] for answer in question_answer['answers']]
                     span_starts = [answer['answer_start'] for answer in question_answer['answers']]

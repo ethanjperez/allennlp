@@ -379,7 +379,7 @@ class Trainer(TrainerBase):
                         self._print_tokens(batch['passage']['tokens'][i, :])
                         print('answer_text =', answer_text)
                         print('post_processing_answer_text =', post_processing_answer_text)
-                        import ipdb; ipdb.set_trace()
+                        # import ipdb; ipdb.set_trace()
 
         # Set output_dict['loss'] to do gradient descent on.
         if debate_mode[0] == "f":  # Full passage training: Normal SL training
