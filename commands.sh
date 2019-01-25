@@ -8,19 +8,18 @@ allennlp train training_config/bidaf_bert.batch_size=8.jsonnet -s tmp/bert.a=2.f
 allennlp train training_config/bidaf_bert.batch_size=8.jsonnet -s tmp/bert.a=4.f -d f -a 4  # eval.2
 
 allennlp train training_config/bidaf_bert.race.lr=3e-5.jsonnet -s tmp/race.bert.f -d f  # xl: ~46.4% TODO: Rename dir after
-allennlp train training_config/bidaf_bert.race.jsonnet -s tmp/race.bert.a=2.f -d f -a 2  # eval.4  # EM=~3%
-allennlp train training_config/bidaf_bert.race.jsonnet -s tmp/race.bert.a=4.f -d f -a 4  # eval.5  # EM=~3%
+allennlp train training_config/bidaf_bert.race.jsonnet -s tmp/race.bert.a=2.f -d f -a 2  # EM=~3%
+allennlp train training_config/bidaf_bert.race.jsonnet -s tmp/race.bert.a=4.f -d f -a 4  # EM=~3%
 
 # TODO: Launch!
-allennlp train training_config/bidaf_bert.squad_xl.jsonnet -d f -s tmp/squad_xl.a=4.f -f -a 4
-allennlp train training_config/bidaf_bert.squad_xl.max_instances=1250.jsonnet -d f -s tmp/squad_xl.a=4.mi=1250.f -a 4
-allennlp train training_config/bidaf_bert.squad_xl.max_instances=675.jsonnet -d f -s tmp/squad_xl.a=4.mi=675.f -a 4
-allennlp train training_config/bidaf_bert.squad_xl.max_instances=none.jsonnet -d f -s tmp/squad_xl.a=4.mi=none.f -a 4
+allennlp train training_config/bidaf_bert.squad_xl.max_instances=None.jsonnet -d f -s tmp/squad_xl.a=4.mi=None.f -a 4  # eval.4
+allennlp train training_config/bidaf_bert.squad_xl.max_instances=675.jsonnet -d f -s tmp/squad_xl.a=4.mi=675.f -a 4  # eval.5
+allennlp train training_config/bidaf_bert.squad_xl.max_instances=1250.jsonnet -d f -s tmp/squad_xl.a=4.mi=1250.f -a 4  # eval.2
+allennlp train training_config/bidaf_bert.squad_xl.jsonnet -d f -s tmp/squad_xl.a=4.f -f -a 4  # eval.6
 
-# TODO: Launch!
+# TODO: Launch! (RACE Hyperparameter sweep)
 allennlp train training_config/bidaf_bert.race.lr=3e-5.jsonnet -s tmp/race.bert.a=2.f -d f -a 2
 allennlp train training_config/bidaf_bert.race.lr=3e-5.jsonnet -s tmp/race.bert.a=4.f -d f -a 4
-allennlp train training_config/bidaf_bert.race.lr=2e-5.jsonnet -s tmp/race.bert.f -d f -a 1
 allennlp train training_config/bidaf_bert.race.lr=2e-5.jsonnet -s tmp/race.bert.a=2.f -d f -a 2
 allennlp train training_config/bidaf_bert.race.lr=2e-5.jsonnet -s tmp/race.bert.a=2.f -d f -a 4
 
