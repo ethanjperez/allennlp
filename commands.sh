@@ -3,9 +3,14 @@
 ### AllenNLP Commands
 
 # SQuAD+BERT/OpenAI: Training J on full passage (normal supervised training)
-allennlp train training_config/bidaf_bert.batch_size=8.jsonnet -s tmp/bert.f -d f
-allennlp train training_config/bidaf_openai.jsonnet -s tmp/openai.f -d f
-allennlp train training_config/bidaf_bert.race.jsonnet -s tmp/race.bert.f -d f -b 1
+allennlp train training_config/bidaf_bert.batch_size=8.jsonnet -s tmp/bert.f -d f  # bg
+allennlp train training_config/bidaf_bert.batch_size=8.jsonnet -s tmp/bert.a=2.f -d f -a 2  # eval.1
+allennlp train training_config/bidaf_bert.batch_size=8.jsonnet -s tmp/bert.a=4.f -d f -a 4  # eval.2
+allennlp train training_config/bidaf_bert.batch_size=8.jsonnet -s tmp/bert.a=8.f -d f -a 8  # eval.3
+allennlp train training_config/bidaf_bert.race.jsonnet -s tmp/race.bert.f -d f  # xl
+allennlp train training_config/bidaf_bert.race.jsonnet -s tmp/race.bert.a=2.f -d f -a 2  # eval.4
+allennlp train training_config/bidaf_bert.race.jsonnet -s tmp/race.bert.a=4.f -d f -a 4  # eval.5
+allennlp train training_config/bidaf_bert.race.jsonnet -s tmp/race.bert.a=8.f -d f -a 8  # eval.6
 
 
 # RACE: Training J on full passage (normal supervised training)

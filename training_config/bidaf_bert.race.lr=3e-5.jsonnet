@@ -1,6 +1,6 @@
 {
   "dataset_reader": {
-    "type": "squad",
+    "type": "race",
     "token_indexers": {
       "tokens": {
           "type": "bert-pretrained",
@@ -10,8 +10,8 @@
       }
     }
   },
-  "train_data_path": "datasets/squad/squad-train-v1.1.json",
-  "validation_data_path": "datasets/squad/squad-dev-v1.1.json",
+  "train_data_path": "datasets/race/race-train-v1.0.json",
+  "validation_data_path": "datasets/race/race-dev-v1.0.json",
   "model": {
     "type": "bidaf",
     "text_field_embedder": {
@@ -79,7 +79,7 @@
       "patience": 1
     },
     "optimizer": {
-      "lr": 0.00005,
+      "lr": 0.00003,
       "type": "adam",
       "betas": [0.9, 0.999]
     }

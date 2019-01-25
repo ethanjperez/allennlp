@@ -79,7 +79,7 @@
       "patience": 1
     },
     "optimizer": {
-      "lr": 0.00005,
+      "lr": 0.00003,
       "type": "adam",
       "betas": [0.9, 0.999]
     }
