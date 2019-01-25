@@ -66,7 +66,8 @@ class Trainer(TrainerBase):
                  log_batch_size_period: Optional[int] = None,
                  eval_mode: bool = False,
                  breakpoint_level: int = 0,
-                 id_to_oracle_filename: str = None) -> None:
+                 id_to_oracle_filename: str = None,
+                 accumulation_steps: int = 1) -> None:
         """
         A trainer for doing supervised learning. It just takes a labeled dataset
         and a ``DataIterator``, and uses the supplied ``Optimizer`` to learn the weights
@@ -178,6 +179,7 @@ class Trainer(TrainerBase):
         self._validation_data = validation_dataset
         self._eval_mode = eval_mode
         self._breakpoint_level = breakpoint_level
+        self._accumulation_steps = accumulation_steps
         self._using_bert = False  # May be set to True during training if self.model uses BertTokenEmbedder
 
         self._id_to_oracle_is_complete = (id_to_oracle_filename is not None)
@@ -699,13 +701,15 @@ class Trainer(TrainerBase):
             self._batch_num_total += 1
             batch_num_total = self._batch_num_total
 
-            self.optimizer.zero_grad()
+            if (batch_num_total - 1) % self._accumulation_steps == 0:
+                self.optimizer.zero_grad()
 
             loss = self.batch_loss(batch_group, for_training=True)
 
             if torch.isnan(loss):
                 raise ValueError("nan loss encountered")
 
+            loss = loss / self._accumulation_steps
             loss.backward()
 
             train_loss += loss.item()
@@ -717,7 +721,9 @@ class Trainer(TrainerBase):
             if self._learning_rate_scheduler:
                 self._learning_rate_scheduler.step_batch(batch_num_total)
 
-            if self._tensorboard.should_log_histograms_this_batch():
+            if batch_num_total % self._accumulation_steps != 0:
+                pass  # Don't step with optimizer - accumulate gradients
+            elif self._tensorboard.should_log_histograms_this_batch():
                 # get the magnitude of parameter updates for logging
                 # We need a copy of current parameters to compute magnitude of updates,
                 # and copy them to CPU so large models won't go OOM on the GPU.
@@ -1029,7 +1035,8 @@ class Trainer(TrainerBase):
                     validation_iterator: DataIterator = None,
                     eval_mode: bool = False,
                     breakpoint_level: int = 0,
-                    id_to_oracle_filename: str = None) -> 'Trainer':
+                    id_to_oracle_filename: str = None,
+                    accumulation_steps: int = 1) -> 'Trainer':
         # pylint: disable=arguments-differ
         patience = params.pop_int("patience", None)
         validation_metric = params.pop("validation_metric", "-loss")
@@ -1091,7 +1098,8 @@ class Trainer(TrainerBase):
                    log_batch_size_period=log_batch_size_period,
                    eval_mode=eval_mode,
                    breakpoint_level=breakpoint_level,
-                   id_to_oracle_filename=id_to_oracle_filename)
+                   id_to_oracle_filename=id_to_oracle_filename,
+                   accumulation_steps=accumulation_steps)
 
 
 class TrainerPieces(NamedTuple):
