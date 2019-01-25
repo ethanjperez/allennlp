@@ -341,6 +341,7 @@ class Trainer(TrainerBase):
         bsz = batch['passage']['tokens'].size(0)
         for sample_no in range(bsz):
             if bool(num_sents[sample_no] >= 3):
+                print('\n***Sample ID***\n', ' '.join(batch['metadata'][sample_no]['id']))
                 print('\n***Passage***\n', ' '.join(batch['metadata'][sample_no]['passage_tokens']))
                 print('\n***Question***\n', ' '.join(batch['metadata'][sample_no]['question_tokens']))
                 print('\n***Answers***\n', [answer if isinstance(answer, str) else ' '.join(answer) for answer in batch['metadata'][sample_no]['answer_texts']])
