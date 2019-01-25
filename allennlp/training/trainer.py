@@ -334,14 +334,15 @@ class Trainer(TrainerBase):
         self._update_trainer_metrics('j_sent_chosen_not_a_or_b', j_chose_no_ab_sents.mean())
 
     @staticmethod
-    def _print_debate(batch, num_sents, debate_mode, sent_choice_masks, sent_choice_idxs, j_em, j_f1, output_dict):
+    def _print_debate(batch, num_sents, debate_mode, sent_choice_masks, sent_choice_idxs, output_dict,
+                      j_em, j_f1, j_ssp, sc_diffs):
         """
         Neatly prints all debates from a batch.
         """
         bsz = batch['passage']['tokens'].size(0)
         for sample_no in range(bsz):
             if bool(num_sents[sample_no] >= 3):
-                print('\n***Sample ID***\n', batch['metadata'][sample_no]['id'])
+                print('\n***ID***\n', batch['metadata'][sample_no]['id'])
                 print('\n***Passage***\n', ' '.join(batch['metadata'][sample_no]['passage_tokens']))
                 print('\n***Question***\n', ' '.join(batch['metadata'][sample_no]['question_tokens']))
                 print('\n***Answers***\n', [answer if isinstance(answer, str) else ' '.join(answer) for answer in batch['metadata'][sample_no]['answer_texts']])
@@ -354,7 +355,9 @@ class Trainer(TrainerBase):
                         turn_sent_end_idx = turn_sent_idxs.max() + 1
                         sent_str = ' '.join(toks[turn_sent_start_idx:turn_sent_end_idx])
                     print('\n---', method.upper(), '--- Sentence', int(sent_choice_idxs[turn][sample_no]), '\n', sent_str)
-                print('\n--- J --- EM / F1 ', float(j_em[sample_no]), '/', float(j_f1[sample_no]), '!\n', ' '.join(toks[output_dict['best_span'][sample_no][0]:output_dict['best_span'][sample_no][1] + 1]))
+                print('\n--- J --- EM / F1 / SSP / SC_DIFF',
+                      float(j_em[sample_no]), '/', float(j_f1[sample_no]), '/', float(j_ssp[sample_no]), '/', float(sc_diffs[sample_no]))
+                print(' '.join(toks[output_dict['best_span'][sample_no][0]:output_dict['best_span'][sample_no][1] + 1]))
         return
 
     def _print_tokens(self, tokens):
@@ -470,6 +473,7 @@ class Trainer(TrainerBase):
             sent_choice_idx = None
             sent_choice_prob = None
             value = None
+            sc_diffs = None  # Optional to fill in each turns, resets every turn
             if method == 'r':  # Random selection
                 sent_choice_idx = (torch.rand_like(num_sents.float()) * (num_sents.float() - num_first_sents_excluded)).trunc().long().unsqueeze(1) + num_first_sents_excluded
                 sent_choice_prob = torch.ones(bsz) / (num_sents.float() - num_first_sents_excluded)
@@ -489,13 +493,12 @@ class Trainer(TrainerBase):
                 oracle_func = max if method == 'A' else min  # NOTE: Modify if adding another oracle method
                 # NB: RACE oracle should preferably use span_start_probs
                 oracle_eval_method = 'em' if race_data else 'f1'  # NOTE: Only other option is 'em'
-                if sl_debate and debater.reward_method == 'sl-ssp':
+                if (sl_debate and debater.reward_method == 'sl-ssp') or ((not sl_debate) and debater.reward_method == 'ssp'):
                     oracle_eval_method = 'ssp'
                 # NOTE: Set below to None to make oracle selection simultaneous with other selections
                 past_sent_choice_idxs = torch.cat(sent_choice_idxs, 1) if len(sent_choice_idxs) > 0 else None
                 opt_sent_idxs = []
-                if sl_debate:
-                    sc_diffs = []
+                sc_diffs = []  # NOTE: Only stores sc_diffs for most recent oracle run
                 oracle_values = []
                 judge_was_training = judge.training
                 judge.eval()
@@ -527,12 +530,11 @@ class Trainer(TrainerBase):
                     opt_sc = float(oracle_func(oracle_metrics))
                     oracle_values.append(opt_sc)
                     opt_sent_idxs.append(oracle_metrics.index(opt_sc) + num_first_sents_excluded)
-                    if sl_debate:
-                        baseline_sc = sum(oracle_metrics) / len(oracle_metrics)
-                        # NB: Hard-coding different baseline score based on debate_mode
-                        if debate_mode == 'gb':  # No sentence choice is baseline
-                            baseline_sc = oracle_metrics[past_sent_choice_idxs[sample_no, 0]]
-                        sc_diffs.append(baseline_sc - opt_sc)
+                    baseline_sc = sum(oracle_metrics) / len(oracle_metrics)
+                    # NB: Hard-coding different baseline score based on debate_mode
+                    if debate_mode == 'gb':  # No sentence choice is baseline
+                        baseline_sc = oracle_metrics[past_sent_choice_idxs[sample_no, 0]]
+                    sc_diffs.append(baseline_sc - opt_sc)
                 if judge_was_training:
                     judge.train()
 
@@ -619,10 +621,11 @@ class Trainer(TrainerBase):
             j_metrics = judge.get_metrics(per_sample=True)
             j_em = torch.tensor(j_metrics['em'], dtype=sent_choice_probs[0].dtype, device=sent_choice_probs[0].device)
             j_f1 = torch.tensor(j_metrics['f1'], dtype=sent_choice_probs[0].dtype, device=sent_choice_probs[0].device)
+            j_ssp = torch.tensor([output_dict['span_start_probs'][i, batch['span_start'][i]] for i in range(bsz)])
             if debater.reward_method == 'f1':
                 j_score = j_f1
             elif debater.reward_method == 'ssp':
-                j_score = torch.Tensor([output_dict['span_start_probs'][i, batch['span_start'][i]] for i in range(bsz)])
+                j_score = j_ssp
             else:  # EM or SL (where EM is a dummy value)
                 j_score = j_em
             j_score = j_score.detach()  # Judge shouldn't get gradients through j_score, used to reward A/B
@@ -630,7 +633,8 @@ class Trainer(TrainerBase):
             self._add_debate_metrics(output_dict, sent_idxs, sent_choice_idxs, num_turns, turn_str)
             print_every = 1 if race_data else 20
             if self._eval_mode and ((self._batch_num_total % print_every) == 0):
-                self._print_debate(batch, num_sents, debate_mode, sent_choice_masks, sent_choice_idxs, j_em, j_f1, output_dict)
+                self._print_debate(batch, num_sents, debate_mode, sent_choice_masks, sent_choice_idxs, output_dict,
+                                   j_em, j_f1, j_ssp, sc_diffs)
 
             # Initialize loss (including J's supervised loss if necessary)
             output_dict = output_dict if self.model.update_judge else {'loss': torch.Tensor([0])}
