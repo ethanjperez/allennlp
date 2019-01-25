@@ -7,16 +7,27 @@ allennlp train training_config/bidaf_bert.batch_size=8.lr=3e-5.jsonnet -s tmp/be
 allennlp train training_config/bidaf_bert.batch_size=8.jsonnet -s tmp/bert.a=2.f -d f -a 2  # eval.1
 allennlp train training_config/bidaf_bert.batch_size=8.jsonnet -s tmp/bert.a=4.f -d f -a 4  # eval.2
 
-allennlp train training_config/bidaf_bert.race.lr=3e-5.jsonnet -s tmp/race.bert.f -d f  # xl TODO: Rename dir after
-allennlp train training_config/bidaf_bert.race.jsonnet -s tmp/race.bert.a=2.f -d f -a 2  # eval.4
-allennlp train training_config/bidaf_bert.race.jsonnet -s tmp/race.bert.a=4.f -d f -a 4  # eval.5
+allennlp train training_config/bidaf_bert.race.lr=3e-5.jsonnet -s tmp/race.bert.f -d f  # xl: ~46.4% TODO: Rename dir after
+allennlp train training_config/bidaf_bert.race.jsonnet -s tmp/race.bert.a=2.f -d f -a 2  # eval.4  # EM=~3%
+allennlp train training_config/bidaf_bert.race.jsonnet -s tmp/race.bert.a=4.f -d f -a 4  # eval.5  # EM=~3%
 
-allennlp train training_config/bidaf_bert.squad_xl.jsonnet -d f -s tmp/squad_xl.f -f  # eval.3
-allennlp train training_config/bidaf_bert.squad_xl.jsonnet -d f -s tmp/squad_xl.a=2.f -a 2
-allennlp train training_config/bidaf_bert.squad_xl.jsonnet -d f -s tmp/squad_xl.a=4.f -a 4  # eval.6
-allennlp train training_config/bidaf_bert.squad_xl.batch_size=4.jsonnet -d f -s tmp/squad_xl.bsz=4.f  # race.a
-allennlp train training_config/bidaf_bert.squad_xl.batch_size=4.jsonnet -d f -s tmp/squad_xl.bsz=4.a=2.f -a 2
-allennlp train training_config/bidaf_bert.squad_xl.batch_size=4.jsonnet -d f -s tmp/squad_xl.bsz=4.a=4.f -a 4  # race.b
+# TODO: Launch!
+allennlp train training_config/bidaf_bert.squad_xl.jsonnet -d f -s tmp/squad_xl.a=4.f -f -a 4
+allennlp train training_config/bidaf_bert.squad_xl.max_instances=1250.jsonnet -d f -s tmp/squad_xl.a=4.mi=1250.f -a 4
+allennlp train training_config/bidaf_bert.squad_xl.max_instances=675.jsonnet -d f -s tmp/squad_xl.a=4.mi=675.f -a 4
+allennlp train training_config/bidaf_bert.squad_xl.max_instances=none.jsonnet -d f -s tmp/squad_xl.a=4.mi=none.f -a 4
+
+# TODO: Launch!
+allennlp train training_config/bidaf_bert.race.lr=3e-5.jsonnet -s tmp/race.bert.a=2.f -d f -a 2
+allennlp train training_config/bidaf_bert.race.lr=3e-5.jsonnet -s tmp/race.bert.a=4.f -d f -a 4
+allennlp train training_config/bidaf_bert.race.lr=2e-5.jsonnet -s tmp/race.bert.f -d f -a 1
+allennlp train training_config/bidaf_bert.race.lr=2e-5.jsonnet -s tmp/race.bert.a=2.f -d f -a 2
+allennlp train training_config/bidaf_bert.race.lr=2e-5.jsonnet -s tmp/race.bert.a=2.f -d f -a 4
+
+# TODO: Launch!
+
+
+
 
 
 # RACE: Training J on full passage (normal supervised training)
@@ -49,9 +60,9 @@ allennlp train training_config/bidaf.race.size=0.5.patience=None.jsonnet -s tmp/
 
 # Training J only:
 allennlp train training_config/bidaf.num_epochs=200.jsonnet -d rr -s tmp/rr.2
-allennlp train training_config/bidaf.squad_xl.num_epochs=200.batch_size=20.jsonnet -d f -s tmp/squad_xl.f  # bg
-allennlp train training_config/bidaf.squad_xl.num_epochs=200.size=0.5.jsonnet -d f -s tmp/squad_xl.size=0.5.f  # squad
-allennlp train training_config/bidaf.squad_xl.num_epochs=200.size=0.25.jsonnet -d f -s tmp/squad_xl.size=0.25.f  # xl
+allennlp train training_config/bidaf.squad_xl.num_epochs=200.batch_size=20.jsonnet -d f -s tmp/squad_xl.f
+allennlp train training_config/bidaf.squad_xl.num_epochs=200.size=0.5.jsonnet -d f -s tmp/squad_xl.size=0.5.f
+allennlp train training_config/bidaf.squad_xl.num_epochs=200.size=0.25.jsonnet -d f -s tmp/squad_xl.size=0.25.f
 allennlp train training_config/bidaf.squad_xl.num_epochs=200.jsonnet -d rr -s tmp/squad_xl.rr
 
 # Training ab with fixed J
