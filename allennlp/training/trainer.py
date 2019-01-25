@@ -286,6 +286,7 @@ class Trainer(TrainerBase):
         """
         mod_type = mod_type.lower()
         has_chars = 'token_characters' in batch['passage'].keys()
+        # TODO: BERT: Ensure this works for BERT
         if mod_type == 'delete':
             # NB: SQuAD: Can also make deletion-based. Must modify span_end, span_start, and metadata then.
             # NB: RACE: Better to modify metadata here
@@ -346,9 +347,12 @@ class Trainer(TrainerBase):
                 toks = batch['metadata'][sample_no]['passage_tokens']
                 for turn, method in enumerate(debate_mode[0]):
                     turn_sent_idxs = sent_choice_masks[turn][sample_no].nonzero().squeeze()
-                    turn_sent_start_idx = turn_sent_idxs.min()
-                    turn_sent_end_idx = turn_sent_idxs.max() + 1
-                    print('\n---', method.upper(), '--- Sentence', int(sent_choice_idxs[turn][sample_no]), '\n', ' '.join(toks[turn_sent_start_idx:turn_sent_end_idx]))
+                    sent_str = 'None'
+                    if len(turn_sent_idxs) > 0:
+                        turn_sent_start_idx = turn_sent_idxs.min()
+                        turn_sent_end_idx = turn_sent_idxs.max() + 1
+                        sent_str = ' '.join(toks[turn_sent_start_idx:turn_sent_end_idx])
+                    print('\n---', method.upper(), '--- Sentence', int(sent_choice_idxs[turn][sample_no]), '\n', sent_str)
                 print('\n--- J --- EM / F1 ', float(j_em[sample_no]), '/', float(j_f1[sample_no]), '!\n', ' '.join(toks[output_dict['best_span'][sample_no][0]:output_dict['best_span'][sample_no][1] + 1]))
         return
 
@@ -413,7 +417,7 @@ class Trainer(TrainerBase):
         # Set a few useful variables/aliases
         debater = None if self.model.is_judge else self.model
         judge = self.model if self.model.is_judge else self.model.judge
-        race_data = ('SELECT_' in batch['metadata'][0]['answer_texts'][0])  # NB: Fix this to be cleaner!
+        race_data = ('SELECT_' in batch['metadata'][0]['answer_texts'][0])  # TODO: BERT: Fix to not rely on token!
         mod_type = 'delete' if race_data else 'mask'
         num_rounds = len(debate_mode)
         assert num_rounds <= 1, 'No implementation yet for # rounds =' + str(num_rounds)
@@ -434,7 +438,7 @@ class Trainer(TrainerBase):
                 eos_tok_mask[i, batch['passage']['tokens'][i].nonzero()[-1]] = 1
 
         if race_data:  # Each answer choice counts as 1 sentence no matter what
-            ans_toks = ['select_a', 'select_b', 'select_c', 'select_d']
+            ans_toks = ['select_a', 'select_b', 'select_c', 'select_d']  # TODO: BERT: Allow for 1st, 2nd, 3rd, 4th
             for tok_str in ans_toks:
                 tok_val = self.model.vocab.get_token_index(tok_str)
                 tok_mask[tok_str] = (batch['passage']['tokens'] == tok_val).long()
@@ -623,8 +627,9 @@ class Trainer(TrainerBase):
             j_score = j_score.detach()  # Judge shouldn't get gradients through j_score, used to reward A/B
 
             self._add_debate_metrics(output_dict, sent_idxs, sent_choice_idxs, num_turns, turn_str)
-            if self._eval_mode and (((self._batch_num_total % 20) == 0) or ((self._batch_num_total % 20) == 1)):
-                Trainer.print_debate(self, batch, num_sents, debate_mode, sent_choice_masks, sent_choice_idxs, j_em, j_f1, output_dict)
+            print_every = 1 if race_data else 20
+            if self._eval_mode and ((self._batch_num_total % print_every) == 0):
+                self._print_debate(batch, num_sents, debate_mode, sent_choice_masks, sent_choice_idxs, j_em, j_f1, output_dict)
 
             # Initialize loss (including J's supervised loss if necessary)
             output_dict = output_dict if self.model.update_judge else {'loss': torch.Tensor([0])}

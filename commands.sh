@@ -3,30 +3,27 @@
 ### AllenNLP Commands
 
 # SQuAD+BERT: Training J on full passage (normal supervised training)
-allennlp train training_config/bidaf_bert.batch_size=8.lr=3e-5.jsonnet -s tmp/bert.f -d f  # bg TODO: Rename dir after
-allennlp train training_config/bidaf_bert.batch_size=8.jsonnet -s tmp/bert.a=2.f -d f -a 2  # eval.1
-allennlp train training_config/bidaf_bert.batch_size=8.jsonnet -s tmp/bert.a=4.f -d f -a 4  # eval.2
+allennlp train training_config/bidaf_bert.batch_size=8.lr=3e-5.jsonnet -s tmp/bert.f -d f  # 85.5 F1 TODO: Rename dir after
+allennlp train training_config/bidaf_bert.batch_size=8.jsonnet -s tmp/bert.a=2.f -d f -a 2  # 84.9 F1
+allennlp train training_config/bidaf_bert.batch_size=8.jsonnet -s tmp/bert.a=4.f -d f -a 4  # 86.1 F1
 
-allennlp train training_config/bidaf_bert.race.lr=3e-5.jsonnet -s tmp/race.bert.f -d f  # xl: ~46.4% TODO: Rename dir after
-allennlp train training_config/bidaf_bert.race.jsonnet -s tmp/race.bert.a=2.f -d f -a 2  # EM=~3%
-allennlp train training_config/bidaf_bert.race.jsonnet -s tmp/race.bert.a=4.f -d f -a 4  # EM=~3%
-
-# TODO: Launch!
+# SQUAD XL Memory sweep
 allennlp train training_config/bidaf_bert.squad_xl.max_instances=None.jsonnet -d f -s tmp/squad_xl.a=4.mi=None.f -a 4  # eval.4
 allennlp train training_config/bidaf_bert.squad_xl.max_instances=675.jsonnet -d f -s tmp/squad_xl.a=4.mi=675.f -a 4  # eval.5
 allennlp train training_config/bidaf_bert.squad_xl.max_instances=1250.jsonnet -d f -s tmp/squad_xl.a=4.mi=1250.f -a 4  # eval.2
 allennlp train training_config/bidaf_bert.squad_xl.jsonnet -d f -s tmp/squad_xl.a=4.f -f -a 4  # eval.6
 
-# TODO: Launch! (RACE Hyperparameter sweep)
-allennlp train training_config/bidaf_bert.race.lr=3e-5.jsonnet -s tmp/race.bert.a=2.f -d f -a 2
-allennlp train training_config/bidaf_bert.race.lr=3e-5.jsonnet -s tmp/race.bert.a=4.f -d f -a 4
-allennlp train training_config/bidaf_bert.race.lr=2e-5.jsonnet -s tmp/race.bert.a=2.f -d f -a 2
-allennlp train training_config/bidaf_bert.race.lr=2e-5.jsonnet -s tmp/race.bert.a=2.f -d f -a 4
+# RACE BERT Hyperparameter sweep
+allennlp train training_config/bidaf_bert.race.lr=3e-5.jsonnet -s tmp/race.bert.f -d f  # xl: ~46.4% TODO: Rename dir after
+allennlp train training_config/bidaf_bert.race.jsonnet -s tmp/race.bert.a=2.f -d f -a 2  # EM=~3%
+allennlp train training_config/bidaf_bert.race.jsonnet -s tmp/race.bert.a=4.f -d f -a 4  # EM=~3%
+allennlp train training_config/bidaf_bert.race.lr=3e-5.jsonnet -s tmp/race.bert.a=4.lr=3e-5.f -d f -a 4  # race.a
+allennlp train training_config/bidaf_bert.race.lr=3e-5.jsonnet -s tmp/race.bert.a=2.lr=3e-5.f -d f -a 2  # tmp.2
+allennlp train training_config/bidaf_bert.race.lr=2e-5.jsonnet -s tmp/race.bert.a=4.lr=2e-5.f -d f -a 4  # race.b
+allennlp train training_config/bidaf_bert.race.lr=2e-5.jsonnet -s tmp/race.bert.a=2.lr=2e-5.f -d f -a 2  # bg
 
-# TODO: Launch!
-
-
-
+# Print debates
+allennlp train training_config/bidaf.race.debug.jsonnet -s tmp/debug -f -d A -e
 
 
 # RACE: Training J on full passage (normal supervised training)
@@ -36,12 +33,12 @@ allennlp train training_config/bidaf.race.size=0.5.jsonnet -s tmp/race.f -d f
 allennlp train training_config/bidaf.race.size=0.5.jsonnet -s tmp/race.f -e -r -d BAA
 
 # RACE: SL baselines
-allennlp train training_config/bidaf.race.size=0.5.patience=None.dropout=0.0.jsonnet -s tmp/race.a.m=sl-ssp.dropout=0.0.pt=race.f -j tmp/race.f/model.tar.gz -m sl-ssp -d a  # eval.2
-allennlp train training_config/bidaf.race.size=0.5.patience=None.dropout=0.0.jsonnet -s tmp/race.b.m=sl-spp.dropout=0.0.pt=race.f -j tmp/race.f/model.tar.gz -m sl-ssp -d b  # eval.3
-allennlp train training_config/bidaf.race.patience=None.jsonnet -s tmp/race.a.m=sl-ssp.size=full.pt=race.f -j tmp/race.f/model.tar.gz -m sl-ssp -d a  # eval.4
-allennlp train training_config/bidaf.race.patience=None.jsonnet -s tmp/race.b.m=sl-spp.size=full.pt=race.f -j tmp/race.f/model.tar.gz -m sl-ssp -d b  # eval.5
-allennlp train training_config/bidaf.race.patience=None.dropout=0.0.jsonnet -s tmp/race.a.m=sl-ssp.size=full.dropout=0.0.pt=race.f -j tmp/race.f/model.tar.gz -m sl-ssp -d a  # eval.6
-allennlp train training_config/bidaf.race.patience=None.dropout=0.0.jsonnet -s tmp/race.b.m=sl-spp.size=full.dropout=0.0.pt=race.f -j tmp/race.f/model.tar.gz -m sl-ssp -d b  # race.a
+allennlp train training_config/bidaf.race.size=0.5.patience=None.dropout=0.0.jsonnet -s tmp/race.a.m=sl-ssp.dropout=0.0.pt=race.f -j tmp/race.f/model.tar.gz -m sl-ssp -d a
+allennlp train training_config/bidaf.race.size=0.5.patience=None.dropout=0.0.jsonnet -s tmp/race.b.m=sl-ssp.dropout=0.0.pt=race.f -j tmp/race.f/model.tar.gz -m sl-ssp -d b
+allennlp train training_config/bidaf.race.patience=None.jsonnet -s tmp/race.a.m=sl-ssp.size=full.pt=race.f -j tmp/race.f/model.tar.gz -m sl-ssp -d a
+allennlp train training_config/bidaf.race.patience=None.jsonnet -s tmp/race.b.m=sl-ssp.size=full.pt=race.f -j tmp/race.f/model.tar.gz -m sl-ssp -d b
+allennlp train training_config/bidaf.race.patience=None.dropout=0.0.jsonnet -s tmp/race.a.m=sl-ssp.size=full.dropout=0.0.pt=race.f -j tmp/race.f/model.tar.gz -m sl-ssp -d a
+allennlp train training_config/bidaf.race.patience=None.dropout=0.0.jsonnet -s tmp/race.b.m=sl-ssp.size=full.dropout=0.0.pt=race.f -j tmp/race.f/model.tar.gz -m sl-ssp -d b
 
 # RACE: RL: EM Reward (OOM on Titan XP 43% through 1 epoch with br)
 allennlp train training_config/bidaf.race.size=0.5.patience=None.jsonnet -s tmp/race.a.m=em.pt=race.f -j tmp/race.f/model.tar.gz -m em -d a
@@ -93,9 +90,9 @@ allennlp train training_config/bidaf.num_epochs=200.j.no_grad=cwpam.jsonnet -d g
 
 # Train b on gb with SL on oracle
 allennlp train training_config/bidaf.cpu.mini.debug.jsonnet -s tmp/debug -j training_config/bidaf.cpu.mini.debug.jsonnet -u -d gb -m sl
-allennlp train training_config/bidaf.patience=None.num_epochs=200.dropout=0.0.jsonnet -s tmp/gb.m=sl-ssp.dropout=0.0 -j tmp/rr.3/model.tar.gz -d gb -m sl-ssp  # eval.1
-allennlp train training_config/bidaf.patience=None.num_epochs=200.size=2.dropout=0.0.jsonnet -s tmp/gb.m=sl-ssp.size=2.dropout=0.0 -j tmp/rr.3/model.tar.gz -d gb -m sl-ssp  # tmp
-allennlp train training_config/bidaf.patience=None.num_epochs=200.size=2.jsonnet -s tmp/gb.m=sl-ssp.size=2 -j tmp/rr.3/model.tar.gz -d gb -m sl-ssp  # race.b
+allennlp train training_config/bidaf.patience=None.num_epochs=200.dropout=0.0.jsonnet -s tmp/gb.m=sl-ssp.dropout=0.0 -j tmp/rr.3/model.tar.gz -d gb -m sl-ssp
+allennlp train training_config/bidaf.patience=None.num_epochs=200.size=2.dropout=0.0.jsonnet -s tmp/gb.m=sl-ssp.size=2.dropout=0.0 -j tmp/rr.3/model.tar.gz -d gb -m sl-ssp
+allennlp train training_config/bidaf.patience=None.num_epochs=200.size=2.jsonnet -s tmp/gb.m=sl-ssp.size=2 -j tmp/rr.3/model.tar.gz -d gb -m sl-ssp
 
 # Evaluate abj (add -e -r no -u)
 allennlp train training_config/bidaf.num_epochs=200.jsonnet -d rr -s tmp/ab.pt\=rr -j tmp/rr.2/model.tar.gz -r -e
