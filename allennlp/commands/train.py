@@ -252,7 +252,7 @@ def train_model(params: Params,
         The model with the best epoch weights.
     """
     num_trained_debater_turns = sum([(('a' in debate_turn) or ('b' in debate_turn)) for debate_turn in debate_mode])
-    if not ((judge_filename is not None) and (num_trained_debater_turns == 0)):
+    if ((judge_filename is not None) and (num_trained_debater_turns == 0)):
         warnings.warn('Unnecessary to have debaters in debate mode ' + str(debate_mode) +
                       '. If this was unintentional, please remove the -j flag.', UserWarning)
 

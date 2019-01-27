@@ -190,10 +190,9 @@ if __name__ == "__main__":
                     # Build Context with all Options
                     span_answer_start, span_answer_text = None, None
                     all_pos_answers_text = ""
-                    for i, answer_choice in enumerate(["A", "B", "C", "D"]):
-                        select_token = "SELECT_" + answer_choice
+                    for i, select_token in enumerate(["1st", "2nd", "3rd", "4th"]):
                         all_pos_answers_text += options[i] + " " + select_token + " "
-                        if answer_choice == answer:
+                        if select_token == answer:
                             span_answer_start = all_pos_answers_text.index(select_token)
                             span_answer_text = select_token
                     base_context = all_pos_answers_text + base_context

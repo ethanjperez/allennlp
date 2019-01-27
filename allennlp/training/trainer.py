@@ -67,7 +67,8 @@ class Trainer(TrainerBase):
                  eval_mode: bool = False,
                  breakpoint_level: int = 0,
                  id_to_oracle_filename: str = None,
-                 accumulation_steps: int = 1) -> None:
+                 accumulation_steps: int = 1,
+                 dataset_name: str = 'squad') -> None:
         """
         A trainer for doing supervised learning. It just takes a labeled dataset
         and a ``DataIterator``, and uses the supplied ``Optimizer`` to learn the weights
@@ -180,7 +181,17 @@ class Trainer(TrainerBase):
         self._eval_mode = eval_mode
         self._breakpoint_level = breakpoint_level
         self._accumulation_steps = accumulation_steps
-        self._using_bert = False  # May be set to True during training if self.model uses BertTokenEmbedder
+        self._dataset_name = dataset_name
+        self._using_bert = hasattr(self.model, '_text_field_embedder') and \
+                   hasattr(self.model._text_field_embedder, 'token_embedder_tokens') and \
+                   'bert_token_embedder' in str(type(self.model._text_field_embedder.token_embedder_tokens))
+        self._answer_id_tokens = None
+        if self._dataset_name == 'race':
+            if self._using_bert:
+                self._answer_id_tokens = ['1st', '2nd', '3rd', '4th']
+            else:
+                self._answer_id_tokens = ['select_a', 'select_b', 'select_c', 'select_d']
+
 
         self._id_to_oracle_is_complete = (id_to_oracle_filename is not None)
         self._id_to_oracle = {}
@@ -389,7 +400,6 @@ class Trainer(TrainerBase):
                         self._print_tokens(batch['passage']['tokens'][i, :])
                         print('answer_text =', answer_text)
                         print('post_processing_answer_text =', post_processing_answer_text)
-                        # import ipdb; ipdb.set_trace()
 
         # Set output_dict['loss'] to do gradient descent on.
         if debate_mode[0] == "f":  # Full passage training: Normal SL training
@@ -442,15 +452,14 @@ class Trainer(TrainerBase):
                 eos_tok_mask[i, batch['passage']['tokens'][i].nonzero()[-1]] = 1
 
         if race_data:  # Each answer choice counts as 1 sentence no matter what
-            ans_toks = ['select_a', 'select_b', 'select_c', 'select_d']  # TODO: BERT: Allow for 1st, 2nd, 3rd, 4th
-            for tok_str in ans_toks:
+            for tok_str in self._answer_id_tokens:  # TODO: BERT answer_tokens not unique. Check/fix. Pass in as metadata?
                 tok_val = self.model.vocab.get_token_index(tok_str)
                 tok_mask[tok_str] = (batch['passage']['tokens'] == tok_val).long()
 
             # Replace original sent_idxs vector for that portion with sliced vector
             not_ans_mask = tok_mask['select_d'].cumsum(1) - tok_mask['select_d']
             eos_tok_mask *= not_ans_mask
-            for ans_tok in ans_toks:
+            for ans_tok in self._answer_id_tokens:  # TODO: BERT answer_tokens not unique. Check/fix
                 eos_tok_mask += tok_mask[ans_tok]
         sent_idxs = eos_tok_mask.cumsum(1) - eos_tok_mask  # NOTE: Padding regions have sent_idxs == num_sents
         pad_masks = (batch['passage']['tokens'] != 0).long()
@@ -468,7 +477,7 @@ class Trainer(TrainerBase):
             if (debate_mode_with_eval_only_turns_idx + 1) < len(debate_mode_with_eval_only_turns):
                 next_method = debate_mode_with_eval_only_turns[debate_mode_with_eval_only_turns_idx + 1]
             is_eval_only_turn = sl_debate and (method in ['A', 'B']) and (next_method == method.lower())
-            num_first_sents_excluded = len(ans_toks) if race_data else 0
+            num_first_sents_excluded = len(self._answer_id_tokens) if race_data else 0  # TODO: BERT answer_tokens not unique. Check/fix
             # Variables that must be set after each turn
             sent_choice_idx = None
             sent_choice_prob = None
@@ -681,9 +690,6 @@ class Trainer(TrainerBase):
         self.model.train()
         if (not self.model.update_judge) and (self.model.judge is not None):
             self.model.judge.eval()
-        self._using_bert = hasattr(self.model, '_text_field_embedder') and \
-                           hasattr(self.model._text_field_embedder, 'token_embedder_tokens') and \
-                           'bert_token_embedder' in str(type(self.model._text_field_embedder.token_embedder_tokens))
 
         num_gpus = len(self._cuda_devices)
 
@@ -1136,6 +1142,7 @@ class TrainerPieces(NamedTuple):
                     eval_mode: bool = False,
                     reward_method: str = None,
                     detach_value_head: bool = False) -> 'TrainerPieces':
+        dataset_name = params.params['dataset_reader']['type']
         all_datasets = training_util.datasets_from_params(params)
         if eval_mode:  # NB: --eval_mode does not expand vocab based on test data
             params["datasets_for_vocab_creation"] = ['train', 'validation']
@@ -1173,7 +1180,7 @@ class TrainerPieces(NamedTuple):
                 judge_params = Params.from_file(judge_filename, params_overrides='')
                 judge = Model.from_params(vocab=vocab, params=judge_params.get('model'),
                                           judge=None, update_judge=False, reward_method=None,  # No judge inside this model
-                                          detach_value_head=False)
+                                          detach_value_head=False, dataset_name=dataset_name)
                 if not update_judge:
                     warnings.warn('Provided Judge file was a training config file. '
                                   'Training from scratch even though -u was not specified.', UserWarning)
@@ -1187,7 +1194,7 @@ class TrainerPieces(NamedTuple):
 
         model = Model.from_params(vocab=vocab, params=params.pop('model'),
                                   judge=judge, update_judge=update_judge, reward_method=reward_method,
-                                  detach_value_head=detach_value_head)
+                                  detach_value_head=detach_value_head, dataset_name=dataset_name)
 
         # Initializing the model can have side effect of expanding the vocabulary
         vocab.save_to_files(os.path.join(serialization_dir, "vocabulary"))
