@@ -54,7 +54,7 @@ class BertQA(Model):
                  reward_method: str = None,
                  detach_value_head: bool = False,
                  dataset_name: str = 'squad') -> None:
-        super().__init__(vocab, regularizer)
+        super(BertQA, self).__init__(vocab, regularizer)
 
         answer_type_of = {'squad': 'span', 'race': 'mc'}  # NOTE: Add new datasets here (with existing answer type)
         self.judge = judge
