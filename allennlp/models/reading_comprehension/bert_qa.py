@@ -62,9 +62,9 @@ class BertQA(Model):
         self.reward_method = None if self.is_judge else reward_method
         self.update_judge = update_judge and (self.judge is not None)
         self._detach_value_head = detach_value_head
-        self._dataset_name = dataset_name
-        assert self._dataset_name in answer_type_of.keys(), 'Please add to this Model the answer_type_of this dataset.'
-        self._answer_type = answer_type_of[self._dataset_name]
+        self.dataset_name = dataset_name
+        assert self.dataset_name in answer_type_of.keys(), 'Please add to this Model the answer_type_of this dataset.'
+        self._answer_type = answer_type_of[self.dataset_name]
         self._text_field_embedder = text_field_embedder
 
         span_start_input_dim = text_field_embedder.get_output_dim()

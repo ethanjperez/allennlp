@@ -67,8 +67,7 @@ class Trainer(TrainerBase):
                  eval_mode: bool = False,
                  breakpoint_level: int = 0,
                  id_to_oracle_filename: str = None,
-                 accumulation_steps: int = 1,
-                 dataset_name: str = 'squad') -> None:
+                 accumulation_steps: int = 1) -> None:
         """
         A trainer for doing supervised learning. It just takes a labeled dataset
         and a ``DataIterator``, and uses the supplied ``Optimizer`` to learn the weights
@@ -181,7 +180,7 @@ class Trainer(TrainerBase):
         self._eval_mode = eval_mode
         self._breakpoint_level = breakpoint_level
         self._accumulation_steps = accumulation_steps
-        self._dataset_name = dataset_name
+        self._dataset_name = self.model.dataset_name
         self._using_bert = hasattr(self.model, '_text_field_embedder') and \
                    hasattr(self.model._text_field_embedder, 'token_embedder_tokens') and \
                    'bert_token_embedder' in str(type(self.model._text_field_embedder.token_embedder_tokens))
@@ -397,7 +396,7 @@ class Trainer(TrainerBase):
                     answer_text = batch['metadata'][i]['answer_texts'][0]
                     post_processing_answer_text = batch['metadata'][i]['original_passage'][char_span_start: char_span_end]
                     answer_processing_error = not (answer_text in post_processing_answer_text)
-                    if self.model.dataset_name == 'race':
+                    if self._dataset_name == 'race':
                         answer_processing_error = (answer_text != post_processing_answer_text) or (answer_text not in ['1st', '2nd', '3rd', '4th'])
                     if answer_processing_error:  # Print: unexpected mismatch with true answer
                         self._print_tokens(batch['passage']['tokens'][i, :])

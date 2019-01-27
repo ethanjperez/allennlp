@@ -97,7 +97,7 @@ class BidirectionalAttentionFlow(Model):
         self.reward_method = None if self.is_judge else reward_method
         self.update_judge = update_judge and (self.judge is not None)
         self._detach_value_head = detach_value_head
-        self._dataset_name = dataset_name  # NB: Field will be incorrect for previously trained RACE bidaf models, but we're not using those anyways
+        self.dataset_name = dataset_name  # NB: Field will be incorrect for previously trained RACE bidaf models, but we're not using those anyways
         self._text_field_embedder = text_field_embedder
         self._highway_layer = TimeDistributed(Highway(text_field_embedder.get_output_dim(),
                                                       num_highway_layers))
