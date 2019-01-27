@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 from typing import Dict, List, Tuple
 
 from overrides import overrides
@@ -42,6 +43,9 @@ class RaceReader(DatasetReader):
         super().__init__(lazy)
         self._tokenizer = tokenizer or WordTokenizer()
         self._token_indexers = token_indexers or {'tokens': SingleIdTokenIndexer()}
+        self._using_bert = hasattr(self._token_indexers['tokens'], '_namespace') and self._token_indexers['tokens']._namespace == 'bert'
+        if self._using_bert:
+            print('BEEEEEEEEEEEEEEEEEEEERT!')
 
     @overrides
     def _read(self, file_path: str):
@@ -63,12 +67,31 @@ class RaceReader(DatasetReader):
                     answer_texts = [answer['text'] for answer in question_answer['answers']]
                     span_starts = [answer['answer_start'] for answer in question_answer['answers']]
                     span_ends = [start + len(answer) for start, answer in zip(span_starts, answer_texts)]
-                    instance = self.text_to_instance(question_text,
-                                                     paragraph,
-                                                     zip(span_starts, span_ends),
-                                                     answer_texts,
-                                                     tokenized_paragraph,
-                                                     question_answer['id'])
+                    if self._using_bert:
+                        tokenized_question = self._tokenizer.tokenize(question_text)
+                        sep_str = '[SEP]'
+                        prepend_text = question_text + ' ' + sep_str + ' '
+                        span_starts = [len(prepend_text) + span_start for span_start in span_starts]
+                        span_ends = [len(prepend_text) + span_end for span_end in span_ends]
+                        tokenized_question_paragraph = tokenized_question
+                        tokenized_question_paragraph.append(Token(sep_str, len(question_text + ' ')))
+                        for token in tokenized_paragraph:
+                            new_token = Token(text=token.text, idx=token.idx+len(prepend_text), lemma=token.lemma,
+                                              pos=token.pos, tag=token.tag, dep=token.dep, ent_type=token.ent_type)
+                            tokenized_question_paragraph.append(new_token)
+                        instance = self.text_to_instance('?',
+                                                         prepend_text + paragraph,
+                                                         zip(span_starts, span_ends),
+                                                         answer_texts,
+                                                         tokenized_question_paragraph,
+                                                         question_answer['id'])
+                    else:
+                        instance = self.text_to_instance(question_text,
+                                                         paragraph,
+                                                         zip(span_starts, span_ends),
+                                                         answer_texts,
+                                                         tokenized_paragraph,
+                                                         question_answer['id'])
                     yield instance
 
     @overrides
@@ -112,11 +135,18 @@ class RaceReader(DatasetReader):
 
 if __name__ == "__main__":
     # Parses RAW Race Files into Single JSON Format
-    import os
-
     # Assumes race_raw directory lives in "datasets/race_raw" and you're running from allenlp dir
     race_raw_path = "datasets/race_raw"
-    race_path = "datasets/race"
+    answer_tokens = ["1st", "2nd", "3rd", "4th"]
+    letter_to_answer_token = {'A': "1st", 'B': "2nd", 'C': "3rd", 'D': "4th"}
+    augment_data = True
+
+    if augment_data:
+        race_path = "datasets/race_augmented"
+        excluded_options_sets = [[], [0], [1], [2], [3]]
+    else:
+        race_path = "datasets/race"
+        excluded_options_sets = [[]]
 
     if not os.path.exists(race_path):
         os.mkdir(race_path)
@@ -141,43 +171,49 @@ if __name__ == "__main__":
 
                 # Iterate through questions
                 for q in range(len(art_data["questions"])):
-                    # Get base context
-                    base_context = art_data["article"]
+                    # Possibly exclude an option for data augmentation purposes. Encourages answering by elimination.
+                    for qa_version_no, excluded_options in enumerate(excluded_options_sets):
+                        # Name for this version of the QA pair
+                        removed_answers_str = ''.join([str(ex_opt) for ex_opt in excluded_options])
 
-                    # Create Instance Dictionary
-                    paragraph_dict = {}
+                        # Get base context
+                        base_context = art_data["article"]
 
-                    # Get Question
-                    question = art_data["questions"][q]
+                        # Create Instance Dictionary
+                        paragraph_dict = {}
 
-                    # Get Options
-                    options = art_data["options"][q]
+                        # Get Question
+                        question = art_data["questions"][q]
 
-                    # Get Answer
-                    answer = art_data["answers"][q]
+                        # Get Options
+                        options = art_data["options"][q]
 
-                    # Build Context with all Options
-                    span_answer_start, span_answer_text = None, None
-                    all_pos_answers_text = ""
-                    for i, answer_choice in enumerate(["A", "B", "C", "D"]):
-                        select_token = "SELECT_" + answer_choice
-                        all_pos_answers_text += options[i] + " " + select_token + " "
-                        if answer_choice == answer:
-                            span_answer_start = all_pos_answers_text.index(select_token)
-                            span_answer_text = select_token
-                    base_context = all_pos_answers_text + base_context
+                        # Get Answer
+                        answer = art_data["answers"][q]
 
-                    # Get Q_ID
-                    qid = hex(hash(art_file + question))[2:]
+                        # Build Context with all Options
+                        span_answer_start, span_answer_text = None, None
+                        all_pos_answers_text = ""
+                        for i, answer_token in enumerate(answer_tokens):
+                            if i not in excluded_options:
+                                all_pos_answers_text += options[i] + " "
+                            if answer_token == letter_to_answer_token[answer]:
+                                span_answer_start = len(all_pos_answers_text)
+                                span_answer_text = answer_token
+                            all_pos_answers_text += answer_token + " "
+                        base_context = all_pos_answers_text + base_context
 
-                    # Assemble dictionary
-                    paragraph_dict["context"] = base_context
-                    paragraph_dict["qas"] = [{"answers": [{"answer_start": span_answer_start, "text": span_answer_text}],
-                                              "question": question,
-                                              "id": qid}]
+                        # Get Q_ID
+                        qid = hex(hash(art_file + question + removed_answers_str))[2:]
 
-                    # Append to article dict
-                    article_dict["paragraphs"].append(paragraph_dict)
+                        # Assemble dictionary
+                        paragraph_dict["context"] = base_context
+                        paragraph_dict["qas"] = [{"answers": [{"answer_start": span_answer_start, "text": span_answer_text}],
+                                                  "question": question,
+                                                  "id": qid}]
+
+                        # Append to article dict
+                        article_dict["paragraphs"].append(paragraph_dict)
 
                 # Add article dict to data
                 if dt == "train":

@@ -1,7 +1,6 @@
 {
   "dataset_reader": {
     "type": "race",
-    "lazy": true,
     "token_indexers": {
       "tokens": {
           "type": "bert-pretrained",
@@ -65,7 +64,7 @@
   "iterator": {
     "type": "bucket",
     "sorting_keys": [["passage", "num_tokens"], ["question", "num_tokens"]],
-    "batch_size": 16
+    "batch_size": 8
   },
 
   "trainer": {
@@ -80,7 +79,7 @@
       "patience": 1
     },
     "optimizer": {
-      "lr": 0.00003,
+      "lr": 0.00005,
       "type": "adam",
       "betas": [0.9, 0.999]
     }
