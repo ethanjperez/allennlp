@@ -10,8 +10,8 @@
       }
     }
   },
-  "train_data_path": "allennlp/tests/fixtures/data/race.json",
-  "validation_data_path": "allennlp/tests/fixtures/data/race.json",
+  "train_data_path": "datasets/race/race-train-v1.0.json",
+  "validation_data_path": "datasets/race/race-dev-v1.0.json",
   "model": {
     "type": "bert-qa",
     "text_field_embedder": {
@@ -57,7 +57,7 @@
       "patience": 1
     },
     "optimizer": {
-      "lr": 0.00005,
+      "lr": 0.00002,
       "type": "adam",
       "betas": [0.9, 0.999]
     }
