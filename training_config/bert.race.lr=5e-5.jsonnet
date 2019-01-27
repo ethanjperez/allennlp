@@ -42,7 +42,7 @@
   "iterator": {
     "type": "bucket",
     "sorting_keys": [["passage", "num_tokens"], ["question", "num_tokens"]],
-    "batch_size": 16
+    "batch_size": 8
   },
 
   "trainer": {

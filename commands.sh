@@ -22,19 +22,19 @@ allennlp train training_config/bidaf_bert.race.lr=2e-5.jsonnet -s tmp/race.bert.
 allennlp train training_config/bidaf_bert.race.lr=2e-5.jsonnet -s tmp/race.bert.a=2.lr=2e-5.f -d f -a 2  # bg  54.6
 
 # RACE BERTQA Hyperparameter sweep
-allennlp train training_config/bert.race.lr=5e-5.jsonnet -s tmp/race.bert.a=4.lr=5e-5.f -d f -a 4  #
-allennlp train training_config/bert.race.lr=5e-5.jsonnet -s tmp/race.bert.a=2.lr=5e-5.f -d f -a 2  #
+allennlp train training_config/bert.race.lr=5e-5.jsonnet -s tmp/race.bert.a=4.lr=5e-5.f -d f -a 4  # eval.1
+allennlp train training_config/bert.race.lr=5e-5.jsonnet -s tmp/race.bert.a=2.lr=5e-5.f -d f -a 2  #...
 allennlp train training_config/bert.race.lr=3e-5.jsonnet -s tmp/race.bert.a=4.lr=3e-5.f -d f -a 4  #
 allennlp train training_config/bert.race.lr=3e-5.jsonnet -s tmp/race.bert.a=2.lr=3e-5.f -d f -a 2  #
 allennlp train training_config/bert.race.lr=2e-5.jsonnet -s tmp/race.bert.a=4.lr=2e-5.f -d f -a 4  #
 allennlp train training_config/bert.race.lr=2e-5.jsonnet -s tmp/race.bert.a=2.lr=2e-5.f -d f -a 2  #
 
-allennlp train training_config/bert.lr=5e-5.jsonnet -s tmp/bert.a=4.lr=5e-5.f -d f -a 4  #
-allennlp train training_config/bert.lr=5e-5.jsonnet -s tmp/bert.a=2.lr=5e-5.f -d f -a 2  #
-allennlp train training_config/bert.lr=3e-5.jsonnet -s tmp/bert.a=4.lr=3e-5.f -d f -a 4  #
-allennlp train training_config/bert.lr=3e-5.jsonnet -s tmp/bert.a=2.lr=3e-5.f -d f -a 2  #
-allennlp train training_config/bert.lr=2e-5.jsonnet -s tmp/bert.a=4.lr=2e-5.f -d f -a 4  #
-allennlp train training_config/bert.lr=2e-5.jsonnet -s tmp/bert.a=2.lr=2e-5.f -d f -a 2  #
+allennlp train training_config/bert.lr=5e-5.jsonnet -s tmp/bert.a=4.lr=5e-5.f -d f -a 4  #bg
+allennlp train training_config/bert.lr=5e-5.jsonnet -s tmp/bert.a=2.lr=5e-5.f -d f -a 2  #race.a
+allennlp train training_config/bert.lr=3e-5.jsonnet -s tmp/bert.a=4.lr=3e-5.f -d f -a 4  #race.b
+allennlp train training_config/bert.lr=3e-5.jsonnet -s tmp/bert.a=2.lr=3e-5.f -d f -a 2  #tmp.2
+allennlp train training_config/bert.lr=2e-5.jsonnet -s tmp/bert.a=4.lr=2e-5.f -d f -a 4  #xl
+allennlp train training_config/bert.lr=2e-5.jsonnet -s tmp/bert.a=2.lr=2e-5.f -d f -a 2  #bert
 
 # Print debates
 allennlp train training_config/bidaf.race.jsonnet -s tmp/debug -f -j tmp/race.f/model.tar.gz -d B -e -m ssp  # eval.1
