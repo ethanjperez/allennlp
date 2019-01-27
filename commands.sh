@@ -8,18 +8,33 @@ allennlp train training_config/bidaf_bert.batch_size=8.jsonnet -s tmp/bert.a=2.f
 allennlp train training_config/bidaf_bert.batch_size=8.jsonnet -s tmp/bert.a=4.f -d f -a 4  # 86.1 F1
 
 # SQUAD XL Memory sweep
-allennlp train training_config/bidaf_bert.squad_xl.max_instances=None.jsonnet -d f -s tmp/squad_xl.a=4.mi=None.f -a 4  # eval.4  Loss ~1K Train F1 ~6
+allennlp train training_config/bidaf_bert.squad_xl.max_instances=None.jsonnet -d f -s tmp/squad_xl.a=4.mi=None.f -a 4  # eval.4  Loss ~1K Train F1 10.7
 allennlp train training_config/bidaf_bert.squad_xl.max_instances=675.jsonnet -d f -s tmp/squad_xl.a=4.mi=675.f -a 4  # eval.5  Loss ~100K Train F1 ~0
-allennlp train training_config/bidaf_bert.squad_xl.max_instances=1250.jsonnet -d f -s tmp/squad_xl.a=4.mi=1250.f -a 4  # eval.2  Loss ~100K Train F1 ~10
+allennlp train training_config/bidaf_bert.squad_xl.max_instances=1250.jsonnet -d f -s tmp/squad_xl.a=4.mi=1250.f -a 4  # eval.2  Loss ~100K Train F1 9.7
 
 # RACE BERT Hyperparameter sweep
-allennlp train training_config/bidaf_bert.race.lr=3e-5.jsonnet -s tmp/race.bert.f -d f  # xl: ~46.4% TODO: Rename dir after
+allennlp train training_config/bidaf_bert.race.lr=3e-5.jsonnet -s tmp/race.bert.f -d f  # xl: ~45.7% TODO: Rename dir after
 allennlp train training_config/bidaf_bert.race.jsonnet -s tmp/race.bert.a=2.f -d f -a 2  # EM=~3%
 allennlp train training_config/bidaf_bert.race.jsonnet -s tmp/race.bert.a=4.f -d f -a 4  # EM=~3%
-allennlp train training_config/bidaf_bert.race.lr=3e-5.jsonnet -s tmp/race.bert.a=4.lr=3e-5.f -d f -a 4  # race.a  47.1+
-allennlp train training_config/bidaf_bert.race.lr=3e-5.jsonnet -s tmp/race.bert.a=2.lr=3e-5.f -d f -a 2  # tmp.2  ~25+
-allennlp train training_config/bidaf_bert.race.lr=2e-5.jsonnet -s tmp/race.bert.a=4.lr=2e-5.f -d f -a 4  # race.b  49.9+
-allennlp train training_config/bidaf_bert.race.lr=2e-5.jsonnet -s tmp/race.bert.a=2.lr=2e-5.f -d f -a 2  # bg  33.7+
+allennlp train training_config/bidaf_bert.race.lr=3e-5.jsonnet -s tmp/race.bert.a=4.lr=3e-5.f -d f -a 4  # race.a  53.4
+allennlp train training_config/bidaf_bert.race.lr=3e-5.jsonnet -s tmp/race.bert.a=2.lr=3e-5.f -d f -a 2  # tmp.2  28.0
+allennlp train training_config/bidaf_bert.race.lr=2e-5.jsonnet -s tmp/race.bert.a=4.lr=2e-5.f -d f -a 4  # race.b  54.6
+allennlp train training_config/bidaf_bert.race.lr=2e-5.jsonnet -s tmp/race.bert.a=2.lr=2e-5.f -d f -a 2  # bg  54.6
+
+# RACE BERTQA Hyperparameter sweep
+allennlp train training_config/bert.race.lr=5e-5.jsonnet -s tmp/race.bert.a=4.lr=5e-5.f -d f -a 4  #
+allennlp train training_config/bert.race.lr=5e-5.jsonnet -s tmp/race.bert.a=2.lr=5e-5.f -d f -a 2  #
+allennlp train training_config/bert.race.lr=3e-5.jsonnet -s tmp/race.bert.a=4.lr=3e-5.f -d f -a 4  #
+allennlp train training_config/bert.race.lr=3e-5.jsonnet -s tmp/race.bert.a=2.lr=3e-5.f -d f -a 2  #
+allennlp train training_config/bert.race.lr=2e-5.jsonnet -s tmp/race.bert.a=4.lr=2e-5.f -d f -a 4  #
+allennlp train training_config/bert.race.lr=2e-5.jsonnet -s tmp/race.bert.a=2.lr=2e-5.f -d f -a 2  #
+
+allennlp train training_config/bert.lr=5e-5.jsonnet -s tmp/bert.a=4.lr=5e-5.f -d f -a 4  #
+allennlp train training_config/bert.lr=5e-5.jsonnet -s tmp/bert.a=2.lr=5e-5.f -d f -a 2  #
+allennlp train training_config/bert.lr=3e-5.jsonnet -s tmp/bert.a=4.lr=3e-5.f -d f -a 4  #
+allennlp train training_config/bert.lr=3e-5.jsonnet -s tmp/bert.a=2.lr=3e-5.f -d f -a 2  #
+allennlp train training_config/bert.lr=2e-5.jsonnet -s tmp/bert.a=4.lr=2e-5.f -d f -a 4  #
+allennlp train training_config/bert.lr=2e-5.jsonnet -s tmp/bert.a=2.lr=2e-5.f -d f -a 2  #
 
 # Print debates
 allennlp train training_config/bidaf.race.jsonnet -s tmp/debug -f -j tmp/race.f/model.tar.gz -d B -e -m ssp  # eval.1
