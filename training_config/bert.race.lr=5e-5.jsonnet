@@ -42,14 +42,14 @@
   "iterator": {
     "type": "bucket",
     "sorting_keys": [["passage", "num_tokens"], ["question", "num_tokens"]],
-    "batch_size": 4
+    "batch_size": 8
   },
 
   "trainer": {
     "num_epochs": 20,
     "patience": 3,
     "validation_metric": "+em",
-    "cuda_device": -1,
+    "cuda_device": 0,
     "learning_rate_scheduler": {
       "type": "reduce_on_plateau",
       "factor": 0.67,

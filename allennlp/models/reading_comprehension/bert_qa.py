@@ -75,7 +75,7 @@ class BertQA(Model):
         self._span_start_predictor = TimeDistributed(torch.nn.Linear(span_start_input_dim, 1))
 
         if self._answer_type == 'span':
-            self._span_end_encoder = span_end_encoder if self._answer_type == 'span' else None  # NOTE: Use low capacity
+            self._span_end_encoder = span_end_encoder  # NOTE: Use low capacity
             span_end_input_dim = text_field_embedder.get_output_dim() + span_end_encoder.get_output_dim()
             self._span_end_predictor = TimeDistributed(torch.nn.Linear(span_end_input_dim, 1))
 

@@ -5,7 +5,7 @@
 # SQuAD+BERT: Training J on full passage (normal supervised training)
 allennlp train training_config/bidaf_bert.batch_size=8.lr=3e-5.jsonnet -s tmp/bert.f -d f  # 85.5 F1 TODO: Rename dir after
 allennlp train training_config/bidaf_bert.batch_size=8.jsonnet -s tmp/bert.a=2.f -d f -a 2  # 84.9 F1
-allennlp train training_config/bidaf_bert.batch_size=8.jsonnet -s tmp/bert.a=4.f -d f -a 4  # 86.1 F1
+allennlp train training_config/bidaf_bert.batch_size=8.jsonnet -s tmp/bert.a=4.f -d f -a 4  # 86.1 F1  # REDO: bg
 
 # SQUAD XL Memory sweep
 allennlp train training_config/bidaf_bert.squad_xl.max_instances=None.jsonnet -d f -s tmp/squad_xl.a=4.mi=None.f -a 4  # eval.4  Loss ~1K Train F1 10.7

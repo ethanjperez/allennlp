@@ -396,7 +396,10 @@ class Trainer(TrainerBase):
                     char_span_end = batch['metadata'][i]['token_offsets'][batch['span_end'][i]][1]
                     answer_text = batch['metadata'][i]['answer_texts'][0]
                     post_processing_answer_text = batch['metadata'][i]['original_passage'][char_span_start: char_span_end]
-                    if not (answer_text in post_processing_answer_text):  # Print: unexpected mismatch with true answer
+                    answer_processing_error = not (answer_text in post_processing_answer_text)
+                    if self.model.dataset_name == 'race':
+                        answer_processing_error = (answer_text != post_processing_answer_text) or (answer_text not in ['1st', '2nd', '3rd', '4th'])
+                    if answer_processing_error:  # Print: unexpected mismatch with true answer
                         self._print_tokens(batch['passage']['tokens'][i, :])
                         print('answer_text =', answer_text)
                         print('post_processing_answer_text =', post_processing_answer_text)
