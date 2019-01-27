@@ -21,20 +21,26 @@ allennlp train training_config/bidaf_bert.race.lr=3e-5.jsonnet -s tmp/race.bert.
 allennlp train training_config/bidaf_bert.race.lr=2e-5.jsonnet -s tmp/race.bert.a=4.lr=2e-5.f -d f -a 4  # race.b  54.6
 allennlp train training_config/bidaf_bert.race.lr=2e-5.jsonnet -s tmp/race.bert.a=2.lr=2e-5.f -d f -a 2  # bg  54.6
 
-# RACE BERTQA Hyperparameter sweep
-allennlp train training_config/bert.race.lr=5e-5.jsonnet -s tmp/race.bert.bsz=32.lr=5e-5.f -d f -a 4 -f  # bg
-allennlp train training_config/bert.race.lr=5e-5.jsonnet -s tmp/race.bert.bsz=16.lr=5e-5.f -d f -a 2 -f  # eval.1
-allennlp train training_config/bert.race.lr=3e-5.jsonnet -s tmp/race.bert.bsz=32.lr=3e-5.f -d f -a 4 -f  # eval.6 34.6% train acc epoch 1
-allennlp train training_config/bert.race.lr=3e-5.jsonnet -s tmp/race.bert.bsz=16.lr=3e-5.f -d f -a 2 -f  # race.a 31.7% train acc epoch 1
-allennlp train training_config/bert.race.lr=2e-5.jsonnet -s tmp/race.bert.bsz=32.lr=2e-5.f -d f -a 4 -f  # race.b 38.5% train acc epoch 1
-allennlp train training_config/bert.race.lr=2e-5.jsonnet -s tmp/race.bert.bsz=16.lr=2e-5.f -d f -a 2 -f -b 1  # 1
+# ***BERT RACE*** Hyperparameter sweep: Redo of older runs
+allennlp train training_config/bert.race.lr=5e-5.jsonnet -s tmp/race.bert.bsz=32.lr=5e-5.f.2 -d f -a 4 -f  #bg
+allennlp train training_config/bert.race.lr=5e-5.jsonnet -s tmp/race.bert.bsz=16.lr=5e-5.f.2 -d f -a 2 -f  #eval.1
+allennlp train training_config/bert.race.lr=3e-5.jsonnet -s tmp/race.bert.bsz=32.lr=3e-5.f.2 -d f -a 4 -f  #eval.6
+allennlp train training_config/bert.race.lr=3e-5.jsonnet -s tmp/race.bert.bsz=16.lr=3e-5.f.2 -d f -a 2 -f  #race.a
+allennlp train training_config/bert.race.lr=2e-5.jsonnet -s tmp/race.bert.bsz=32.lr=2e-5.f.2 -d f -a 4 -f -b 1  #1
+allennlp train training_config/bert.race.lr=2e-5.jsonnet -s tmp/race.bert.bsz=16.lr=2e-5.f.2 -d f -a 2 -f  #race.b
 
-allennlp train training_config/bert.lr=5e-5.jsonnet -s tmp/bert.bsz=16.lr=5e-5.f -d f -a 2 -f  #bg
-allennlp train training_config/bert.lr=5e-5.jsonnet -s tmp/bert.bsz=32.lr=5e-5.f -d f -a 4 -f  #race.a
-allennlp train training_config/bert.lr=3e-5.jsonnet -s tmp/bert.bsz=16.lr=3e-5.f -d f -a 2 -f  #race.b
-allennlp train training_config/bert.lr=3e-5.jsonnet -s tmp/bert.bsz=32.lr=3e-5.f -d f -a 4 -f  #tmp.2
-allennlp train training_config/bert.lr=2e-5.jsonnet -s tmp/bert.bsz=16.lr=2e-5.f -d f -a 2 -f  #xl
-allennlp train training_config/bert.lr=2e-5.jsonnet -s tmp/bert.bsz=32.lr=2e-5.f -d f -a 4 -f  #bert
+# Older runs with RACE logits bug
+allennlp train training_config/bert.race.lr=3e-5.jsonnet -s tmp/race.bert.bsz=32.lr=3e-5.f -d f -a 4 -f # 1: 34.6% train
+allennlp train training_config/bert.race.lr=3e-5.jsonnet -s tmp/race.bert.bsz=16.lr=3e-5.f -d f -a 2 -f # 1: 31.7% train
+allennlp train training_config/bert.race.lr=2e-5.jsonnet -s tmp/race.bert.bsz=32.lr=2e-5.f -d f -a 4 -f # 1: 38.5/48.3 train/val. 2: 53.5/53.3
+
+# ***BERT SQUAD***
+allennlp train training_config/bert.lr=5e-5.jsonnet -s tmp/bert.bsz=16.lr=5e-5.f -d f -a 2 -f
+allennlp train training_config/bert.lr=5e-5.jsonnet -s tmp/bert.bsz=32.lr=5e-5.f -d f -a 4 -f
+allennlp train training_config/bert.lr=3e-5.jsonnet -s tmp/bert.bsz=16.lr=3e-5.f -d f -a 2 -f
+allennlp train training_config/bert.lr=3e-5.jsonnet -s tmp/bert.bsz=32.lr=3e-5.f -d f -a 4 -f
+allennlp train training_config/bert.lr=2e-5.jsonnet -s tmp/bert.bsz=16.lr=2e-5.f -d f -a 2 -f
+allennlp train training_config/bert.lr=2e-5.jsonnet -s tmp/bert.bsz=32.lr=2e-5.f -d f -a 4 -f
 
 # Print debates
 allennlp train training_config/bidaf.race.jsonnet -s tmp/debug -f -j tmp/race.f/model.tar.gz -d B -e -m ssp  # eval.1
@@ -128,32 +134,26 @@ allennlp train training_config/bidaf.patience=None.num_epochs=200.jsonnet -s tmp
 # Debug
 allennlp train training_config/bidaf.cpu.mini.debug.jsonnet -s tmp/debug -j training_config/bidaf.cpu.mini.debug.jsonnet -u -d ab
 
-### SLURM
-# sbatch job
-# NB: Update SERIALIZATION_DIR every run!
-export SERIALIZATION_DIR=tmp/race.j.pt=f.size=0.5
-if test -e $SERIALIZATION_DIR; then echo -e "\n${PURPLE}NOTICE: Directory already exists. Make sure you wanted to load from an existing checkpoint.\n"; else mkdir -p $SERIALIZATION_DIR; fi
-sbatch --job-name $SERIALIZATION_DIR --mem=20000 -t 1-23:58 --gres=gpu:titanblack --open-mode append --requeue --wrap "\
-allennlp train training_config/bidaf.race.size=0.5.jsonnet -s tmp/race.j.pt=f.size=0.5 -d f
-"
-echo -e "\n${CYAN}${SERIALIZATION_DIR}/train.log\n"
-
-# Get a 24GB GPU
-srun --pty --mem=20000 -t 6-23:58 --gres=gpu:p40 bash
-
-# Get a dev GPU. Other GPUs: {1080ti,titanxp,titanblack,k40,k20,k20x,m2090}
-srun --pty --mem=20000 -t 1-23:58 --gres=gpu:titanxp bash
-srun --pty --mem=20000 -t 1-23:58 --gres=gpu:1080ti:1 bash
-
-# Live updating dashboard of your jobs:
-watch 'squeue -o "%.18i %.40j %.10u %.8T %.10M %.9l %.16b %.6C %.6D %R" -u $USER'
 
 # Copy Prince tensorboard to local:
 rsync -rav -e ssh --include '*/' --include 'events.out.tfevents.*' --include '*.json' --exclude='*' ejp416@prince.hpc.nyu.edu:~/research/allennlp/tmp/ ~/research/allennlp/tmp
 rsync -rav -e ssh --include '*/' --include 'events.out.tfevents.*' --include '*.json' --exclude='*' ejp416@access.cims.nyu.edu:~/research/allennlp/tmp/ ~/research/allennlp/tmp
 
-### Python
-# iPDB: To run a list comprehension\nuse this before
-globals().update(locals())
+### SLURM
+# Live updating dashboard of your jobs:
+watch 'squeue -o "%.18i %.40j %.10u %.8T %.10M %.9l %.16b %.6C %.6D %R" -u $USER'
 
-allennlp train training_config/bidaf.patience=None.num_epochs=200.jsonnet -d gB -s tmp/br.3.j.dropout=0.4 -j training_config/bidaf.num_epochs=200.jsonnet -r -e -o "{'test_data_path': 'datasets/squad/squad-adversarial-add-sent.json'}"
+# Cassio GPUs: {1080ti,titanxp,titanblack,k40,k20,k20x,m2090}
+srun --pty --mem=20000 -t 1-23:58 --gres=gpu:titanxp bash
+srun --pty --mem=20000 -t 1-23:58 --gres=gpu:1080ti:1 bash
+
+srun --pty --mem=20000 -t 6-23:58 --gres=gpu:p40 bash
+
+# SBATCH
+# NB: Update SERIALIZATION_DIR every run!
+export SERIALIZATION_DIR=tmp/bert.bsz=32.lr=2e-5.f
+if test -e $SERIALIZATION_DIR; then echo -e "\n${PURPLE}NOTICE: Directory already exists.\n"; else mkdir -p $SERIALIZATION_DIR; fi
+sbatch --job-name $SERIALIZATION_DIR --mem=20000 -t 1-23:58 --gres=gpu:p40 --open-mode append --requeue --wrap "\
+allennlp train training_config/bert.lr=2e-5.jsonnet -s tmp/bert.bsz=32.lr=2e-5.f -d f -a 4 -f
+"
+echo -e "\n${CYAN}${SERIALIZATION_DIR}/train.log\n"

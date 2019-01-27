@@ -245,13 +245,9 @@ class BertQA(Model):
                 passage_tokens.append(metadata[i]['passage_tokens'])
                 passage_str = metadata[i]['original_passage']
                 offsets = metadata[i]['token_offsets']
-                print(len(metadata[i]['passage_tokens']), len(offsets))
                 predicted_span = tuple(best_span[i].detach().cpu().numpy())
-                try:
-                    start_offset = offsets[predicted_span[0]][0]
-                    end_offset = offsets[predicted_span[1]][1]
-                except:
-                    import ipdb; ipdb.set_trace()
+                start_offset = offsets[predicted_span[0]][0]
+                end_offset = offsets[predicted_span[1]][1]
                 best_span_string = passage_str[start_offset:end_offset]
                 output_dict['best_span_str'].append(best_span_string)
                 answer_texts = metadata[i].get('answer_texts', [])
