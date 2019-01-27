@@ -13,7 +13,7 @@ allennlp train training_config/bidaf_bert.squad_xl.max_instances=675.jsonnet -d 
 allennlp train training_config/bidaf_bert.squad_xl.max_instances=1250.jsonnet -d f -s tmp/squad_xl.a=4.mi=1250.f -a 4  # eval.2  Loss ~100K Train F1 9.7
 
 # RACE BERT Hyperparameter sweep
-allennlp train training_config/bidaf_bert.race.lr=3e-5.jsonnet -s tmp/race.bert.f -d f  # xl: ~45.7% TODO: Rename dir after
+allennlp train training_config/bidaf_bert.race.lr=3e-5.jsonnet -s tmp/race.bert.f -d f  # xl: ~46.1% TODO: Rename dir after
 allennlp train training_config/bidaf_bert.race.jsonnet -s tmp/race.bert.a=2.f -d f -a 2  # EM=~3%
 allennlp train training_config/bidaf_bert.race.jsonnet -s tmp/race.bert.a=4.f -d f -a 4  # EM=~3%
 allennlp train training_config/bidaf_bert.race.lr=3e-5.jsonnet -s tmp/race.bert.a=4.lr=3e-5.f -d f -a 4  # race.a  53.4
