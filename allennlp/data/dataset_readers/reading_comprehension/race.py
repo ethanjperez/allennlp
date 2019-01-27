@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 from typing import Dict, List, Tuple
 
 from overrides import overrides
@@ -45,8 +46,6 @@ class RaceReader(DatasetReader):
         self._using_bert = hasattr(self._token_indexers['tokens'], '_namespace') and self._token_indexers['tokens']._namespace == 'bert'
         if self._using_bert:
             print('BEEEEEEEEEEEEEEEEEEEERT!')
-            self._ans_to_wordpiece_ans = {
-                'SELECT_A': '1st     ', 'SELECT_B': '2nd     ', 'SELECT_C': '3rd     ', 'SELECT_D': '4th     '}
 
     @overrides
     def _read(self, file_path: str):
@@ -61,16 +60,9 @@ class RaceReader(DatasetReader):
         for article in dataset:
             for paragraph_json in article['paragraphs']:
                 paragraph = paragraph_json["context"]
-                if self._using_bert:
-                    for ans_tok in self._ans_to_wordpiece_ans.keys():
-                        paragraph = paragraph.replace(ans_tok, self._ans_to_wordpiece_ans[ans_tok])
-
                 tokenized_paragraph = self._tokenizer.tokenize(paragraph)
 
                 for question_answer in paragraph_json['qas']:
-                    if self._using_bert:
-                        for i, answer in enumerate(question_answer['answers']):
-                            question_answer['answers'][i]['text'] = self._ans_to_wordpiece_ans[answer['text']].strip()
                     question_text = question_answer["question"].strip().replace("\n", "")
                     answer_texts = [answer['text'] for answer in question_answer['answers']]
                     span_starts = [answer['answer_start'] for answer in question_answer['answers']]
@@ -143,11 +135,12 @@ class RaceReader(DatasetReader):
 
 if __name__ == "__main__":
     # Parses RAW Race Files into Single JSON Format
-    import os
-
     # Assumes race_raw directory lives in "datasets/race_raw" and you're running from allenlp dir
     race_raw_path = "datasets/race_raw"
     race_path = "datasets/race"
+
+    answer_tokens = ["1st", "2nd", "3rd", "4th"]
+    letter_to_answer_token = {'A': "1st", 'B': "2nd", 'C': "3rd", 'D': "4th"}
 
     if not os.path.exists(race_path):
         os.mkdir(race_path)
@@ -190,11 +183,12 @@ if __name__ == "__main__":
                     # Build Context with all Options
                     span_answer_start, span_answer_text = None, None
                     all_pos_answers_text = ""
-                    for i, select_token in enumerate(["1st", "2nd", "3rd", "4th"]):
-                        all_pos_answers_text += options[i] + " " + select_token + " "
-                        if select_token == answer:
-                            span_answer_start = all_pos_answers_text.index(select_token)
-                            span_answer_text = select_token
+                    for i, answer_token in enumerate(answer_tokens):
+                        all_pos_answers_text += options[i] + " "
+                        if answer_token == letter_to_answer_token[answer]:
+                            span_answer_start = len(all_pos_answers_text)
+                            span_answer_text = answer_token
+                        all_pos_answers_text += answer_token + " "
                     base_context = all_pos_answers_text + base_context
 
                     # Get Q_ID
