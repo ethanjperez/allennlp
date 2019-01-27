@@ -206,8 +206,8 @@ class BertQA(Model):
             span_end_input = self._dropout(torch.cat([modeled_passage, encoded_span_end], dim=-1))
             span_end_logits = self._span_end_predictor(span_end_input).squeeze(-1)
             span_end_probs = util.masked_softmax(span_end_logits, passage_mask)
-            span_start_logits = util.replace_masked_values(span_start_logits, passage_mask, -1e7)
-            span_end_logits = util.replace_masked_values(span_end_logits, passage_mask, -1e7)
+        span_start_logits = util.replace_masked_values(span_start_logits, passage_mask, -1e7)
+        span_end_logits = util.replace_masked_values(span_end_logits, passage_mask, -1e7)
         best_span = self.get_best_span(span_start_logits, span_end_logits)
 
         output_dict = {
@@ -245,6 +245,7 @@ class BertQA(Model):
                 passage_tokens.append(metadata[i]['passage_tokens'])
                 passage_str = metadata[i]['original_passage']
                 offsets = metadata[i]['token_offsets']
+                print(len(metadata[i]['passage_tokens']), len(offsets))
                 predicted_span = tuple(best_span[i].detach().cpu().numpy())
                 try:
                     start_offset = offsets[predicted_span[0]][0]
