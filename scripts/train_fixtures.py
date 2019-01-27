@@ -60,7 +60,7 @@ if __name__ == "__main__":
         train_fixture_gpu("allennlp/tests/fixtures/srl/")
     else:
         models = [
-                'bert_qa'
+                'bert_qa',
                 'biaffine_dependency_parser',
                 'bidaf',
                 'dialog_qa',
