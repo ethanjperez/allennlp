@@ -1,6 +1,7 @@
 {
   "dataset_reader": {
     "type": "race",
+    "lazy": true,
     "token_indexers": {
       "tokens": {
           "type": "bert-pretrained",
@@ -28,15 +29,6 @@
         }
       }
     },
-    "regularizer": [
-      [
-        "scalar_parameters",
-        {
-          "type": "l2",
-          "alpha": 0.01
-        }
-      ]
-    ],
     "dropout": 0.1
   },
   "iterator": {
@@ -58,8 +50,7 @@
     },
     "optimizer": {
       "lr": 0.00003,
-      "type": "adam",
-      "betas": [0.9, 0.999]
+      "type": "bert_adam"
     }
   }
 }

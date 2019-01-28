@@ -28,15 +28,6 @@
         }
       }
     },
-    "regularizer": [
-      [
-        "scalar_parameters",
-        {
-          "type": "l2",
-          "alpha": 0.01
-        }
-      ]
-    ],
     "dropout": 0.1
   },
   "iterator": {
@@ -58,8 +49,7 @@
     },
     "optimizer": {
       "lr": 0.00002,
-      "type": "adam",
-      "betas": [0.9, 0.999]
+      "type": "bert_adam"
     }
   }
 }

@@ -1,6 +1,6 @@
 {
   "dataset_reader": {
-    "type": "race",
+    "type": "squad",
     "token_indexers": {
       "tokens": {
           "type": "bert-pretrained",
@@ -10,8 +10,8 @@
       }
     }
   },
-  "train_data_path": "allennlp/tests/fixtures/data/race_augmented.json",
-  "validation_data_path": "allennlp/tests/fixtures/data/race.json",
+  "train_data_path": "datasets/squad/squad-train-v1.1.json",
+  "validation_data_path": "datasets/squad/squad-dev-v1.1.json",
   "model": {
     "type": "bert-qa",
     "text_field_embedder": {
@@ -24,9 +24,17 @@
           "type": "bert-pretrained",
           "pretrained_model": "bert-base-uncased",
           "requires_grad": true,
-          "top_layer_only": true
+          "top_layer_only": false
         }
       }
+    },
+    "span_end_encoder": {
+      "type": "lstm",
+      "bidirectional": true,
+      "input_size": 2304,
+      "hidden_size": 100,
+      "num_layers": 1,
+      "dropout": 0.1
     },
     "dropout": 0.1
   },
@@ -40,7 +48,7 @@
     "num_epochs": 20,
     "patience": 3,
     "validation_metric": "+em",
-    "cuda_device": -1,
+    "cuda_device": 0,
     "learning_rate_scheduler": {
       "type": "reduce_on_plateau",
       "factor": 0.67,
