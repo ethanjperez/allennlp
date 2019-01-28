@@ -10,8 +10,8 @@
       }
     }
   },
-  "train_data_path": "allennlp/tests/fixtures/data/race_augmented.json",
-  "validation_data_path": "allennlp/tests/fixtures/data/race.json",
+  "train_data_path": "datasets/race/race-train-v1.0.json",
+  "validation_data_path": "datasets/race/race-dev-v1.0.json",
   "model": {
     "type": "bert-qa",
     "text_field_embedder": {
@@ -24,7 +24,7 @@
           "type": "bert-pretrained",
           "pretrained_model": "bert-base-uncased",
           "requires_grad": true,
-          "top_layer_only": true
+          "top_layer_only": false
         }
       }
     },
@@ -40,7 +40,7 @@
     "num_epochs": 20,
     "patience": 3,
     "validation_metric": "+em",
-    "cuda_device": -1,
+    "cuda_device": 0,
     "learning_rate_scheduler": {
       "type": "reduce_on_plateau",
       "factor": 0.67,
@@ -48,7 +48,7 @@
       "patience": 1
     },
     "optimizer": {
-      "lr": 0.00005,
+      "lr": 0.00003,
       "type": "bert_adam"
     }
   }

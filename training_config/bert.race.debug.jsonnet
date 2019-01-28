@@ -24,19 +24,10 @@
           "type": "bert-pretrained",
           "pretrained_model": "bert-base-uncased",
           "requires_grad": true,
-          "top_layer_only": true
+          "top_layer_only": false
         }
       }
     },
-    "regularizer": [
-      [
-        "scalar_parameters",
-        {
-          "type": "l2",
-          "alpha": 0.01
-        }
-      ]
-    ],
     "dropout": 0.1
   },
   "iterator": {
@@ -58,8 +49,7 @@
     },
     "optimizer": {
       "lr": 0.00005,
-      "type": "adam",
-      "betas": [0.9, 0.999]
+      "type": "bert_adam"
     }
   }
 }
