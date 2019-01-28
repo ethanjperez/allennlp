@@ -132,6 +132,16 @@ class Train(Subcommand):
                                default=0,
                                help='Debugging option: Increase to run with more breakpoints. 0 for no breakpoints.')
 
+        subparser.add_argument('-i', '--id_to_oracle_filename',
+                               type=str,
+                               default=None,
+                               help='Path to file containing oracle predictions to do Supervised Learning on.')
+
+        subparser.add_argument('-a', '--accumulation_steps',
+                               type=int,
+                               default=1,
+                               help='Number of steps to accumulate gradient for before taking an optimizer step.')
+
         subparser.set_defaults(func=train_model_from_args)
 
         return subparser
@@ -153,7 +163,9 @@ def train_model_from_args(args: argparse.Namespace):
                           args.eval_mode,
                           args.reward_method,
                           args.detach_value_head,
-                          args.breakpoint_level)
+                          args.breakpoint_level,
+                          args.id_to_oracle_filename,
+                          args.accumulation_steps)
 
 
 def train_model_from_file(parameter_filename: str,
@@ -168,7 +180,9 @@ def train_model_from_file(parameter_filename: str,
                           eval_mode: bool = False,
                           reward_method: str = None,
                           detach_value_head: bool = False,
-                          breakpoint_level: int = 0) -> Model:
+                          breakpoint_level: int = 0,
+                          id_to_oracle_filename: str = None,
+                          accumulation_steps: int = 1) -> Model:
     """
     A wrapper around :func:`train_model` which loads the params from a file.
 
@@ -193,8 +207,9 @@ def train_model_from_file(parameter_filename: str,
     """
     # Load the experiment config from a file and pass it to ``train_model``.
     params = Params.from_file(parameter_filename, overrides)
-    return train_model(params, serialization_dir, debate_mode, file_friendly_logging, recover, force,
-                       judge_filename, update_judge, eval_mode, reward_method, detach_value_head, breakpoint_level)
+    return train_model(params, serialization_dir, debate_mode, file_friendly_logging, recover, force, judge_filename,
+                       update_judge, eval_mode, reward_method, detach_value_head, breakpoint_level,
+                       id_to_oracle_filename, accumulation_steps)
 
 
 def train_model(params: Params,
@@ -208,7 +223,9 @@ def train_model(params: Params,
                 eval_mode: bool = False,
                 reward_method: str = None,
                 detach_value_head: bool = False,
-                breakpoint_level: int = 0) -> Model:
+                breakpoint_level: int = 0,
+                id_to_oracle_filename: str = None,
+                accumulation_steps: int = 1) -> Model:
     """
     Trains the model specified in the given :class:`Params` object, using the data and training
     parameters also specified in that object, and saves the results in ``serialization_dir``.
@@ -235,7 +252,7 @@ def train_model(params: Params,
         The model with the best epoch weights.
     """
     num_trained_debater_turns = sum([(('a' in debate_turn) or ('b' in debate_turn)) for debate_turn in debate_mode])
-    if not ((judge_filename is not None) and (num_trained_debater_turns == 0)):
+    if ((judge_filename is not None) and (num_trained_debater_turns == 0)):
         warnings.warn('Unnecessary to have debaters in debate mode ' + str(debate_mode) +
                       '. If this was unintentional, please remove the -j flag.', UserWarning)
 
@@ -270,7 +287,9 @@ def train_model(params: Params,
                 params=pieces.params,
                 validation_iterator=pieces.validation_iterator,
                 eval_mode=eval_mode,
-                breakpoint_level=breakpoint_level)
+                breakpoint_level=breakpoint_level,
+                id_to_oracle_filename=id_to_oracle_filename,
+                accumulation_steps=accumulation_steps)
         evaluation_iterator = pieces.validation_iterator or pieces.iterator
         evaluation_dataset = pieces.test_dataset
         # TODO: Check you're not modifying variables important for later on, in TrainerPieces

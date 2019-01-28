@@ -42,6 +42,9 @@ class SquadReader(DatasetReader):
         super().__init__(lazy)
         self._tokenizer = tokenizer or WordTokenizer()
         self._token_indexers = token_indexers or {'tokens': SingleIdTokenIndexer()}
+        self._using_bert = hasattr(self._token_indexers['tokens'], '_namespace') and self._token_indexers['tokens']._namespace == 'bert'
+        if self._using_bert:
+            print('BEEEEEEEEEEEEEEEEEEEERT!')
 
     @overrides
     def _read(self, file_path: str):
@@ -63,11 +66,31 @@ class SquadReader(DatasetReader):
                     answer_texts = [answer['text'] for answer in question_answer['answers']]
                     span_starts = [answer['answer_start'] for answer in question_answer['answers']]
                     span_ends = [start + len(answer) for start, answer in zip(span_starts, answer_texts)]
-                    instance = self.text_to_instance(question_text,
-                                                     paragraph,
-                                                     zip(span_starts, span_ends),
-                                                     answer_texts,
-                                                     tokenized_paragraph)
+                    if self._using_bert:
+                        tokenized_question = self._tokenizer.tokenize(question_text)
+                        sep_str = '[SEP]'
+                        prepend_text = question_text + ' ' + sep_str + ' '
+                        span_starts = [len(prepend_text) + span_start for span_start in span_starts]
+                        span_ends = [len(prepend_text) + span_end for span_end in span_ends]
+                        tokenized_question_paragraph = tokenized_question
+                        tokenized_question_paragraph.append(Token(sep_str, len(question_text + ' ')))
+                        for token in tokenized_paragraph:
+                            new_token = Token(text=token.text, idx=token.idx+len(prepend_text), lemma=token.lemma,
+                                              pos=token.pos, tag=token.tag, dep=token.dep, ent_type=token.ent_type)
+                            tokenized_question_paragraph.append(new_token)
+                        instance = self.text_to_instance('?',
+                                                         prepend_text + paragraph,
+                                                         zip(span_starts, span_ends),
+                                                         answer_texts,
+                                                         tokenized_question_paragraph,
+                                                         question_answer['id'])
+                    else:
+                        instance = self.text_to_instance(question_text,
+                                                         paragraph,
+                                                         zip(span_starts, span_ends),
+                                                         answer_texts,
+                                                         tokenized_paragraph,
+                                                         question_answer['id'])
                     yield instance
 
     @overrides
@@ -76,7 +99,8 @@ class SquadReader(DatasetReader):
                          passage_text: str,
                          char_spans: List[Tuple[int, int]] = None,
                          answer_texts: List[str] = None,
-                         passage_tokens: List[Token] = None) -> Instance:
+                         passage_tokens: List[Token] = None,
+                         qa_id: str = None) -> Instance:
         # pylint: disable=arguments-differ
         if not passage_tokens:
             passage_tokens = self._tokenizer.tokenize(passage_text)
@@ -104,4 +128,5 @@ class SquadReader(DatasetReader):
                                                         self._token_indexers,
                                                         passage_text,
                                                         token_spans,
-                                                        answer_texts)
+                                                        answer_texts,
+                                                        {'id': qa_id})

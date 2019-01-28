@@ -1,12 +1,11 @@
 {
   "dataset_reader": {
     "type": "race",
-    "lazy": true,
     "token_indexers": {
       "tokens": {
           "type": "bert-pretrained",
           "pretrained_model": "datasets/bert/uncased_L-12_H-768_A-12/vocab.txt",
-          "do_lowercase": false,
+          "do_lowercase": true,
           "use_starting_offsets": true
       }
     }
@@ -69,8 +68,8 @@
   },
 
   "trainer": {
-    "num_epochs": 4,
-    "patience": 4,
+    "num_epochs": 20,
+    "patience": 3,
     "validation_metric": "+em",
     "cuda_device": -1,
     "learning_rate_scheduler": {
@@ -80,7 +79,7 @@
       "patience": 1
     },
     "optimizer": {
-      "lr": 0.00003,
+      "lr": 0.00005,
       "type": "adam",
       "betas": [0.9, 0.999]
     }

@@ -6,6 +6,11 @@ allennlp.models.reading_comprehension
    :undoc-members:
    :show-inheritance:
 
+.. automodule:: allennlp.models.reading_comprehension.bert_qa
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 .. automodule:: allennlp.models.reading_comprehension.bidaf
    :members:
    :undoc-members:

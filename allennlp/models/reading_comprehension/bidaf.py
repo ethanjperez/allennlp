@@ -88,7 +88,8 @@ class BidirectionalAttentionFlow(Model):
                  judge: Model = None,
                  update_judge: bool = False,
                  reward_method: str = None,
-                 detach_value_head: bool = False) -> None:
+                 detach_value_head: bool = False,
+                 dataset_name: str = 'squad') -> None:
         super(BidirectionalAttentionFlow, self).__init__(vocab, regularizer)
 
         self.judge = judge
@@ -96,6 +97,7 @@ class BidirectionalAttentionFlow(Model):
         self.reward_method = None if self.is_judge else reward_method
         self.update_judge = update_judge and (self.judge is not None)
         self._detach_value_head = detach_value_head
+        self.dataset_name = dataset_name  # NB: Field will be incorrect for previously trained RACE bidaf models, but we're not using those anyways
         self._text_field_embedder = text_field_embedder
         self._highway_layer = TimeDistributed(Highway(text_field_embedder.get_output_dim(),
                                                       num_highway_layers))
@@ -110,14 +112,23 @@ class BidirectionalAttentionFlow(Model):
         encoding_dim = phrase_layer.get_output_dim()
         modeling_dim = modeling_layer.get_output_dim()
         span_start_input_dim = encoding_dim * 4 + modeling_dim
-        self._span_start_predictor = TimeDistributed(torch.nn.Linear(span_start_input_dim, 1))
         if not self.is_judge:
             # NB: Rename to value head. Would break loading old checkpoints.
-            self._critic = TimeDistributed(torch.nn.Linear(span_start_input_dim, 1))
+            self._critic = TimeDistributed(torch.nn.Linear(span_start_input_dim, 1))  # NB: Can make MLP
+        self._span_start_predictor = TimeDistributed(torch.nn.Linear(span_start_input_dim, 1))
 
         span_end_encoding_dim = span_end_encoder.get_output_dim()
         span_end_input_dim = encoding_dim * 4 + span_end_encoding_dim
         self._span_end_predictor = TimeDistributed(torch.nn.Linear(span_end_input_dim, 1))
+
+        # Bidaf has lots of layer dimensions which need to match up - these aren't necessarily
+        # obvious from the configuration files, so we check here.
+        check_dimensions_match(modeling_layer.get_input_dim(), 4 * encoding_dim,
+                               "modeling layer input dim", "4 * encoding dim")
+        check_dimensions_match(text_field_embedder.get_output_dim(), phrase_layer.get_input_dim(),
+                               "text field embedder output dim", "phrase layer input dim")
+        check_dimensions_match(span_end_encoder.get_input_dim(), 4 * encoding_dim + 3 * modeling_dim,
+                               "span end encoder input dim", "4 * encoding dim + 3 * modeling dim")
 
         # Bidaf has lots of layer dimensions which need to match up - these aren't necessarily
         # obvious from the configuration files, so we check here.
@@ -260,11 +271,8 @@ class BidirectionalAttentionFlow(Model):
         span_start_input_full = torch.cat([final_merged_passage, modeled_passage], dim=-1)
         span_start_input = self._dropout(span_start_input_full)
         if not self.is_judge:
-            critic_input = span_start_input_full
-            if self._detach_value_head:  # Prevents reward prediction from updating main network
-                critic_input = critic_input.detach()
+            critic_input = span_start_input_full.detach() if self._detach_value_head else span_start_input_full
             # Shape: (batch_size)
-            # NB: Can add more layers to value prediction
             value = (self._critic(critic_input).squeeze(-1) * passage_mask).mean(1)
         # Shape: (batch_size, passage_length)
         span_start_logits = self._span_start_predictor(span_start_input).squeeze(-1)
@@ -307,9 +315,11 @@ class BidirectionalAttentionFlow(Model):
 
         # Compute the loss for training.
         if span_start is not None:
+            span_start[span_start >= passage_mask.size(1)] = -100  # NB: Hacky. Don't add to loss if span not in input
             loss = nll_loss(util.masked_log_softmax(span_start_logits, passage_mask), span_start.squeeze(-1))
             if store_metrics:
                 self._span_start_accuracy(span_start_logits, span_start.squeeze(-1))
+            span_end[span_end >= passage_mask.size(1)] = -100  # NB: Hacky. Don't add to loss if span not in input
             loss += nll_loss(util.masked_log_softmax(span_end_logits, passage_mask), span_end.squeeze(-1))
             if store_metrics:
                 self._span_end_accuracy(span_end_logits, span_end.squeeze(-1))
