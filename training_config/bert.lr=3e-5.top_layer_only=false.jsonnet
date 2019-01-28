@@ -57,8 +57,7 @@
     },
     "optimizer": {
       "lr": 0.00003,
-      "type": "bert_adam",
-      "betas": [0.9, 0.999]
+      "type": "bert_adam"
     }
   }
 }
