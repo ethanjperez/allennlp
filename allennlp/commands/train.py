@@ -32,6 +32,18 @@ which to write the results.
                            refresh rate
      --include-package INCLUDE_PACKAGE
                             additional packages to include
+
+   debate arguments:
+     -d, --debate_mode     List of debate turns (e.g. aa, ar, rr, Ar) => capital implies oracle agent
+     -j, --judge_filename  Path to judge config or pre-trained judge model. If config, judge trained during debate
+     -u, --update_judge    Boolean whether or not to update Judge model during debate training
+     -m, --reward_method   Choice of Debate Reward function - [em (exact match), f1, ssp (start span prob), sl, sl-ssp]
+     -v, --detach_val...   Boolean whether or not to detach value function from policy network to isolate gradients
+     -b, --breakpoint...   Debugging option to set sensitivity of breakpoints
+     -i, --id_to_oracle... Path to file with oracle predictions for supervised learning
+     -a, --accumulation... Number of steps to accumulate gradient for before taking an optimizer step
+     -e, --eval_mode       Boolean whether or not to run in eval-only mode, on test data
+     -g, --multi-gpu       Boolean whether or not to load in model-parallel multi-gpu mode (allocation in config file)
 """
 from typing import List
 import argparse
@@ -67,12 +79,6 @@ class Train(Subcommand):
                                type=str,
                                help='directory in which to save the model and its logs')
 
-        # Debate: Debate mode: Use A/B or random sentences (and in what order). Used for training and evaluation.
-        subparser.add_argument('-d', '--debate_mode',
-                               required=True,
-                               nargs='+',
-                               help='how to select sentences shown to judge')
-
         subparser.add_argument('-r', '--recover',
                                action='store_true',
                                default=False,
@@ -93,7 +99,12 @@ class Train(Subcommand):
                                default=False,
                                help='outputs tqdm status on separate lines and slows tqdm refresh rate')
 
-        # Debate options below
+        # Debate: Debate mode: Use A/B or random sentences (and in what order). Used for training and evaluation.
+        subparser.add_argument('-d', '--debate_mode',
+                               required=True,
+                               nargs='+',
+                               help='how to select sentences shown to judge')
+
         subparser.add_argument('-j', '--judge_filename',
                                type=str,
                                default=None,
@@ -107,12 +118,6 @@ class Train(Subcommand):
                                action='store_true',
                                default=False,
                                help='update judge while training debate agents')
-
-        # NB: --evaluate does not expand vocab based on test data
-        subparser.add_argument('-e', '--eval_mode',
-                               action='store_true',
-                               default=False,
-                               help='run in evaluation-only mode on test_data_path (validation if no test given)')
 
         subparser.add_argument('-m', '--reward_method',
                                type=str,
@@ -142,6 +147,18 @@ class Train(Subcommand):
                                default=1,
                                help='Number of steps to accumulate gradient for before taking an optimizer step.')
 
+        # NB: --evaluate does not expand vocab based on test data
+        subparser.add_argument('-e', '--eval_mode',
+                               action='store_true',
+                               default=False,
+                               help='run in evaluation-only mode on test_data_path (validation if no test given)')
+
+        # NB: --per-gpu model/loader allocation goes in Configuration File (e.g. bidaf.race.size=0.5.gpu=2.jsonnet)
+        subparser.add_argument('-g', '--multi-gpu',
+                               action='store_true',
+                               default=False,
+                               help='Run in model-parallel multiple GPU mode (gpu allocation in config file)')
+
         subparser.set_defaults(func=train_model_from_args)
 
         return subparser
@@ -165,7 +182,8 @@ def train_model_from_args(args: argparse.Namespace):
                           args.detach_value_head,
                           args.breakpoint_level,
                           args.id_to_oracle_filename,
-                          args.accumulation_steps)
+                          args.accumulation_steps,
+                          args.multi_gpu)
 
 
 def train_model_from_file(parameter_filename: str,
@@ -182,7 +200,8 @@ def train_model_from_file(parameter_filename: str,
                           detach_value_head: bool = False,
                           breakpoint_level: int = 0,
                           id_to_oracle_filename: str = None,
-                          accumulation_steps: int = 1) -> Model:
+                          accumulation_steps: int = 1,
+                          multi_gpu: bool = False) -> Model:
     """
     A wrapper around :func:`train_model` which loads the params from a file.
 
@@ -193,6 +212,8 @@ def train_model_from_file(parameter_filename: str,
     serialization_dir : ``str``
         The directory in which to save results and logs. We just pass this along to
         :func:`train_model`.
+    debate_mode : ``List[str]``
+        List of debate turns (e.g. aa, ar, rr, Ar) => capitalization implies oracle agent
     overrides : ``str``
         A JSON string that we will use to override values in the input parameter file.
     file_friendly_logging : ``bool``, optional (default=False)
@@ -204,6 +225,14 @@ def train_model_from_file(parameter_filename: str,
         of a run.  For continuing training a model on new data, see the ``fine-tune`` command.
     force : ``bool``, optional (default=False)
         If ``True``, we will overwrite the serialization directory if it already exists.
+    judge_filename : ``str``, optional (default=None)
+        Path to judge config or pre-trained judge model. If config, judge trained during debate. Necessary parameter
+        if running in debate mode.
+    update_judge : ``bool``, optional (default=False)
+        Boolean whether or not to update Judge model during debate training.
+    eval_mode : ``bool``, optional (default=False)
+        Boolean whether or not to run in eval-only mode, on test data. Does not update/train any of the models.
+
     """
     # Load the experiment config from a file and pass it to ``train_model``.
     params = Params.from_file(parameter_filename, overrides)
