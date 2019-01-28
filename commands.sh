@@ -8,9 +8,9 @@ allennlp train training_config/bidaf_bert.batch_size=8.jsonnet -s tmp/bert.a=2.f
 allennlp train training_config/bidaf_bert.batch_size=8.jsonnet -s tmp/bert.a=4.f -d f -a 4  # 86.1 F1  # REDO: bg
 
 # SQUAD XL Memory sweep
-allennlp train training_config/bidaf_bert.squad_xl.max_instances=None.jsonnet -d f -s tmp/squad_xl.a=4.mi=None.f -a 4  # eval.4  Loss ~1K Train F1 10.7
-allennlp train training_config/bidaf_bert.squad_xl.max_instances=675.jsonnet -d f -s tmp/squad_xl.a=4.mi=675.f -a 4  # eval.5  Loss ~100K Train F1 ~0
-allennlp train training_config/bidaf_bert.squad_xl.max_instances=1250.jsonnet -d f -s tmp/squad_xl.a=4.mi=1250.f -a 4  # eval.2  Loss ~100K Train F1 9.7
+allennlp train training_config/bidaf_bert.squad_xl.max_instances=None.jsonnet -s tmp/squad_xl.a=4.mi=None.f -d f -a 4  # eval.4  Loss ~1K Train F1 10.7
+allennlp train training_config/bidaf_bert.squad_xl.max_instances=675.jsonnet -s tmp/squad_xl.a=4.mi=675 -d f.f -a 4  # eval.5  Loss ~100K Train F1 ~0
+allennlp train training_config/bidaf_bert.squad_xl.max_instances=1250.jsonnet -s tmp/squad_xl.a=4.mi=1250.f -d f -a 4  # eval.2  Loss ~100K Train F1 9.7
 
 # RACE BERT Hyperparameter sweep
 allennlp train training_config/bidaf_bert.race.lr=3e-5.jsonnet -s tmp/race.bert.f -d f  # xl: ~46.% TODO: Rename dir after
@@ -84,38 +84,38 @@ allennlp train training_config/bidaf.race.size=0.5.patience=None.jsonnet -s tmp/
 allennlp train training_config/bidaf.race.size=0.5.patience=None.jsonnet -s tmp/race.br.m=ssp.rb=1-ra.pt=race.f -j tmp/race.f/model.tar.gz -m ssp -d br
 
 # Training J only:
-allennlp train training_config/bidaf.num_epochs=200.jsonnet -d rr -s tmp/rr.2
-allennlp train training_config/bidaf.squad_xl.num_epochs=200.batch_size=20.jsonnet -d f -s tmp/squad_xl.f
-allennlp train training_config/bidaf.squad_xl.num_epochs=200.size=0.5.jsonnet -d f -s tmp/squad_xl.size=0.5.f
-allennlp train training_config/bidaf.squad_xl.num_epochs=200.size=0.25.jsonnet -d f -s tmp/squad_xl.size=0.25.f
-allennlp train training_config/bidaf.squad_xl.num_epochs=200.jsonnet -d rr -s tmp/squad_xl.rr
+allennlp train training_config/bidaf.num_epochs=200.jsonnet -s tmp/rr.2 -d rr
+allennlp train training_config/bidaf.squad_xl.num_epochs=200.batch_size=20.jsonnet -s tmp/squad_xl.f -d f
+allennlp train training_config/bidaf.squad_xl.num_epochs=200.size=0.5.jsonnet -s tmp/squad_xl.size=0.5.f -d f
+allennlp train training_config/bidaf.squad_xl.num_epochs=200.size=0.25.jsonnet -s tmp/squad_xl.size=0.25.f -d f
+allennlp train training_config/bidaf.squad_xl.num_epochs=200.jsonnet -s tmp/squad_xl.rr -d rr
 
 # Training ab with fixed J
-allennlp train training_config/bidaf.patience=None.num_epochs=200.jsonnet -d ab -s tmp/ab.3.pt=rr.3 -j tmp/rr.3/model.tar.gz
-allennlp train training_config/bidaf.patience=None.num_epochs=200.jsonnet -d ab -s tmp/ab.3.pt=gr.2 -j tmp/gr.2/model.tar.gz
+allennlp train training_config/bidaf.patience=None.num_epochs=200.jsonnet -s tmp/ab.3.pt=rr.3 -d ab -j tmp/rr.3/model.tar.gz
+allennlp train training_config/bidaf.patience=None.num_epochs=200.jsonnet -s tmp/ab.3.pt=gr.2 -d ab -j tmp/gr.2/model.tar.gz
 
 # Training bg with fixed J
-allennlp train training_config/bidaf.patience=None.num_epochs=200.jsonnet -d bg -s tmp/bg.3.rb=1-ra.pt=rr.3 -j tmp/rr.3/model.tar.gz
-allennlp train training_config/bidaf.patience=None.num_epochs=200.jsonnet -d bg -s tmp/bg.3.m=ssp.rb=1-ra.pt=rr.3 -j tmp/rr.3/model.tar.gz -m ssp
+allennlp train training_config/bidaf.patience=None.num_epochs=200.jsonnet -s tmp/bg.3.rb=1-ra.pt=rr.3 -d bg -j tmp/rr.3/model.tar.gz
+allennlp train training_config/bidaf.patience=None.num_epochs=200.jsonnet -s tmp/bg.3.m=ssp.rb=1-ra.pt=rr.3 -d bg -j tmp/rr.3/model.tar.gz -m ssp
 
 # Training abj with initialized J (provide model.tar.gz to -j and use -u)
-allennlp train training_config/bidaf.patience=None.num_epochs=200.jsonnet -d ab -s tmp/ab.3.pt=rr.2.u -j tmp/rr.2/model.tar.gz -u
-allennlp train training_config/bidaf.patience=None.num_epochs=200.jsonnet -d ab -s tmp/ab.3.pt=gr.2.u -j tmp/gr.2/model.tar.gz -u
+allennlp train training_config/bidaf.patience=None.num_epochs=200.jsonnet -s tmp/ab.3.pt=rr.2.u -d ab -j tmp/rr.2/model.tar.gz -u
+allennlp train training_config/bidaf.patience=None.num_epochs=200.jsonnet -s tmp/ab.3.pt=gr.2.u -d ab -j tmp/gr.2/model.tar.gz -u
 
 # Train abj\arj\brj from scratch with F1 reward
-allennlp train training_config/bidaf.patience=None.num_epochs=200.jsonnet -d ab -s tmp/ab.3.j.dropout=0.4 -j training_config/bidaf.dropout=0.4.jsonnet -u
-allennlp train training_config/bidaf.patience=None.num_epochs=200.jsonnet -d ar -s tmp/ar.3.j.dropout=0.4 -j training_config/bidaf.dropout=0.4.jsonnet -u
-allennlp train training_config/bidaf.patience=None.num_epochs=200.jsonnet -d br -s tmp/br.3.j.dropout=0.4 -j training_config/bidaf.dropout=0.4.jsonnet -u
+allennlp train training_config/bidaf.patience=None.num_epochs=200.jsonnet -s tmp/ab.3.j.dropout=0.4 -d ab -j training_config/bidaf.dropout=0.4.jsonnet -u
+allennlp train training_config/bidaf.patience=None.num_epochs=200.jsonnet -s tmp/ar.3.j.dropout=0.4 -d ar -j training_config/bidaf.dropout=0.4.jsonnet -u
+allennlp train training_config/bidaf.patience=None.num_epochs=200.jsonnet -s tmp/br.3.j.dropout=0.4 -d br -j training_config/bidaf.dropout=0.4.jsonnet -u
 
 # Train j on gB
 allennlp train training_config/bidaf.jsonnet -d gB -s tmp/gB.2 -u
 allennlp train training_config/bidaf.dropout=0.4.jsonnet -d gB -s tmp/gB.j.dropout=0.4.u -u
 # Train j on gB with pre-trained initialization (and maybe frozen layers)
-allennlp train training_config/bidaf.num_epochs=200.jsonnet -d gB -s tmp/gB.j.pt=rr.2.u -j tmp/rr.2/model.tar.gz -u
-allennlp train training_config/bidaf.num_epochs=200.j.no_grad=cw.jsonnet -d gB -s tmp/gB.j.no_grad=cw.u -j tmp/rr.2/model.tar.gz -u
-allennlp train training_config/bidaf.num_epochs=200.j.no_grad=cwp.jsonnet -d gB -s tmp/gB.j.no_grad=cwp.u -j tmp/rr.2/model.tar.gz -u
-allennlp train training_config/bidaf.num_epochs=200.j.no_grad=cwpa.jsonnet -d gB -s tmp/gB.j.no_grad=cwpa.u -j tmp/rr.2/model.tar.gz -u
-allennlp train training_config/bidaf.num_epochs=200.j.no_grad=cwpam.jsonnet -d gB -s tmp/gB.j.no_grad=cwpam.u -j tmp/rr.2/model.tar.gz -u
+allennlp train training_config/bidaf.num_epochs=200.jsonnet -s tmp/gB.j.pt=rr.2.u -d gB -j tmp/rr.2/model.tar.gz -u
+allennlp train training_config/bidaf.num_epochs=200.j.no_grad=cw.jsonnet -s tmp/gB.j.no_grad=cw.u -d gB -j tmp/rr.2/model.tar.gz -u
+allennlp train training_config/bidaf.num_epochs=200.j.no_grad=cwp.jsonnet -s tmp/gB.j.no_grad=cwp.u -d gB -j tmp/rr.2/model.tar.gz -u
+allennlp train training_config/bidaf.num_epochs=200.j.no_grad=cwpa.jsonnet -s tmp/gB.j.no_grad=cwpa.u -d gB -j tmp/rr.2/model.tar.gz -u
+allennlp train training_config/bidaf.num_epochs=200.j.no_grad=cwpam.jsonnet -s tmp/gB.j.no_grad=cwpam.u -d gB -j tmp/rr.2/model.tar.gz -u
 
 # Train b on gb with SL on oracle
 allennlp train training_config/bidaf.cpu.mini.debug.jsonnet -s tmp/debug -j training_config/bidaf.cpu.mini.debug.jsonnet -u -d gb -m sl
@@ -127,8 +127,8 @@ allennlp train training_config/bidaf.patience=None.num_epochs=200.size=2.jsonnet
 allennlp train training_config/bidaf.num_epochs=200.jsonnet -d rr -s tmp/ab.pt\=rr -j tmp/rr.2/model.tar.gz -r -e
 
 # Evaluate arj
-allennlp train training_config/bidaf.patience=None.num_epochs=200.jsonnet -d ar -s tmp/ab.3.pt\=rr.2.u -j training_config/bidaf.num_epochs=200.jsonnet -r -e
-allennlp train training_config/bidaf.patience=None.num_epochs=200.jsonnet -d ar -s tmp/ab.3.pt\=rr.2.u -j tmp/rr.3/model.tar.gz -r -e
+allennlp train training_config/bidaf.patience=None.num_epochs=200.jsonnet -s tmp/ab.3.pt\=rr.2.u -d ar -j training_config/bidaf.num_epochs=200.jsonnet -r -e
+allennlp train training_config/bidaf.patience=None.num_epochs=200.jsonnet -s tmp/ab.3.pt\=rr.2.u -d ar -j tmp/rr.3/model.tar.gz -r -e
 
 # Evaluate j with gB
 allennlp train training_config/bidaf.cpu.mini.debug.jsonnet -s tmp/debug -e -d gB
@@ -158,10 +158,9 @@ srun --pty --mem=20000 -t 1-23:58 --gres=gpu:1080ti:1 bash
 srun --pty --mem=20000 -t 6-23:58 --gres=gpu:p40 bash
 
 # SBATCH
-# NB: Update SERIALIZATION_DIR every run!
-export SERIALIZATION_DIR=tmp/race_augmented.bert.bsz=16.lr=5e-5.f
+export COMMAND="allennlp train training_config/bert.race_augmented.lr=5e-5.jsonnet -s tmp/race_augmented.bert.bsz=16.lr=5e-5.f -d f -a 2 -f -b 1"
+export COMMAND_ARRAY=($COMMAND)
+export SERIALIZATION_DIR="${COMMAND_ARRAY[4]}"
 if test -e $SERIALIZATION_DIR; then echo -e "\n${PURPLE}NOTICE: Directory already exists.\n"; else mkdir -p $SERIALIZATION_DIR; fi
-sbatch --job-name $SERIALIZATION_DIR --mem=20000 -t 1-23:58 --gres=gpu:p40 --open-mode append --requeue --wrap "\
-allennlp train training_config/bert.race_augmented.lr=5e-5.jsonnet -s tmp/race_augmented.bert.bsz=16.lr=5e-5.f -d f -a 2 -f -b 1
-"
+sbatch --job-name $SERIALIZATION_DIR --mem=20000 -t 1-23:58 --gres=gpu:p40 --open-mode append --requeue --wrap "$COMMAND"
 echo -e "\n${CYAN}${SERIALIZATION_DIR}/train.log\n"

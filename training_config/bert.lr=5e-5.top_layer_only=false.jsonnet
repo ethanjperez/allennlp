@@ -1,6 +1,6 @@
 {
   "dataset_reader": {
-    "type": "race",
+    "type": "squad",
     "token_indexers": {
       "tokens": {
           "type": "bert-pretrained",
@@ -10,8 +10,8 @@
       }
     }
   },
-  "train_data_path": "datasets/race/race-train-v1.0.json",
-  "validation_data_path": "datasets/race/race-dev-v1.0.json",
+  "train_data_path": "datasets/squad/squad-train-v1.1.json",
+  "validation_data_path": "datasets/squad/squad-dev-v1.1.json",
   "model": {
     "type": "bert-qa",
     "text_field_embedder": {
@@ -24,9 +24,17 @@
           "type": "bert-pretrained",
           "pretrained_model": "bert-base-uncased",
           "requires_grad": true,
-          "top_layer_only": true
+          "top_layer_only": false
         }
       }
+    },
+    "span_end_encoder": {
+      "type": "lstm",
+      "bidirectional": true,
+      "input_size": 2304,
+      "hidden_size": 100,
+      "num_layers": 1,
+      "dropout": 0.1
     },
     "dropout": 0.1
   },
@@ -48,7 +56,7 @@
       "patience": 1
     },
     "optimizer": {
-      "lr": 0.00002,
+      "lr": 0.00005,
       "type": "bert_adam",
       "betas": [0.9, 0.999]
     }

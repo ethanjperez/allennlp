@@ -36,15 +36,6 @@
       "num_layers": 1,
       "dropout": 0.1
     },
-    "regularizer": [
-      [
-        "scalar_parameters",
-        {
-          "type": "l2",
-          "alpha": 0.01
-        }
-      ]
-    ],
     "dropout": 0.1
   },
   "iterator": {
@@ -66,7 +57,7 @@
     },
     "optimizer": {
       "lr": 0.00002,
-      "type": "adam",
+      "type": "bert_adam",
       "betas": [0.9, 0.999]
     }
   }

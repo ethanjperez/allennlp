@@ -24,7 +24,7 @@
           "type": "bert-pretrained",
           "pretrained_model": "bert-base-uncased",
           "requires_grad": true,
-          "top_layer_only": true
+          "top_layer_only": false
         }
       }
     },
@@ -48,7 +48,7 @@
       "patience": 1
     },
     "optimizer": {
-      "lr": 0.00002,
+      "lr": 0.00005,
       "type": "bert_adam",
       "betas": [0.9, 0.999]
     }
