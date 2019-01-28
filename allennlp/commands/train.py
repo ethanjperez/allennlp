@@ -67,12 +67,6 @@ class Train(Subcommand):
                                type=str,
                                help='directory in which to save the model and its logs')
 
-        # Debate: Debate mode: Use A/B or random sentences (and in what order). Used for training and evaluation.
-        subparser.add_argument('-d', '--debate_mode',
-                               required=True,
-                               nargs='+',
-                               help='how to select sentences shown to judge')
-
         subparser.add_argument('-r', '--recover',
                                action='store_true',
                                default=False,
@@ -94,6 +88,11 @@ class Train(Subcommand):
                                help='outputs tqdm status on separate lines and slows tqdm refresh rate')
 
         # Debate options below
+        subparser.add_argument('-d', '--debate_mode',
+                               default=['f'],
+                               nargs='+',
+                               help='how to select sentences shown to judge')
+
         subparser.add_argument('-j', '--judge_filename',
                                type=str,
                                default=None,
@@ -170,7 +169,7 @@ def train_model_from_args(args: argparse.Namespace):
 
 def train_model_from_file(parameter_filename: str,
                           serialization_dir: str,
-                          debate_mode: List[str],
+                          debate_mode: List[str] = ('f'),
                           overrides: str = "",
                           file_friendly_logging: bool = False,
                           recover: bool = False,
@@ -214,7 +213,7 @@ def train_model_from_file(parameter_filename: str,
 
 def train_model(params: Params,
                 serialization_dir: str,
-                debate_mode: List[str],
+                debate_mode: List[str] = ('f'),
                 file_friendly_logging: bool = False,
                 recover: bool = False,
                 force: bool = False,
