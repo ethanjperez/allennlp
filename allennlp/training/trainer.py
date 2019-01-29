@@ -1110,7 +1110,8 @@ class Trainer(TrainerBase):
         # Otherwise, if not multi-gpu mode, run with the default behavior
         else:
             model_device = cuda_device if isinstance(cuda_device, int) else cuda_device[0]
-            model = model.cuda(model_device)
+            if model_device >= 0:
+                model = model.cuda(model_device)
 
         # Creates Optimizer Parameters on the appropriate GPU
         parameters = [[n, p] for n, p in model.named_parameters() if p.requires_grad]

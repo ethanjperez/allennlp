@@ -67,7 +67,8 @@ def sparse_clip_norm(parameters, max_norm, norm_type=2) -> float:
 
             # Cast param_norm to appropriate GPU
             if not isinstance(total_norm, int):
-                param_norm = param_norm.cuda(total_norm.device)
+                if not total_norm.device.type == 'cpu':
+                    param_norm = param_norm.cuda(total_norm.device)
 
             total_norm += param_norm ** norm_type
         total_norm = total_norm ** (1. / norm_type)
@@ -75,9 +76,15 @@ def sparse_clip_norm(parameters, max_norm, norm_type=2) -> float:
     if clip_coef < 1:
         for p in parameters:
             if p.grad.is_sparse:
-                p.grad.data._values().mul_(clip_coef.cuda(p.device))
+                if not p.device.type == 'cpu':
+                    p.grad.data._values().mul_(clip_coef.cuda(p.device))
+                else:
+                    p.grad.data._values().mul_(clip_coef)
             else:
-                p.grad.data.mul_(clip_coef.cuda(p.device))
+                if not p.device.type == 'cpu':
+                    p.grad.data.mul_(clip_coef.cuda(p.device))
+                else:
+                    p.grad.data.mul_(clip_coef)
     return total_norm
 
 

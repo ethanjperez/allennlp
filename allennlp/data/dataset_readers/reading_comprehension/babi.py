@@ -15,8 +15,8 @@ from allennlp.data.tokenizers import Token, Tokenizer, WordTokenizer
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 
 
-@DatasetReader.register("babi")
-class BabiReader(DatasetReader):
+@DatasetReader.register("babi_single")
+class BabiSingleReader(DatasetReader):
     """
     Reads a JSON-formatted bAbI file and returns a ``Dataset`` where the ``Instances`` have four
     fields: ``question``, a ``TextField``, ``passage``, another ``TextField``, and ``span_start``
@@ -123,81 +123,85 @@ if __name__ == "__main__":
     # Create Data Dictionary
     train_data, val_data, test_data = {"data": []}, {"data": []}, {"data": []}
 
-    for dt in ['train', 'dev', 'test']:
-        dt_path = os.path.join(race_raw_path, dt)
-        for lvl in ['middle', 'high']:
-            dt_lvl_path = os.path.join(dt_path, lvl)
+    for dt in ['train', 'valid', 'test']:
+        dt_path = os.path.join(race_raw_path, "qa1_%s.txt" % dt)
+        with open(dt_path, 'r') as f:
+            lines = f.readlines()
 
-            # Get all articles
-            articles = os.listdir(dt_lvl_path)
-            for article in articles:
-                art_file = os.path.join(dt_lvl_path, article)
-                with open(art_file, 'rb') as f:
-                    art_data = json.load(f)
+        # Iterate through lines, and start building story, question, answer, supporting fact pairs
+        stories, questions, answers, sub_story = [], [], [], []
+        for i in range(len(lines)):
+            # Question/Answer/Supporting Fact Line
+            if '\t' in lines[i]:
+                _, line = lines[i].split(' ', 1)
+                q, a, sup_fact = map(str.strip, line.split('\t'))
 
-                # Set up top level json dict
-                article_dict = {"title": art_data["id"], "paragraphs": []}
+                # Assemble story so far, get correct answer span (in appropriate answer fact)
+                ids, sentences = map(list, list(zip(*sub_story)))
 
-                # Iterate through questions
-                for q in range(len(art_data["questions"])):
-                    # Possibly exclude an option for data augmentation purposes. Encourages answering by elimination.
-                    for qa_version_no, excluded_options in enumerate(excluded_options_sets):
-                        # Name for this version of the QA pair
-                        removed_answers_str = ''.join([str(ex_opt) for ex_opt in excluded_options])
+                # Add spaces to beginning of each sentence starting with the second
+                for j in range(1, len(sentences)):
+                    sentences[j] = " " + sentences[j]
 
-                        # Get base context
-                        base_context = art_data["article"]
+                # Find supporting fact sentence
+                s_idx, span_start = ids.index(int(sup_fact)), 0
 
-                        # Create Instance Dictionary
-                        paragraph_dict = {}
+                # Create final story, identify answer start span
+                composite_story, span_tracker, answer_start_span = "", 0, 0
+                for j in range(len(sentences)):
+                    if j == s_idx:
+                        answer_start_span = span_tracker + sentences[j].index(a)
 
-                        # Get Question
-                        question = art_data["questions"][q]
+                    composite_story += sentences[j]
+                    span_tracker += len(sentences[j])
 
-                        # Get Options
-                        options = art_data["options"][q]
+                # Add to trackers
+                stories.append(composite_story)
+                questions.append(q)
+                answers.append((answer_start_span, a))
 
-                        # Get Answer
-                        answer = art_data["answers"][q]
+            # Regular (Story) Line
+            else:
+                # Get line number, and processed line (strip)
+                n_id, line = lines[i].split(' ', 1)
+                n_id, line = int(n_id), line.strip()
 
-                        # Build Context with all Options
-                        span_answer_start, span_answer_text = None, None
-                        all_pos_answers_text = ""
-                        for i, answer_token in enumerate(answer_tokens):
-                            if i not in excluded_options:
-                                all_pos_answers_text += options[i] + " "
-                            if answer_token == letter_to_answer_token[answer]:
-                                span_answer_start = len(all_pos_answers_text)
-                                span_answer_text = answer_token
-                            all_pos_answers_text += answer_token + " "
-                        base_context = all_pos_answers_text + base_context
+                # Reset stories, sub_story if n_id == 1
+                if n_id == 1:
+                    sub_story = []
 
-                        # Get Q_ID
-                        qid = hex(hash(art_file + question + removed_answers_str))[2:]
+                # Add n_id, line to substory
+                sub_story.append((n_id, line))
 
-                        # Assemble dictionary
-                        paragraph_dict["context"] = base_context
-                        paragraph_dict["qas"] = [{"answers": [{"answer_start": span_answer_start, "text": span_answer_text}],
-                                                  "question": question,
-                                                  "id": qid}]
+        # Assemble JSON Files
+        for i in range(len(stories)):
+            story, question, answer = stories[i], questions[i], answers[i]
 
-                        # Append to article dict
-                        article_dict["paragraphs"].append(paragraph_dict)
+            # Create necessary fields
+            article_dict = {"title": "story_%d" % i, "paragraphs": []}
 
-                # Add article dict to data
-                if dt == "train":
-                    train_data["data"].append(article_dict)
-                elif dt == "dev":
-                    val_data["data"].append(article_dict)
-                elif dt == "test":
-                    test_data["data"].append(article_dict)
+            # Create single-entry paragraph dictionary
+            paragraph_dict = {"context": story,
+                              "qas": [{"answers": [{"answer_start": answer[0], "text": answer[1]}],
+                                       "question": question,
+                                       "id": hex(hash("story_%d_query_%s" % (i, question)))[2:]}]
+                              }
+            article_dict["paragraphs"].append(paragraph_dict)
+
+            # Add article dict to data
+            if dt == 'train':
+                train_data["data"].append(article_dict)
+            elif dt == 'valid':
+                val_data["data"].append(article_dict)
+            elif dt == 'test':
+                test_data["data"].append(article_dict)
 
     # Dump JSON Files
-    with open(os.path.join(race_path, "race-train-v1.0.json"), 'w') as f:
+    with open(os.path.join(babi_path, "babi-train-v1.0.json"), 'w') as f:
         json.dump(train_data, f)
 
-    with open(os.path.join(race_path, "race-dev-v1.0.json"), 'w') as f:
+    with open(os.path.join(babi_path, "babi-dev-v1.0.json"), 'w') as f:
         json.dump(val_data, f)
 
-    with open(os.path.join(race_path, "race-test-v1.0.json"), 'w') as f:
+    with open(os.path.join(babi_path, "babi-test-v1.0.json"), 'w') as f:
         json.dump(test_data, f)
