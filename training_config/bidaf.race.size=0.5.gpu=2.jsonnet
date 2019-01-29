@@ -92,7 +92,7 @@
     "grad_norm": 5.0,
     "patience": 10,
     "validation_metric": "+em",
-    "cuda_device": 0,
+    "cuda_device": [0, 1],
     "learning_rate_scheduler": {
       "type": "reduce_on_plateau",
       "factor": 0.5,
@@ -105,7 +105,7 @@
     }
   },
 
-  "gpu-allocations": {
+  "gpu_allocations": {
     "trainer": 0,
     "judge": 0,
     "debate": 1

@@ -264,6 +264,7 @@ class BidirectionalAttentionFlow(Model):
             # NB: Using heuristic to get mask
             final_merged_passage_mask = (final_merged_passage != 0).float()
             final_merged_passage = self._film(final_merged_passage, turn_gammas - 1., turn_betas) * final_merged_passage_mask
+
         modeled_passage = self._dropout(self._modeling_layer(final_merged_passage, passage_lstm_mask))
         modeling_dim = modeled_passage.size(-1)
 
@@ -274,6 +275,7 @@ class BidirectionalAttentionFlow(Model):
             critic_input = span_start_input_full.detach() if self._detach_value_head else span_start_input_full
             # Shape: (batch_size)
             value = (self._critic(critic_input).squeeze(-1) * passage_mask).mean(1)
+
         # Shape: (batch_size, passage_length)
         span_start_logits = self._span_start_predictor(span_start_input).squeeze(-1)
         # Shape: (batch_size, passage_length)
@@ -304,14 +306,14 @@ class BidirectionalAttentionFlow(Model):
         best_span = self.get_best_span(span_start_logits, span_end_logits)
 
         output_dict = {
-                "passage_question_attention": passage_question_attention,
-                "span_start_logits": span_start_logits,
-                "span_start_probs": span_start_probs,
-                "span_end_logits": span_end_logits,
-                "span_end_probs": span_end_probs,
-                "best_span": best_span,
-                "value": value if not self.is_judge else None,
-                }
+            "passage_question_attention": passage_question_attention,
+            "span_start_logits": span_start_logits,
+            "span_start_probs": span_start_probs,
+            "span_end_logits": span_end_logits,
+            "span_end_probs": span_end_probs,
+            "best_span": best_span,
+            "value": value if not self.is_judge else None,
+        }
 
         # Compute the loss for training.
         if span_start is not None:
@@ -359,12 +361,12 @@ class BidirectionalAttentionFlow(Model):
     def get_metrics(self, reset: bool = False, per_sample: bool = False) -> Dict[str, float]:
         exact_match, f1_score = self._squad_metrics.get_metric(reset, per_sample)
         return {
-                'start_acc': self._span_start_accuracy.get_metric(reset),
-                'end_acc': self._span_end_accuracy.get_metric(reset),
-                'span_acc': self._span_accuracy.get_metric(reset),
-                'em': exact_match,
-                'f1': f1_score,
-                }
+            'start_acc': self._span_start_accuracy.get_metric(reset),
+            'end_acc': self._span_end_accuracy.get_metric(reset),
+            'span_acc': self._span_accuracy.get_metric(reset),
+            'em': exact_match,
+            'f1': f1_score,
+        }
 
     @staticmethod
     def get_best_span(span_start_logits: torch.Tensor, span_end_logits: torch.Tensor) -> torch.Tensor:
