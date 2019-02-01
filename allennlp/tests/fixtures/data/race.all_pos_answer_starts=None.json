@@ -12,25 +12,7 @@
                                     "text": "1st"
                                 }
                             ],
-                            "char_answer_choice_spans": [
-                                [
-                                    0,
-                                    14
-                                ],
-                                [
-                                    15,
-                                    29
-                                ],
-                                [
-                                    30,
-                                    42
-                                ],
-                                [
-                                    43,
-                                    54
-                                ]
-                            ],
-                            "id": "6ccc2247ee523b13",
+                            "id": "x4eb2f4e5d0bc4ece",
                             "question": "The first postage stamp was made   _   ."
                         }
                     ]
@@ -45,25 +27,7 @@
                                     "text": "4th"
                                 }
                             ],
-                            "char_answer_choice_spans": [
-                                [
-                                    0,
-                                    39
-                                ],
-                                [
-                                    40,
-                                    79
-                                ],
-                                [
-                                    80,
-                                    138
-                                ],
-                                [
-                                    139,
-                                    195
-                                ]
-                            ],
-                            "id": "153a5c16c5706f5c",
+                            "id": "x721dab01b88402e7",
                             "question": "The girl handed the letter back to the mailman because   _   ."
                         }
                     ]
@@ -78,25 +42,7 @@
                                     "text": "1st"
                                 }
                             ],
-                            "char_answer_choice_spans": [
-                                [
-                                    0,
-                                    56
-                                ],
-                                [
-                                    57,
-                                    118
-                                ],
-                                [
-                                    119,
-                                    170
-                                ],
-                                [
-                                    171,
-                                    221
-                                ]
-                            ],
-                            "id": "x3f963fb89143c48b",
+                            "id": "7a51eb34f9dcc544",
                             "question": "We can know from Alice's words that   _   ."
                         }
                     ]
@@ -111,25 +57,7 @@
                                     "text": "2nd"
                                 }
                             ],
-                            "char_answer_choice_spans": [
-                                [
-                                    0,
-                                    18
-                                ],
-                                [
-                                    19,
-                                    39
-                                ],
-                                [
-                                    40,
-                                    55
-                                ],
-                                [
-                                    56,
-                                    63
-                                ]
-                            ],
-                            "id": "x166d4475017e7884",
+                            "id": "73c11fd01fd678af",
                             "question": "The idea of using stamps was thought of by   _   ."
                         }
                     ]
@@ -144,25 +72,7 @@
                                     "text": "3rd"
                                 }
                             ],
-                            "char_answer_choice_spans": [
-                                [
-                                    0,
-                                    40
-                                ],
-                                [
-                                    41,
-                                    91
-                                ],
-                                [
-                                    92,
-                                    137
-                                ],
-                                [
-                                    138,
-                                    184
-                                ]
-                            ],
-                            "id": "45ec4f29d82d5262",
+                            "id": "x375ffef0dceefb84",
                             "question": "From the passage we know the high postage made   _   ."
                         }
                     ]
@@ -182,25 +92,7 @@
                                     "text": "1st"
                                 }
                             ],
-                            "char_answer_choice_spans": [
-                                [
-                                    0,
-                                    41
-                                ],
-                                [
-                                    42,
-                                    110
-                                ],
-                                [
-                                    111,
-                                    178
-                                ],
-                                [
-                                    179,
-                                    244
-                                ]
-                            ],
-                            "id": "x2d3ed5c47095c583",
+                            "id": "7145511d9b916ab3",
                             "question": "Which of the following statements is WRONG according to the passage?"
                         }
                     ]
@@ -215,25 +107,7 @@
                                     "text": "2nd"
                                 }
                             ],
-                            "char_answer_choice_spans": [
-                                [
-                                    0,
-                                    21
-                                ],
-                                [
-                                    22,
-                                    38
-                                ],
-                                [
-                                    39,
-                                    74
-                                ],
-                                [
-                                    75,
-                                    97
-                                ]
-                            ],
-                            "id": "6894dd842a59d52f",
+                            "id": "x1b8ae5c7b0ad1a12",
                             "question": "Which of the following can NOT help people to lose weight according to the passage?"
                         }
                     ]
@@ -248,25 +122,7 @@
                                     "text": "1st"
                                 }
                             ],
-                            "char_answer_choice_spans": [
-                                [
-                                    0,
-                                    30
-                                ],
-                                [
-                                    31,
-                                    64
-                                ],
-                                [
-                                    65,
-                                    100
-                                ],
-                                [
-                                    101,
-                                    140
-                                ]
-                            ],
-                            "id": "x59dde23d364945b9",
+                            "id": "2afc3e8db4474f31",
                             "question": "Many people can't control their weight during the holidays mainly because they   _  ."
                         }
                     ]
@@ -281,25 +137,7 @@
                                     "text": "2nd"
                                 }
                             ],
-                            "char_answer_choice_spans": [
-                                [
-                                    0,
-                                    34
-                                ],
-                                [
-                                    35,
-                                    65
-                                ],
-                                [
-                                    66,
-                                    85
-                                ],
-                                [
-                                    86,
-                                    116
-                                ]
-                            ],
-                            "id": "13bd70ee24d6d4bb",
+                            "id": "x2d89dbd9142675dd",
                             "question": "If the passage appeared in a newspaper, which section is the most suitable one?"
                         }
                     ]
@@ -314,25 +152,7 @@
                                     "text": "3rd"
                                 }
                             ],
-                            "char_answer_choice_spans": [
-                                [
-                                    0,
-                                    34
-                                ],
-                                [
-                                    35,
-                                    80
-                                ],
-                                [
-                                    81,
-                                    124
-                                ],
-                                [
-                                    125,
-                                    168
-                                ]
-                            ],
-                            "id": "x13931780ed51580",
+                            "id": "x208dcafa26547eff",
                             "question": "What is the best title of the passage?"
                         }
                     ]
@@ -341,5 +161,5 @@
             "title": "high9216.txt"
         }
     ],
-    "version": "pos-answer-spans"
+    "version": "new-preprocessing"
 }

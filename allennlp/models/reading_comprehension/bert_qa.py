@@ -52,20 +52,16 @@ class BertQA(Model):
                  judge: Model = None,
                  update_judge: bool = False,
                  reward_method: str = None,
-                 detach_value_head: bool = False,
-                 dataset_name: str = 'squad') -> None:
+                 detach_value_head: bool = False) -> None:
         super(BertQA, self).__init__(vocab, regularizer)
 
-        answer_type_of = {'squad': 'span', 'race': 'mc'}  # NOTE: Add new datasets here (with existing answer type)
         self.judge = judge
         self.is_judge = self.judge is None
         self.reward_method = None if self.is_judge else reward_method
         self.update_judge = update_judge and (self.judge is not None)
         self._detach_value_head = detach_value_head
-        self.dataset_name = dataset_name
-        assert self.dataset_name in answer_type_of.keys(), 'Please add to this Model the answer_type_of this dataset.'
-        self._answer_type = answer_type_of[self.dataset_name]
         self._text_field_embedder = text_field_embedder
+        self.answer_type = 'span' if (span_end_encoder is not None) else 'mc'
 
         span_start_input_dim = text_field_embedder.get_output_dim()
         if not self.is_judge:
@@ -74,7 +70,7 @@ class BertQA(Model):
             self._film = FiLM()
         self._span_start_predictor = TimeDistributed(torch.nn.Linear(span_start_input_dim, 1))
 
-        if self._answer_type == 'span':
+        if self.answer_type == 'span':
             self._span_end_encoder = span_end_encoder  # NOTE: Use low capacity
             span_end_input_dim = text_field_embedder.get_output_dim() + span_end_encoder.get_output_dim()
             self._span_end_predictor = TimeDistributed(torch.nn.Linear(span_end_input_dim, 1))
@@ -99,7 +95,8 @@ class BertQA(Model):
                 span_start: torch.IntTensor = None,
                 span_end: torch.IntTensor = None,
                 metadata: List[Dict[str, Any]] = None,
-                store_metrics: bool = True) -> Dict[str, torch.Tensor]:
+                store_metrics: bool = True,
+                valid_output_mask: torch.LongTensor = None) -> Dict[str, torch.Tensor]:
         # pylint: disable=arguments-differ
         """
         Parameters
@@ -128,6 +125,8 @@ class BertQA(Model):
         store_metrics : bool
             If true, stores metrics (if applicable) within model metric tracker.
             If false, returns resulting metrics immediately, without updating the model metric tracker.
+        valid_output_mask: ``torch.LongTensor``, optional
+            The locations for a valid answer. Used to limit the model's output space.
 
         Returns
         -------
@@ -153,40 +152,44 @@ class BertQA(Model):
             string from the original passage that the model thinks is the best answer to the
             question.
         """
-        sep_token = 102  # TODO: Get this directly from vocab
+        sep_token = metadata[0]['[SEP]'] if '[SEP]' in metadata[0] else self.vocab._token_to_index['bert']['[SEP]']
         sep_token_mask = (passage['tokens'] == sep_token).long()
         token_type_ids = (sep_token_mask.cumsum(-1) - sep_token_mask).clamp(max=1)
         if not self.is_judge:
             assert(metadata is not None and 'a_turn' in metadata[0])
-            a_turn = torch.tensor([sample_metadata['a_turn'] for sample_metadata in metadata],
-                      dtype=passage.dtype, device=passage.device).unsqueeze(1)
-            if self._text_field_embedder.requires_grad:  # TODO: Use boolean variable passed in to determine if A/B should use Frozen Judge BERT or their own updating BERT
-                token_type_ids[:, 0] = a_turn
+            a_turn = torch.tensor([sample_metadata['a_turn'] for sample_metadata in metadata]).to(passage['tokens']).unsqueeze(1)
+            # TODO: Use boolean variable passed in to determine if A/B should use Frozen Judge BERT or their own updating BERT
+            if self._text_field_embedder._token_embedders['tokens'].requires_grad:
+                token_type_ids[:, 0] = a_turn.squeeze(1)
+            a_turn = a_turn.float()
         # Shape: (batch_size, passage_length, modeling_dim)
         modeled_passage = self._text_field_embedder(passage)
         batch_size, passage_length, modeling_dim = modeled_passage.size()
         passage_mask = util.get_text_field_mask(passage).float()
+        if valid_output_mask is None:  # NB: Make this use question make too for normal Judge training
+            valid_output_mask = passage_mask
 
         # Debate: Post-BERT agent-based conditioning
         if not self.is_judge:
             turn_film_params = self._turn_film_gen(a_turn)
-            turn_gammas, turn_betas = torch.split(turn_film_params, self._modeling_layer.get_input_dim(), dim=-1)
-            modeled_passage = self._film(modeled_passage, 1. + turn_gammas, turn_betas) * passage_mask  # NB: Check you need to apply passage_mask here
+            turn_gammas, turn_betas = torch.split(turn_film_params, modeling_dim, dim=-1)
+            # NB: Check you need to apply passage_mask here
+            modeled_passage = self._film(modeled_passage, 1. + turn_gammas, turn_betas) * passage_mask.unsqueeze(-1)
 
         span_start_input = self._dropout(modeled_passage)
         if not self.is_judge:
-            critic_input = modeled_passage.detach() if self._detach_value_head else modeled_passage
+            value_head_input = modeled_passage.detach() if self._detach_value_head else modeled_passage
             # Shape: (batch_size)
-            value = (self._critic(critic_input).squeeze(-1) * passage_mask).mean(1)
+            value = (self._value_head(value_head_input).squeeze(-1) * passage_mask).mean(1)
         # Shape: (batch_size, passage_length)
         span_start_logits = self._span_start_predictor(span_start_input).squeeze(-1)
         # Shape: (batch_size, passage_length)
-        span_start_probs = util.masked_softmax(span_start_logits, passage_mask)  # NB: Can improve mask for mc
+        span_start_probs = util.masked_softmax(span_start_logits, valid_output_mask)
 
-        if self._answer_type == 'mc':
+        if self.answer_type == 'mc':
             span_end_logits = span_start_logits
             span_end_probs = span_start_probs
-        elif self._answer_type == 'span':
+        elif self.answer_type == 'span':
             # Shape: (batch_size, modeling_dim)
             span_start_representation = util.weighted_sum(modeled_passage, span_start_probs)
             # Shape: (batch_size, passage_length, modeling_dim)
@@ -205,9 +208,9 @@ class BertQA(Model):
             # Shape: (batch_size, passage_length, encoding_dim + span_end_encoding_dim)
             span_end_input = self._dropout(torch.cat([modeled_passage, encoded_span_end], dim=-1))
             span_end_logits = self._span_end_predictor(span_end_input).squeeze(-1)
-            span_end_probs = util.masked_softmax(span_end_logits, passage_mask)
-        span_start_logits = util.replace_masked_values(span_start_logits, passage_mask, -1e7)
-        span_end_logits = util.replace_masked_values(span_end_logits, passage_mask, -1e7)
+            span_end_probs = util.masked_softmax(span_end_logits, valid_output_mask)
+        span_start_logits = util.replace_masked_values(span_start_logits, valid_output_mask, -1e7)
+        span_end_logits = util.replace_masked_values(span_end_logits, valid_output_mask, -1e7)
         best_span = self.get_best_span(span_start_logits, span_end_logits)
 
         output_dict = {
@@ -221,14 +224,14 @@ class BertQA(Model):
 
         # Compute the loss for training.
         if span_start is not None:
-            if self._answer_type == 'span':
-                span_start[span_start >= passage_mask.size(1)] = -100  # Don't add to loss if span not in input. NOTE: Hacky
-            loss = nll_loss(util.masked_log_softmax(span_start_logits, passage_mask), span_start.squeeze(-1))
+            if self.answer_type == 'span':
+                span_start[span_start >= valid_output_mask.size(1)] = -100  # Don't add to loss if span not in input. NB: Hacky: Will alter effective batch size
+            loss = nll_loss(util.masked_log_softmax(span_start_logits, valid_output_mask), span_start.squeeze(-1))
             if store_metrics:
                 self._span_start_accuracy(span_start_logits, span_start.squeeze(-1))
-            if self._answer_type == 'span':
-                span_end[span_end >= passage_mask.size(1)] = -100  # Don't add to loss if span not in input. NOTE: Hacky
-                loss += nll_loss(util.masked_log_softmax(span_end_logits, passage_mask), span_end.squeeze(-1))
+            if self.answer_type == 'span':
+                span_end[span_end >= valid_output_mask.size(1)] = -100  # Don't add to loss if span not in input. NB: Hacky: Will alter effective batch size
+                loss += nll_loss(util.masked_log_softmax(span_end_logits, valid_output_mask), span_end.squeeze(-1))
             if store_metrics:
                 self._span_end_accuracy(span_end_logits, span_end.squeeze(-1))
                 self._span_accuracy(best_span, torch.stack([span_start, span_end], -1))

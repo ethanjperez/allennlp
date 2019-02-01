@@ -113,8 +113,7 @@ class BidirectionalAttentionFlow(Model):
         modeling_dim = modeling_layer.get_output_dim()
         span_start_input_dim = encoding_dim * 4 + modeling_dim
         if not self.is_judge:
-            # NB: Rename to value head. Would break loading old checkpoints.
-            self._critic = TimeDistributed(torch.nn.Linear(span_start_input_dim, 1))  # NB: Can make MLP
+            self._value_head = TimeDistributed(torch.nn.Linear(span_start_input_dim, 1))  # NB: Can make MLP
         self._span_start_predictor = TimeDistributed(torch.nn.Linear(span_start_input_dim, 1))
 
         span_end_encoding_dim = span_end_encoder.get_output_dim()
@@ -157,7 +156,8 @@ class BidirectionalAttentionFlow(Model):
                 span_start: torch.IntTensor = None,
                 span_end: torch.IntTensor = None,
                 metadata: List[Dict[str, Any]] = None,
-                store_metrics: bool = True) -> Dict[str, torch.Tensor]:
+                store_metrics: bool = True,
+                valid_output_mask: torch.LongTensor = None) -> Dict[str, torch.Tensor]:
         # pylint: disable=arguments-differ
         """
         Parameters
@@ -186,6 +186,8 @@ class BidirectionalAttentionFlow(Model):
         store_metrics : bool
             If true, stores metrics (if applicable) within model metric tracker.
             If false, returns resulting metrics immediately, without updating the model metric tracker.
+        valid_output_mask: ``torch.LongTensor``, optional
+            The locations for a valid answer. Used to limit the model's output space.
 
         Returns
         -------
@@ -257,8 +259,7 @@ class BidirectionalAttentionFlow(Model):
         # Debate: Conditioning on whose turn it is (A/B)
         if not self.is_judge:
             assert(metadata is not None and 'a_turn' in metadata[0])
-            a_turn = torch.tensor([sample_metadata['a_turn'] for sample_metadata in metadata],
-                                  dtype=final_merged_passage.dtype, device=final_merged_passage.device).unsqueeze(1)
+            a_turn = torch.tensor([sample_metadata['a_turn'] for sample_metadata in metadata]).to(final_merged_passage).unsqueeze(1)
             turn_film_params = self._turn_film_gen(a_turn)
             turn_gammas, turn_betas = torch.split(turn_film_params, self._modeling_layer.get_input_dim(), dim=-1)
             # NB: Using heuristic to get mask
@@ -271,13 +272,14 @@ class BidirectionalAttentionFlow(Model):
         span_start_input_full = torch.cat([final_merged_passage, modeled_passage], dim=-1)
         span_start_input = self._dropout(span_start_input_full)
         if not self.is_judge:
-            critic_input = span_start_input_full.detach() if self._detach_value_head else span_start_input_full
+            value_head_input = span_start_input_full.detach() if self._detach_value_head else span_start_input_full
             # Shape: (batch_size)
-            value = (self._critic(critic_input).squeeze(-1) * passage_mask).mean(1)
+            value = (self._value_head(value_head_input).squeeze(-1) * passage_mask).mean(1)
         # Shape: (batch_size, passage_length)
         span_start_logits = self._span_start_predictor(span_start_input).squeeze(-1)
+        valid_output_mask = passage_mask if valid_output_mask is None else valid_output_mask
         # Shape: (batch_size, passage_length)
-        span_start_probs = util.masked_softmax(span_start_logits, passage_mask)
+        span_start_probs = util.masked_softmax(span_start_logits, valid_output_mask)
 
         # Shape: (batch_size, modeling_dim)
         span_start_representation = util.weighted_sum(modeled_passage, span_start_probs)
@@ -298,9 +300,9 @@ class BidirectionalAttentionFlow(Model):
         # Shape: (batch_size, passage_length, encoding_dim * 4 + span_end_encoding_dim)
         span_end_input = self._dropout(torch.cat([final_merged_passage, encoded_span_end], dim=-1))
         span_end_logits = self._span_end_predictor(span_end_input).squeeze(-1)
-        span_end_probs = util.masked_softmax(span_end_logits, passage_mask)
-        span_start_logits = util.replace_masked_values(span_start_logits, passage_mask, -1e7)
-        span_end_logits = util.replace_masked_values(span_end_logits, passage_mask, -1e7)
+        span_end_probs = util.masked_softmax(span_end_logits, valid_output_mask)
+        span_start_logits = util.replace_masked_values(span_start_logits, valid_output_mask, -1e7)
+        span_end_logits = util.replace_masked_values(span_end_logits, valid_output_mask, -1e7)
         best_span = self.get_best_span(span_start_logits, span_end_logits)
 
         output_dict = {
@@ -316,11 +318,11 @@ class BidirectionalAttentionFlow(Model):
         # Compute the loss for training.
         if span_start is not None:
             span_start[span_start >= passage_mask.size(1)] = -100  # NB: Hacky. Don't add to loss if span not in input
-            loss = nll_loss(util.masked_log_softmax(span_start_logits, passage_mask), span_start.squeeze(-1))
+            loss = nll_loss(util.masked_log_softmax(span_start_logits, valid_output_mask), span_start.squeeze(-1))
             if store_metrics:
                 self._span_start_accuracy(span_start_logits, span_start.squeeze(-1))
             span_end[span_end >= passage_mask.size(1)] = -100  # NB: Hacky. Don't add to loss if span not in input
-            loss += nll_loss(util.masked_log_softmax(span_end_logits, passage_mask), span_end.squeeze(-1))
+            loss += nll_loss(util.masked_log_softmax(span_end_logits, valid_output_mask), span_end.squeeze(-1))
             if store_metrics:
                 self._span_end_accuracy(span_end_logits, span_end.squeeze(-1))
                 self._span_accuracy(best_span, torch.stack([span_start, span_end], -1))

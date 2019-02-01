@@ -24,6 +24,7 @@ def sort_by_padding(instances: List[Instance],
     ``(field_name, padding_key)`` tuples.
     """
     instances_with_lengths = []
+    num_truncated = 0
     for instance in instances:
         # Make sure instance is indexed before calling .get_padding
         instance.index_fields(vocab)
@@ -37,6 +38,9 @@ def sort_by_padding(instances: List[Instance],
                                   for (field_name, padding_key) in sorting_keys],
                                  instance)
         instances_with_lengths.append(instance_with_lengths)
+        if hasattr(instance.fields['passage']._token_indexers['tokens'], 'num_truncated'):
+            num_truncated += instance.fields['passage']._token_indexers['tokens'].num_truncated
+    print("# TRUNCATED SAMPLES:", num_truncated)
     instances_with_lengths.sort(key=lambda x: x[0])
     return [instance_with_lengths[-1] for instance_with_lengths in instances_with_lengths]
 

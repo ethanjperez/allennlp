@@ -15,7 +15,7 @@ from allennlp.data.tokenizers import Token, Tokenizer, WordTokenizer
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 
 
-@DatasetReader.register("race")
+@DatasetReader.register("race-mc")
 class RaceReader(DatasetReader):
     """
     Reads a JSON-formatted Race file and returns a ``Dataset`` where the ``Instances`` have four
@@ -176,14 +176,8 @@ if __name__ == "__main__":
     race_raw_path = "datasets/race_raw"
     answer_tokens = ["1st", "2nd", "3rd", "4th"]
     letter_to_answer_token = {'A': "1st", 'B': "2nd", 'C': "3rd", 'D': "4th"}
-    augment_data = False
 
-    if augment_data:
-        race_path = "datasets/race_augmented"
-        excluded_options_sets = [[], [0], [1], [2], [3]]
-    else:
-        race_path = "datasets/race"
-        excluded_options_sets = [[]]
+    race_path = "datasets/race_mc"
 
     if not os.path.exists(race_path):
         os.mkdir(race_path)
@@ -208,56 +202,50 @@ if __name__ == "__main__":
 
                 # Iterate through questions
                 for q in range(len(art_data["questions"])):
-                    # Possibly exclude an option for data augmentation purposes. Encourages answering by elimination.
-                    for qa_version_no, excluded_options in enumerate(excluded_options_sets):
-                        # Name for this version of the QA pair
-                        removed_answers_str = ''.join([str(ex_opt) for ex_opt in excluded_options])
+                    # Get base context
+                    base_context = art_data["article"]
 
-                        # Get base context
-                        base_context = art_data["article"]
+                    # Create Instance Dictionary
+                    paragraph_dict = {}
 
-                        # Create Instance Dictionary
-                        paragraph_dict = {}
+                    # Get Question
+                    question = art_data["questions"][q]
 
-                        # Get Question
-                        question = art_data["questions"][q]
+                    # Get Options
+                    options = art_data["options"][q]
 
-                        # Get Options
-                        options = art_data["options"][q]
+                    # Get Answer
+                    answer = art_data["answers"][q]
 
-                        # Get Answer
-                        answer = art_data["answers"][q]
+                    # Build Context with all Options
+                    answer_loc_to_predict, span_answer_text = None, None
+                    pos_answers_text = ""
+                    char_answer_choice_spans = []
+                    for i, answer_token in enumerate(answer_tokens):
+                        option_start_char = len(pos_answers_text)
+                        pos_answers_text += options[i] + " "
+                        if answer_token == letter_to_answer_token[answer]:
+                            answer_loc_to_predict = len(pos_answers_text)
+                            span_answer_text = answer_token
+                        pos_answers_text += answer_token
+                        option_end_char = len(pos_answers_text)
+                        char_answer_choice_spans.append((option_start_char, option_end_char))
+                        pos_answers_text += " "
+                    base_context = pos_answers_text + base_context
 
-                        # Build Context with all Options
-                        answer_loc_to_predict, span_answer_text = None, None
-                        pos_answers_text = ""
-                        char_answer_choice_spans = []
-                        for i, answer_token in enumerate(answer_tokens):
-                            option_start_char = len(pos_answers_text)
-                            if i not in excluded_options:
-                                pos_answers_text += options[i] + " "
-                            if answer_token == letter_to_answer_token[answer]:
-                                answer_loc_to_predict = len(pos_answers_text)
-                                span_answer_text = answer_token
-                            pos_answers_text += answer_token
-                            option_end_char = len(pos_answers_text)
-                            char_answer_choice_spans.append((option_start_char, option_end_char))
-                            pos_answers_text += " "
-                        base_context = pos_answers_text + base_context
+                    # Get Q_ID
+                    qid = hex(hash(art_file + question))[2:]
 
-                        # Get Q_ID
-                        qid = hex(hash(art_file + question + removed_answers_str))[2:]
+                    # Assemble dictionary
+                    paragraph_dict["context"] = base_context
+                    paragraph_dict["qas"] = [{"answers": [{"answer_start": answer_loc_to_predict,  # Official answer for prediction/evaluation is last token of the right multiple choice answer's actual text
+                                                           "text": span_answer_text}],
+                                              "question": question,
+                                              "id": qid,
+                                              "char_answer_choice_spans": char_answer_choice_spans}]  # Location of answer tokens (not directly predicted)
 
-                        # Assemble dictionary
-                        paragraph_dict["context"] = base_context
-                        paragraph_dict["qas"] = [{"answers": [{"answer_start": answer_loc_to_predict,  # Official answer for prediction/evaluation is last token of the right multiple choice answer's actual text
-                                                               "text": span_answer_text}],
-                                                  "question": question,
-                                                  "id": qid,
-                                                  "char_answer_choice_spans": char_answer_choice_spans}]  # Location of answer tokens (not directly predicted)
-
-                        # Append to article dict
-                        article_dict["paragraphs"].append(paragraph_dict)
+                    # Append to article dict
+                    article_dict["paragraphs"].append(paragraph_dict)
 
                 # Add article dict to data
                 if dt == "train":
