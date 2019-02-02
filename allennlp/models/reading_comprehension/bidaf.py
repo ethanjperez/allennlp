@@ -274,7 +274,7 @@ class BidirectionalAttentionFlow(Model):
         if not self.is_judge:
             value_head_input = span_start_input_full.detach() if self._detach_value_head else span_start_input_full
             # Shape: (batch_size)
-            value = (self._value_head(value_head_input).squeeze(-1) * passage_mask).mean(1)
+            value = (self._value_head(value_head_input).squeeze(-1) * passage_mask).mean(1)  # TODO: Don't count masked areas in mean!!
         # Shape: (batch_size, passage_length)
         span_start_logits = self._span_start_predictor(span_start_input).squeeze(-1)
         valid_output_mask = passage_mask if valid_output_mask is None else valid_output_mask

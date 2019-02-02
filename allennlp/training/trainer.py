@@ -184,6 +184,7 @@ class Trainer(TrainerBase):
                    hasattr(self.model._text_field_embedder, 'token_embedder_tokens') and \
                    'bert_token_embedder' in str(type(self.model._text_field_embedder.token_embedder_tokens))
         self._answer_id_tokens = ['1st', '2nd', '3rd', '4th'] if (self.model.answer_type == 'mc') else None
+        self._mc_dataset_reader = 'answer_index' in self.train_data[0].fields
 
         self._id_to_oracle_is_complete = (id_to_oracle_filename is not None)
         self._id_to_oracle = {}
@@ -427,7 +428,7 @@ class Trainer(TrainerBase):
             debate_mode = self._debate_mode
 
         # Optional debugging sanity check
-        if self._breakpoint_level >= 1 and for_training:
+        if (not self._mc_dataset_reader) and (self._breakpoint_level >= 1) and for_training:
             for batch in batch_group:
                 for i in range(batch['passage']['tokens'].size(0)):
                     char_span_start = batch['metadata'][i]['token_offsets'][batch['span_start'][i]][0]
