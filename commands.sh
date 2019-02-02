@@ -4,6 +4,9 @@
 
 # NB: Span-based debates: Do NOT use span_end_encoder in debater config (only SQUAD judge config)
 
+# BERT RACE A-only
+
+
 # BERT RACE PQ2A
 allennlp train training_config/bert_mc_pq2a.race.lr=2e-5.jsonnet -s tmp/race.bert.bsz=32.lr=2e-5.f -d f -a 4 -f #
 allennlp train training_config/bert_mc_pq2a.race.lr=3e-5.jsonnet -s tmp/race.bert.bsz=32.lr=3e-5.f -d f -a 4 -f #
@@ -198,7 +201,7 @@ srun --pty --mem=20000 -t 1-23:58 --gres=gpu:1080ti:1 bash
 srun --pty --mem=20000 -t 6-23:58 --gres=gpu:p40 bash
 
 # SBATCH
-export COMMAND="allennlp train training_config/bert_mc_gpt.race.lr=5e-5.jsonnet -s tmp/race.bert_mc_gpt.bsz=16.lr=5e-5.f -d f -a 8 -f #"
+export COMMAND="allennlp train training_config/bert_mc_pq2a.race.lr=5e-5.jsonnet -s tmp/race.bert.bsz=16.lr=5e-5.f -d f -a 2 -f #"
 export COMMAND_ARRAY=($COMMAND)
 export SERIALIZATION_DIR="${COMMAND_ARRAY[4]}"
 if test -e $SERIALIZATION_DIR; then echo -e "\n${PURPLE}NOTICE: Directory already exists.\n"; else mkdir -p $SERIALIZATION_DIR; fi

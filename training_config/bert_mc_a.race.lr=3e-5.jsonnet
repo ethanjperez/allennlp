@@ -13,7 +13,7 @@
   "train_data_path": "datasets/race_raw/train",
   "validation_data_path": "datasets/race_raw/dev",
   "model": {
-    "type": "bert-mc-gpt",
+    "type": "bert-mc-a",
     "text_field_embedder": {
       "allow_unmatched_keys": true,
       "embedder_to_indexer_map": {
@@ -32,7 +32,7 @@
   "iterator": {
     "type": "bucket",
     "sorting_keys": [["passage", "num_tokens"], ["question", "num_tokens"]],
-    "batch_size": 2
+    "batch_size": 8
   },
 
   "trainer": {
