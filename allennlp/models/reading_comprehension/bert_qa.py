@@ -163,7 +163,7 @@ class BertQA(Model):
                 token_type_ids[:, 0] = a_turn.squeeze(1)
             a_turn = a_turn.float()
         # Shape: (batch_size, passage_length, modeling_dim)
-        modeled_passage = self._text_field_embedder(passage)
+        modeled_passage = self._text_field_embedder(passage)  # TODO: Use token_type_ids (May improve RACE, also SQUAD to SOTA)
         batch_size, passage_length, modeling_dim = modeled_passage.size()
         passage_mask = util.get_text_field_mask(passage).float()
         if valid_output_mask is None:  # NB: Make this use question make too for normal Judge training
