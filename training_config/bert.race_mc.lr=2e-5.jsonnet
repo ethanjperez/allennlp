@@ -10,8 +10,8 @@
       }
     }
   },
-  "train_data_path": "allennlp/tests/fixtures/data/race_raw/train",
-  "validation_data_path": "allennlp/tests/fixtures/data/race_raw/dev",
+  "train_data_path": "datasets/race_raw/train",
+  "validation_data_path": "datasets/race_raw/dev",
   "model": {
     "type": "bert-mc",
     "text_field_embedder": {
