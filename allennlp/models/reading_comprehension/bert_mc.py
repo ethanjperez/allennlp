@@ -189,7 +189,7 @@ class BertMC(Model):
         """
         Returns the token type ids, to be used in BERT's segment embeddings
         """
-        assert (tokens.dim() in [2, 3]), 'pack_sequences only supports {2,3}-dimensional sequences.'
+        assert (tokens.dim() in [2, 3]), 'get_token_type_ids only supports {2,3}-dimensional sequences.'
         orig_size = tokens.size()
         if tokens.dim() == 3:
             tokens = util.combine_initial_dims(tokens)
@@ -203,11 +203,12 @@ class BertMC(Model):
         """
         Converts tokens into a BERT-compatible dictionary format
         """
-        assert (tokens.dim() in [2, 3]), 'pack_sequences only supports {2,3}-dimensional sequences.'
-        bert_input = {'tokens': tokens, 'token-type-ids': BertMC.get_token_type_ids(tokens, sep_token)}
-        bert_input['mask'] = util.get_text_field_mask(bert_input).float()
-        bert_input['tokens-offsets'] = None
-        return bert_input
+        return {
+            'tokens': tokens,
+            'token-type-ids': BertMC.get_token_type_ids(tokens, sep_token),
+            'mask': (tokens != 0).long(),  # How BERT also gets the mask
+            'tokens-offsets': None
+        }
 
     def compute_logits_and_value(self,  # type: ignore
                 question: Dict[str, torch.LongTensor],
