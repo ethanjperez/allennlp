@@ -256,21 +256,42 @@ class Trainer(TrainerBase):
             output_dict = model(**batch)
         return output_dict
 
-    def _create_batch_from_sample(self, batch: TensorDict, sample_no: int, bsz: int) -> TensorDict:
+    def _slice_batch(self, batch: TensorDict, idxs: slice) -> TensorDict:
         """
-        Slices and copies an existing batch into a smaller batch. Repeats
+        Slices and copies an existing batch into a smaller batch. Repeats the slice num_repeat times.
+        Use a single integer or a slice for idxs to get sample(s) in the batch.
         """
         sliced_batch = {}
-        idxs = sample_no  # Can replace with slice
         for k, v in batch.items():
             if isinstance(v, dict):
                 sliced_batch[k] = {}
                 for inner_k, inner_v in v.items():
-                    sliced_batch[k][inner_k] = inner_v[idxs].repeat(bsz, *[1 for _ in range(inner_v[idxs].dim())])
+                    sliced_batch[k][inner_k] = inner_v[idxs]
             elif isinstance(v, torch.Tensor):
-                sliced_batch[k] = v[idxs].repeat(bsz, 1)
+                sliced_batch[k] = v[idxs]
             elif isinstance(v, list):
-                sliced_batch[k] = [copy.deepcopy(v[idxs]) for _ in range(bsz)]
+                sliced_batch[k] = v[idxs]
+            elif isinstance(v, bool):
+                sliced_batch[k] = v
+            else:
+                raise NotImplementedError('Unimplemented slice for key, value:', k, v)
+        return sliced_batch
+
+    def _create_batch_from_idx(self, batch: TensorDict, idx: int, num_repeat) -> TensorDict:
+        """
+        Slices and copies an existing batch into a smaller batch. Repeats the slice num_repeat times.
+        Use a single integer to get sample in the batch.
+        """
+        sliced_batch = {}
+        for k, v in batch.items():
+            if isinstance(v, dict):
+                sliced_batch[k] = {}
+                for inner_k, inner_v in v.items():
+                    sliced_batch[k][inner_k] = inner_v[idx].repeat(num_repeat, *[1 for _ in range(inner_v[idx].dim())])
+            elif isinstance(v, torch.Tensor):
+                sliced_batch[k] = v[idx].repeat(num_repeat, 1)
+            elif isinstance(v, list):
+                sliced_batch[k] = [copy.deepcopy(v[idx]) for _ in range(num_repeat)]
             else:
                 raise NotImplementedError('Unimplemented slice for key, value:', k, v)
         return sliced_batch
@@ -617,26 +638,44 @@ class Trainer(TrainerBase):
                     # Batch together all possible next outcomes for a sample
                     # RACE: Removes Oracle choices selecting answer sentences (which'll always be shown)
                     num_sent_options = num_sents[sample_no]
-                    oracle_batch = self._create_batch_from_sample(batch, sample_no, num_sent_options)
+                    oracle_batch = self._create_batch_from_idx(batch, sample_no, num_sent_options)
                     oracle_batch['store_metrics'] = False  # Do not update judge metrics
                     oracle_sent_choice_idxs = torch.arange(num_sent_options).unsqueeze(1)
                     if past_sent_choice_idxs is not None:
                         past_idxs_repeat = past_sent_choice_idxs[sample_no].repeat(num_sent_options, 1)
                         oracle_sent_choice_idxs = torch.cat([past_idxs_repeat, oracle_sent_choice_idxs], 1)
 
-                    # Modify passage
-                    oracle_sent_choice_masks = torch.stack([
-                        sent_idxs[sample_no].unsqueeze(0).expand(num_sent_options, -1) ==
-                        oracle_sent_choice_idxs[:,i].unsqueeze(1) for i in range(turn + 1)]).sum(0)
-                    oracle_sent_choice_masks = oracle_sent_choice_masks / (oracle_sent_choice_masks.clamp(min=1))  # Differentiable clamp to max=1
-                    oracle_batch = self._modify_input_passage(oracle_batch, oracle_sent_choice_masks, mask_tok_val, mod_type)
+                    # Mask Judge's input
+                    oracle_sent_choice_input_masks = [sent_input_idxs[sample_no].unsqueeze(0).expand(num_sent_options, -1) == oracle_sent_choice_idxs[:,i].unsqueeze(1) for i in range(turn + 1)]
+                    oracle_all_sent_choice_input_mask = torch.stack(oracle_sent_choice_input_masks).sum(0)
+                    oracle_all_sent_choice_input_mask = oracle_all_sent_choice_input_mask / (oracle_all_sent_choice_input_mask.clamp(min=1))  # Differentiable clamp to max=1
+                    oracle_batch = self._modify_input_passage(oracle_batch, oracle_all_sent_choice_input_mask, mask_tok_val, mod_type)
 
                     # Get judge results
-                    # TODO: BERT Debates: Change dimensions to be based off output (word-level) not input (word-piece level) as needed. Overall output dist can be sent-level.
-                    oracle_output_dict, oracle_metrics = self._forward([oracle_batch], judge)
-                    oracle_metrics = oracle_metrics.get_metric(reset=True, per_sample=True)[1 if oracle_eval_method == 'f1' else 0]
+                    # TODO: Check judge_output_mask is as expected. TODO: Check this gets sliced appropriately and included in oracle_batch
+                    oracle_batch['valid_output_mask'] = judge_output_mask[sample_no].unsqueeze(0).expand(num_sent_options, -1)
+                    # NB: Slice batch based on batch_size. Do several separate forward passes.
+                    num_oracle_batch_pieces = (num_sent_options // bsz) + 1
+                    oracle_output_dict = None
+                    for oracle_batch_piece_no in range(num_oracle_batch_pieces):
+                        oracle_batch_slice = slice(oracle_batch_piece_no * bsz, (oracle_batch_piece_no + 1) * bsz)
+                        oracle_batch_piece = self._slice_batch(oracle_batch, oracle_batch_slice)
+                        oracle_output_dict_piece = self._forward([oracle_batch_piece], judge)
+                        if oracle_output_dict is None:
+                            oracle_output_dict = oracle_output_dict_piece
+                        else:
+                            for k, v in oracle_output_dict_piece.items():
+                                if isinstance(v, torch.Tensor) and v.dim() > 0:
+                                    oracle_output_dict[k] = torch.cat([oracle_output_dict[k], oracle_output_dict_piece[k]], dim=0)
+                                else:
+                                    if k in oracle_output_dict.keys():
+                                        oracle_output_dict.pop(k)
+                    oracle_batch.pop('valid_output_mask')
+
                     if oracle_eval_method == 'ssp':
                         oracle_metrics = [oracle_output_dict['span_start_probs'][i, oracle_batch['span_start'][i]].item() for i in range(oracle_output_dict['span_start_probs'].size(0))]
+                    else:
+                        oracle_metrics = oracle_output_dict[oracle_eval_method].tolist()
                     opt_sc = float(oracle_func(oracle_metrics))
                     oracle_values.append(opt_sc)
                     opt_sent_idxs.append(oracle_metrics.index(opt_sc))
@@ -730,9 +769,11 @@ class Trainer(TrainerBase):
         # Debate metrics and losses
         if debater is not None:
             # Debate metrics
-            j_metrics = judge.get_metrics(per_sample=True)
-            j_em = torch.tensor(j_metrics['em'], dtype=sent_choice_probs[0].dtype, device=sent_choice_probs[0].device)
-            j_f1 = torch.tensor(j_metrics['f1'], dtype=sent_choice_probs[0].dtype, device=sent_choice_probs[0].device)
+            # j_metrics = judge.get_metrics()
+            # j_em = torch.tensor(j_metrics['em']).to(sent_choice_probs[0])
+            # j_f1 = torch.tensor(j_metrics['f1']).to(sent_choice_probs[0])
+            j_em = output_dict['em'].to(sent_choice_probs[0])
+            j_f1 = output_dict['f1'].to(sent_choice_probs[0])
             j_ssp = torch.tensor([output_dict['span_start_probs'][i, batch['span_start'][i]] for i in range(bsz)])
             if debater.reward_method == 'f1':
                 j_score = j_f1

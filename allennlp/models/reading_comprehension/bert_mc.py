@@ -148,6 +148,9 @@ class BertMC(Model):
                 "value": value if not self.is_judge else None,
                 "accuracy": best_answer_index == answer_index if self.is_judge else None  # TODO: Use this as tmp_squad_metrics in Oracle
                 }
+        # Providing dummy EM and F1 values for RL training reward
+        output_dict['em'] = output_dict['accuracy']
+        output_dict['f1'] = output_dict['accuracy']
 
         # Compute the loss for training.
         if answer_index is not None:
@@ -157,8 +160,7 @@ class BertMC(Model):
             output_dict["loss"] = loss
         return output_dict
 
-    # TODO: Implement per_sample metrics
-    def get_metrics(self, reset: bool = False, per_sample: bool = False) -> Dict[str, float]:
+    def get_metrics(self, reset: bool = False,) -> Dict[str, float]:
         return {'start_acc': self._span_start_accuracy.get_metric(reset)}
 
     @staticmethod

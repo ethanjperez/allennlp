@@ -238,7 +238,8 @@ class BertQA(Model):
             output_dict["loss"] = loss
 
         # Compute the EM and F1 on SQuAD and add the tokenized input to the output.
-        tmp_squad_metrics = None
+        batch_ems = []
+        batch_f1s = []
         if metadata is not None:
             output_dict['best_span_str'] = []
             question_tokens = []
@@ -248,8 +249,6 @@ class BertQA(Model):
                 passage_tokens.append(metadata[i]['passage_tokens'])
                 passage_str = metadata[i]['original_passage']
                 offsets = metadata[i]['token_offsets']
-                if (len(metadata[i]['passage_tokens']) != len(offsets)):
-                    import ipdb; ipdb.set_trace()
                 predicted_span = tuple(best_span[i].detach().cpu().numpy())
                 start_offset = offsets[predicted_span[0]][0]
                 end_offset = offsets[predicted_span[1]][1]
@@ -257,20 +256,20 @@ class BertQA(Model):
                 output_dict['best_span_str'].append(best_span_string)
                 answer_texts = metadata[i].get('answer_texts', [])
                 if answer_texts:
-                    if store_metrics:
-                        self._squad_metrics(best_span_string, answer_texts)
-                    else:
-                        if tmp_squad_metrics is None:
-                            tmp_squad_metrics = SquadEmAndF1()
-                        tmp_squad_metrics(best_span_string, answer_texts)
+                    self._squad_metrics(best_span_string, answer_texts)
+                    sample_squad_metrics = SquadEmAndF1()
+                    sample_squad_metrics(best_span_string, answer_texts)
+                    sample_em, sample_f1 = sample_squad_metrics.get_metric(reset=True)
+                    batch_ems.append(sample_em)
+                    batch_f1s.append(sample_f1)
             output_dict['question_tokens'] = question_tokens
             output_dict['passage_tokens'] = passage_tokens
-        if tmp_squad_metrics is not None:
-            return output_dict, tmp_squad_metrics
+            output_dict['em'] = torch.tensor(batch_ems)
+            output_dict['f1'] = torch.tensor(batch_f1s)
         return output_dict
 
-    def get_metrics(self, reset: bool = False, per_sample: bool = False) -> Dict[str, float]:
-        exact_match, f1_score = self._squad_metrics.get_metric(reset, per_sample)
+    def get_metrics(self, reset: bool = False) -> Dict[str, float]:
+        exact_match, f1_score = self._squad_metrics.get_metric(reset)
         return {
                 'start_acc': self._span_start_accuracy.get_metric(reset),
                 'end_acc': self._span_end_accuracy.get_metric(reset),
