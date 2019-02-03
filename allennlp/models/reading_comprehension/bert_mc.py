@@ -195,7 +195,7 @@ class BertMC(Model):
             tokens = util.combine_initial_dims(tokens)
         sep_token_mask = (tokens == sep_token).long()
         if sep_token_mask.nonzero().size(0) == tokens.size(0):
-            return torch.zeros(orig_size, dtype=torch.long)  # Use all zeros if there's 1 [SEP] per sample
+            return None  # Use default BERT (all 0's) if there's 1 [SEP] per sample
         return (sep_token_mask.cumsum(-1) - sep_token_mask).clamp(max=1).view(orig_size)
 
     @staticmethod
@@ -434,7 +434,7 @@ class BertMCPQ2A(BertMC):
         passage_question_tokens = self.pack_sequences(passage['tokens'], question['tokens'], sep_token)
         passage_question = self.tokens_to_bert_input(passage_question_tokens, sep_token)
         hidden_passage_question = self._text_field_embedder(passage_question)
-
+        import ipdb; ipdb.set_trace()
         # Debate: Post-BERT agent-based conditioning
         value = None
         if not self.is_judge:
