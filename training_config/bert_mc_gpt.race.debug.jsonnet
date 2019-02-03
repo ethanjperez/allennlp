@@ -10,7 +10,7 @@
       }
     }
   },
-  "train_data_path": "allennlp/tests/fixtures/data/race_raw/test",
+  "train_data_path": "allennlp/tests/fixtures/data/race_raw/train",
   "validation_data_path": "allennlp/tests/fixtures/data/race_raw/train",
   "model": {
     "type": "bert-mc-gpt",
@@ -32,7 +32,7 @@
   "iterator": {
     "type": "bucket",
     "sorting_keys": [["passage", "num_tokens"], ["question", "num_tokens"]],
-    "batch_size": 8
+    "batch_size": 1
   },
 
   "trainer": {

@@ -814,8 +814,8 @@ class Trainer(TrainerBase):
                                          total=num_training_batches)
         cumulative_batch_size = 0
         for batch_group in train_generator_tqdm:
-            batches_this_epoch += 1
-            self._batch_num_total += 1
+            batches_this_epoch += 1  # NOTE: Divide by self._accumulation_steps?
+            self._batch_num_total += 1  # NOTE: Divide by self._accumulation_steps?
             batch_num_total = self._batch_num_total
 
             if (batch_num_total - 1) % self._accumulation_steps == 0:
@@ -831,6 +831,9 @@ class Trainer(TrainerBase):
 
             train_loss += loss.item()
 
+            if batch_num_total % self._accumulation_steps != 0:
+                continue  # Don't step with optimizer: accumulate gradients
+
             batch_grad_norm = self.rescale_gradients()
 
             # This does nothing if batch_num_total is None or you are using an
@@ -838,9 +841,7 @@ class Trainer(TrainerBase):
             if self._learning_rate_scheduler:
                 self._learning_rate_scheduler.step_batch(batch_num_total)
 
-            if batch_num_total % self._accumulation_steps != 0:
-                pass  # Don't step with optimizer - accumulate gradients
-            elif self._tensorboard.should_log_histograms_this_batch():
+            if self._tensorboard.should_log_histograms_this_batch():
                 # get the magnitude of parameter updates for logging
                 # We need a copy of current parameters to compute magnitude of updates,
                 # and copy them to CPU so large models won't go OOM on the GPU.
@@ -873,7 +874,7 @@ class Trainer(TrainerBase):
             if self._tensorboard.should_log_histograms_this_batch():
                 self._tensorboard.log_histograms(self.model, histogram_parameters)
 
-            if self._log_batch_size_period:
+            if self._log_batch_size_period:  # NOTE: Could be inaccurate due to gradient accumulation, but not used now
                 cur_batch = sum([training_util.get_batch_size(batch) for batch in batch_group])
                 cumulative_batch_size += cur_batch
                 if (batches_this_epoch - 1) % self._log_batch_size_period == 0:

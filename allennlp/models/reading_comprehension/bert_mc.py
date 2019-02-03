@@ -195,7 +195,7 @@ class BertMC(Model):
             tokens = util.combine_initial_dims(tokens)
         sep_token_mask = (tokens == sep_token).long()
         if sep_token_mask.nonzero().size(0) == tokens.size(0):
-            return None  # Use default BERT (all 0's) if there's 1 [SEP] per sample
+            return torch.zeros_like(tokens).view(orig_size)  # Use default BERT (all 0's) if there's 1 [SEP] per sample
         return (sep_token_mask.cumsum(-1) - sep_token_mask).clamp(max=1).view(orig_size)
 
     @staticmethod
@@ -267,11 +267,16 @@ class BertMCDCMN(BertMC):
         options_mask = util.get_text_field_mask(options).float()
         num_options = options['tokens'].size(1)
 
-        token_type_ids = BertMC.get_token_type_ids(passage['tokens'], sep_token)  # TODO: Use token_type_ids!
+        passage['token-type-ids'] = BertMC.get_token_type_ids(passage['tokens'], sep_token)
+        question['token-type-ids'] = BertMC.get_token_type_ids(question['tokens'], sep_token)
+        options['token-type-ids'] = BertMC.get_token_type_ids(options['tokens'], sep_token)
         if not self.is_judge:
             # TODO: Use boolean variable passed in to determine if A/B should use Frozen Judge BERT or their own updating BERT
             if self._text_field_embedder._token_embedders['tokens'].requires_grad:
-                token_type_ids[:, 0] = a_turn.long().squeeze(1)
+                conditioning = a_turn.long().squeeze(1)
+                passage['token-type-ids'][:, 0] = conditioning
+                question['token-type-ids'][:, 0] = conditioning
+                options['token-type-ids'][:, :, 0] = conditioning
         # Shape: (batch_size, passage_length, hidden_dim)  # TODO: Get full BERT output: Set 'tokens-offsets'=None
         hidden_passage = self._text_field_embedder(passage) * passage_mask.unsqueeze(-1)
         hidden_question = self._text_field_embedder(question) * question_mask.unsqueeze(-1)
