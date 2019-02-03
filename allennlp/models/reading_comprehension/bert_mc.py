@@ -170,14 +170,14 @@ class BertMC(Model):
         """
         assert (tokens_1.dim() == 2) and (tokens_2.dim() == 2), 'pack_sequences only supports 2-dimensional sequences.'
         batch_size = tokens_1.size(0)
-        packed_seqs = torch.zeros(batch_size, maxlen, dtype=torch.long)
+        packed_seqs = torch.zeros(batch_size, maxlen, dtype=torch.long, device=tokens_1.device)
         packed_seq_lengths = []
         for i in range(batch_size):
             truncatable_length = tokens_1[i].nonzero().size(0) - 1  # Exclude terminating [SEP]
             required_length = tokens_2[i].nonzero().size(0)  # Exclude [CLS], include separating [SEP]
             seq1_target_length = min(maxlen - required_length, truncatable_length)
             packed_seq_no_padding = torch.cat([tokens_1[i, :seq1_target_length],
-                                               torch.LongTensor() if sep_token is None else torch.LongTensor([sep_token]),
+                                               (torch.LongTensor() if sep_token is None else torch.LongTensor([sep_token])).to(tokens_1),
                                                tokens_2[i, 1:required_length]], dim=0)
             packed_seq_length = packed_seq_no_padding.size(0)
             packed_seqs[i, :packed_seq_length] = packed_seq_no_padding
@@ -383,7 +383,7 @@ class BertMCGPT(BertMC):
             qo_tokens = self.pack_sequences(question['tokens'], options['tokens'][:, i])
             pqo_tokens_list.append(self.pack_sequences(passage['tokens'], qo_tokens, sep_token))
             pqo_token_maxlens.append(pqo_tokens_list[i].size(-1))
-        pqo_tokens = torch.zeros(batch_size, num_options, max(pqo_token_maxlens), dtype=torch.long)
+        pqo_tokens = torch.zeros(batch_size, num_options, max(pqo_token_maxlens), dtype=torch.long, device=passage['tokens'].device)
         for i in range(num_options):
             pqo_tokens[:, i, :pqo_tokens_list[i].size(-1)] = pqo_tokens_list[i]
         pqo = self.tokens_to_bert_input(pqo_tokens, sep_token)
