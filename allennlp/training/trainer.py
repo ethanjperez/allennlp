@@ -366,22 +366,30 @@ class Trainer(TrainerBase):
                 print('\n***ID***\n', batch['metadata'][sample_no]['id'])
                 print('\n***Passage***\n', ' '.join(batch['metadata'][sample_no]['passage_tokens']))
                 print('\n***Question***\n', ' '.join(batch['metadata'][sample_no]['question_tokens']))
-                print('\n***Answers***\n', [answer if isinstance(answer, str) else ' '.join(answer) for answer in batch['metadata'][sample_no]['answer_texts']])
                 toks = batch['metadata'][sample_no]['passage_tokens']
-                for turn, method in enumerate(debate_mode[0]):
-                    turn_sent_input_idxs = sent_choice_input_masks[turn][sample_no].nonzero().squeeze()
-                    sent_str = 'None'
-                    if len(turn_sent_input_idxs) > 0:
-                        turn_sent_start_input_idx = turn_sent_input_idxs.min()
-                        turn_sent_end_input_idx = turn_sent_input_idxs.max() + 1
-                        sent_str = ' '.join(toks[turn_sent_start_input_idx: turn_sent_end_input_idx])
-                    print('\n---', method.upper(), '--- Sentence', int(sent_choice_idxs[turn][sample_no]), '\n', sent_str)
-                print('\n--- J --- EM / F1 / SSP / SC_DIFF',
+                if 'options' in batch:
+                    print('\n***Options***\n', [' '.join(batch['metadata'][sample_no]['options_tokens'][i]) for i in range(4)])
+                    true_answer_index = batch['answer_index'][sample_no]
+                    print('\n***True Answer***\n', true_answer_index, ' '.join(batch['metadata'][sample_no]['options_tokens'][true_answer_index]))
+                    best_answer_index = output_dict['best_answer_index'][sample_no]
+                    print('\n***Predicted Answer***\n', best_answer_index, ' '.join(batch['metadata'][sample_no]['options_tokens'][best_answer_index]))
+                else:
+                    print('\n***Answers***\n', [answer if isinstance(answer, str) else ' '.join(answer) for answer in batch['metadata'][sample_no]['answer_texts']])
+                    for turn, method in enumerate(debate_mode[0]):
+                        turn_sent_input_idxs = sent_choice_input_masks[turn][sample_no].nonzero().squeeze()
+                        sent_str = 'None'
+                        if len(turn_sent_input_idxs) > 0:
+                            turn_sent_start_input_idx = turn_sent_input_idxs.min()
+                            turn_sent_end_input_idx = turn_sent_input_idxs.max() + 1
+                            sent_str = ' '.join(toks[turn_sent_start_input_idx: turn_sent_end_input_idx])
+                        print('\n---', method.upper(), '--- Sentence', int(sent_choice_idxs[turn][sample_no]), '\n', sent_str)
+                    if 'best_span' in output_dict:
+                        print(' '.join(toks[output_dict['best_span'][sample_no][0]:output_dict['best_span'][sample_no][1] + 1]))
+                print('\n--- J --- EM / F1 / SSP / SC_DIFF\n',
                       float(j_em[sample_no]) if j_em is not None else 'N/A', '/',
                       float(j_f1[sample_no]) if j_f1 is not None else 'N/A', '/',
                       float(j_ssp[sample_no]) if j_ssp is not None else 'N/A', '/',
                       float(sc_diffs[sample_no]) if sc_diffs is not None else 'N/A')
-                print(' '.join(toks[output_dict['best_span'][sample_no][0]:output_dict['best_span'][sample_no][1] + 1]))
         return
 
     def _print_tokens(self, tokens):
@@ -793,7 +801,6 @@ class Trainer(TrainerBase):
         else:
             j_scores['ssp'] = torch.tensor([output_dict['span_start_probs'][i, batch['span_start'][i]] for i in range(bsz)])
 
-        self._add_debate_metrics(output_dict, sent_output_idxs, sent_choice_idxs, num_turns, turn_str)
         print_every = 1 if mc else 20
         if self._eval_mode and ((self._batch_num_total % print_every) == 0):
             self._print_debate(batch, num_sents, debate_mode, sent_choice_input_masks, sent_choice_idxs, output_dict,
@@ -801,6 +808,7 @@ class Trainer(TrainerBase):
 
         # Debate losses
         if debater is not None:
+            self._add_debate_metrics(output_dict, sent_output_idxs, sent_choice_idxs, num_turns, turn_str)
             j_score = j_scores[debater.reward_method].detach()  # Judge shouldn't get gradients through j_score, used to reward A/B
             # Initialize loss (including J's supervised loss if necessary)
             output_dict = output_dict if self.model.update_judge else {'loss': torch.Tensor([0])}
