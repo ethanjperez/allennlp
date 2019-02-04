@@ -624,9 +624,10 @@ class Trainer(TrainerBase):
                 value = torch.LongTensor([oracle_info['value'] for oracle_info in oracle_infos]).unsqueeze(1)
             elif (method in ['A', 'B']) and (not self._id_to_oracle_is_complete):  # A/B oracle selection (computed)  # TODO: Fix for BERT
                 oracle_func = max if method == 'A' else min  # NOTE: Modify if adding another oracle method
-                oracle_eval_method = 'em' if mc else 'f1'  # NOTE: Only other option is 'em'
-                if (sl_debate and debater.reward_method == 'sl-ssp') or ((not sl_debate) and debater.reward_method == 'ssp'):
-                    oracle_eval_method = 'ssp'
+                oracle_eval_method = 'ssp'
+                # oracle_eval_method = 'ssp' if mc else 'f1'  # NOTE: Only other option is 'em'
+                # if (debater is not None) and ((sl_debate and debater.reward_method == 'sl-ssp') or ((not sl_debate) and debater.reward_method == 'ssp')):
+                #     oracle_eval_method = 'ssp'
                 # NOTE: Set below to None to make oracle selection simultaneous with other selections
                 past_sent_choice_idxs = torch.cat(sent_choice_idxs, 1) if len(sent_choice_idxs) > 0 else None
                 opt_sent_idxs = []
@@ -683,6 +684,7 @@ class Trainer(TrainerBase):
                     # NB: Hard-coding different baseline score based on debate_mode
                     if debate_mode == 'gb':  # No sentence choice is baseline
                         baseline_sc = oracle_metrics[past_sent_choice_idxs[sample_no, 0]]
+                    # TODO: Add saved sc_diffs for accuracy/em/f1
                     sc_diffs.append(baseline_sc - opt_sc)
                 if judge_was_training:
                     judge.train()
