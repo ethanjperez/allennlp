@@ -562,8 +562,9 @@ class Trainer(TrainerBase):
                 for j, output_token in enumerate(batch['metadata'][i]['passage_tokens']):
                     if output_token in required_bert_tokens:
                         required_text_output_mask[i, j] = 1.  # NB: Mask will change after deletion (for final [SEP]).
-            for required_bert_tok in required_bert_tokens:
-                required_text_input_mask += (batch['passage']['tokens'] == self.get_token_index(required_bert_tok)).long()  # NB: Mask will change after deletion (e.g., for final [SEP]).
+                        required_text_input_mask[i, self._output_to_input_idx(batch, i, j)] = 1.
+            # for required_bert_tok in required_bert_tokens:
+            #     required_text_input_mask += (batch['passage']['tokens'] == self.get_token_index(required_bert_tok)).long()  # NB: Mask will change after deletion (e.g., for final [SEP]).
         required_text_output_mask = required_text_output_mask.clamp(max=1)  # In case of double-counting (which shouldn't happen)
         required_text_input_mask = required_text_input_mask.clamp(max=1)  # In case of double-counting (which shouldn't happen)  TODO: Delete if unused
 
@@ -575,8 +576,9 @@ class Trainer(TrainerBase):
             for j, output_token in enumerate(batch['metadata'][i]['passage_tokens']):
                 if output_token in punct_tokens:
                     debate_choice_output_mask[i, j] = 1.
-        for punct_token in punct_tokens:
-            debate_choice_input_mask += (batch['passage']['tokens'] == self.get_token_index(punct_token)).long()
+                    debate_choice_input_mask[i, self._output_to_input_idx(batch, i, j)] = 1.
+        # for punct_token in punct_tokens:
+        #     debate_choice_input_mask += (batch['passage']['tokens'] == self.get_token_index(punct_token)).long()
         try:
             num_output_sents = debate_choice_output_mask.sum(1)
             num_input_sents = debate_choice_input_mask.sum(1)
