@@ -527,7 +527,7 @@ class Trainer(TrainerBase):
         # Ensure Judge receives question
         question_input_mask = torch.zeros(bsz, input_dim, dtype=torch.long)
         question_output_mask = torch.zeros(bsz, output_dim, dtype=torch.long)
-        if 'question_span' in batch['metadata'][0]:
+        if (not self._mc_dataset_reader) and ('question_span' in batch['metadata'][0]):
             for i in range(bsz):
                 question_output_span = batch['metadata'][i]['question_span']
                 question_output_mask[i, question_output_span[0]: question_output_span[1]+1] = 1.
@@ -542,7 +542,7 @@ class Trainer(TrainerBase):
         # Ensure Judge receives answers. Limit where Judge can answer (if applicable)
         passage_output_mask = nn_util.get_text_field_mask(batch['passage'], 0)
         judge_output_mask = (passage_output_mask - question_output_mask).clamp(min=0)
-        if mc and ('answer_choice_spans' in batch['metadata'][0]):
+        if (not self._mc_dataset_reader) and mc and ('answer_choice_spans' in batch['metadata'][0]):
             judge_output_mask = torch.zeros(bsz, output_dim, dtype=torch.long)
             pos_answer_output_mask = torch.zeros(bsz, output_dim, dtype=torch.long)
             pos_answer_input_mask = torch.zeros(bsz, input_dim, dtype=torch.long)
@@ -582,7 +582,7 @@ class Trainer(TrainerBase):
             num_input_sents = debate_choice_input_mask.sum(1)
             assert nn_util.tensors_equal(num_output_sents, num_input_sents), 'Error: Discrepancy in # of output and input sentences:' + str(num_output_sents) + ', ' + str(num_input_sents)
         except:
-            import ipdb; ipdb.set_trace()
+            import ipdb; ipdb.set_trace()  # Bad sample: datasets/race_raw/dev/middle/4266.txt
         # Force last non-padding token to be an eos token in the mask
         for i in range(bsz):
             last_output_token_idx = len(batch['metadata'][i]['passage_tokens']) - 1
