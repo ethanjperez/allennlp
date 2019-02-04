@@ -373,9 +373,9 @@ class Trainer(TrainerBase):
                 if 'options' in batch:
                     print('\n***Options***\n', [' '.join(batch['metadata'][sample_no]['options_tokens'][i]) for i in range(4)])
                     true_answer_index = batch['answer_index'][sample_no]
-                    print('\n***True Answer***\n', true_answer_index, ' '.join(batch['metadata'][sample_no]['options_tokens'][true_answer_index].item()))
+                    print('\n***True Answer***\n', true_answer_index.item(), ' '.join(batch['metadata'][sample_no]['options_tokens'][true_answer_index]))
                     best_answer_index = output_dict['best_answer_index'][sample_no]
-                    print('\n***Predicted Answer***\n', best_answer_index, ' '.join(batch['metadata'][sample_no]['options_tokens'][best_answer_index].cpu().item()))
+                    print('\n***Predicted Answer***\n', best_answer_index.item().cpu(), ' '.join(batch['metadata'][sample_no]['options_tokens'][best_answer_index]))
                 else:
                     print('\n***Answers***\n', [answer if isinstance(answer, str) else ' '.join(answer) for answer in batch['metadata'][sample_no]['answer_texts']])
                     for turn, method in enumerate(debate_mode[0]):
