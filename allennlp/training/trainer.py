@@ -320,7 +320,7 @@ class Trainer(TrainerBase):
                 post_delete_tok_chars = torch.zeros_like(batch['passage']['token_characters'])
             for idx in range(batch['passage']['tokens'].size(0)):
                 toks = batch['passage']['tokens'][idx]
-                reveal_idxs = (toks * (1. - sent_choice_input_masks[idx])).nonzero().squeeze()
+                reveal_idxs = (toks * (1. - sent_choice_input_masks[idx])).nonzero().squeeze(-1)
                 try:
                     post_delete_toks[idx][:toks[reveal_idxs].size(0)] = toks[reveal_idxs]
                 except:
@@ -358,8 +358,8 @@ class Trainer(TrainerBase):
         self._update_trainer_metrics('j_sent_chosen_not_a_or_b', j_chose_no_ab_sents.mean())
 
     @staticmethod
-    def _print_debate(batch, num_sents, debate_mode, sent_choice_input_masks, sent_choice_idxs, output_dict,
-                      j_em=None, j_f1=None, j_ssp=None, sc_diffs=None):
+    def _print_debate(batch, num_sents, debate_mode, sent_choice_output_masks, sent_choice_idxs, output_dict,
+                      j_scores, sc_diffs=None):
         """
         Neatly prints all debates from a batch.
         """
@@ -378,20 +378,20 @@ class Trainer(TrainerBase):
                     print('\n***Predicted Answer***\n', best_answer_index.item(), ' '.join(batch['metadata'][sample_no]['options_tokens'][best_answer_index]))
                 else:
                     print('\n***Answers***\n', [answer if isinstance(answer, str) else ' '.join(answer) for answer in batch['metadata'][sample_no]['answer_texts']])
-                    for turn, method in enumerate(debate_mode[0]):
-                        turn_sent_input_idxs = sent_choice_input_masks[turn][sample_no].nonzero().squeeze()
-                        sent_str = 'None'
-                        if len(turn_sent_input_idxs) > 0:
-                            turn_sent_start_input_idx = turn_sent_input_idxs.min()
-                            turn_sent_end_input_idx = turn_sent_input_idxs.max() + 1
-                            sent_str = ' '.join(toks[turn_sent_start_input_idx: turn_sent_end_input_idx])
-                        print('\n---', method.upper(), '--- Sentence', int(sent_choice_idxs[turn][sample_no]), '\n', sent_str)
                     if 'best_span' in output_dict:
                         print(' '.join(toks[output_dict['best_span'][sample_no][0]:output_dict['best_span'][sample_no][1] + 1]))
+                for turn, method in enumerate(debate_mode[0]):
+                    turn_sent_output_idxs = sent_choice_output_masks[turn][sample_no].nonzero().squeeze(-1)
+                    sent_str = 'None'
+                    if len(turn_sent_output_idxs) > 0:
+                        turn_sent_start_output_idx = turn_sent_output_idxs.min()
+                        turn_sent_end_output_idx = turn_sent_output_idxs.max() + 1
+                        sent_str = ' '.join(toks[turn_sent_start_output_idx: turn_sent_end_output_idx])
+                    print('\n---', method.upper(), '--- Sentence', int(sent_choice_idxs[turn][sample_no]), '\n', sent_str)
                 print('\n--- J --- EM / F1 / SSP / SC_DIFF\n',
-                      float(j_em[sample_no]) if j_em is not None else 'N/A', '/',
-                      float(j_f1[sample_no]) if j_f1 is not None else 'N/A', '/',
-                      float(j_ssp[sample_no]) if j_ssp is not None else 'N/A', '/',
+                      j_scores.get('em', 'N/A'), '/',
+                      j_scores.get('f1', 'N/A'), '/',
+                      j_scores.get('ssp', 'N/A'), '/',
                       float(sc_diffs[sample_no]) if sc_diffs is not None else 'N/A')
         return
 
@@ -806,8 +806,9 @@ class Trainer(TrainerBase):
 
         print_every = 1 if mc else 20
         if self._eval_mode and ((self._batch_num_total % print_every) == 0):
-            self._print_debate(batch, num_sents, debate_mode, sent_choice_input_masks, sent_choice_idxs, output_dict,
-                               j_scores['em'], j_scores['f1'], j_scores['ssp'], sc_diffs)
+            sent_choice_output_masks = [(sent_output_idxs == sent_choice_idx) for sent_choice_idx in sent_choice_idxs]
+            self._print_debate(batch, num_sents, debate_mode, sent_choice_output_masks, sent_choice_idxs, output_dict,
+                               j_scores, sc_diffs)
 
         # Debate losses
         if debater is not None:
