@@ -69,6 +69,7 @@ class BertMC(Model):
             self._turn_film_gen = torch.nn.Linear(1, 2 * self._hidden_dim)
             self._film = FiLM()
 
+        # NB: Rename to self._accuracy (may break model loading)
         self._span_start_accuracy = CategoricalAccuracy()
         self._initializer = initializer
 
@@ -107,33 +108,27 @@ class BertMC(Model):
         Returns
         -------
         An output dictionary consisting of:
-        span_start_logits : torch.FloatTensor
+        option_logits : torch.FloatTensor
             A tensor of shape ``(batch_size, passage_length)`` representing unnormalized log
             probabilities of the span start position.
-        span_start_probs : torch.FloatTensor
+        option_probs : torch.FloatTensor
             The result of ``softmax(span_start_logits)``.
-        span_end_logits : torch.FloatTensor
-            A tensor of shape ``(batch_size, passage_length)`` representing unnormalized log
-            probabilities of the span end position (inclusive).
-        span_end_probs : torch.FloatTensor
-            The result of ``softmax(span_end_logits)``.
-        best_span : torch.IntTensor
+        best_answer_index : torch.IntTensor
             The result of a constrained inference over ``span_start_logits`` and
             ``span_end_logits`` to find the most probable span.  Shape is ``(batch_size, 2)``
             and each offset is a token index.
         loss : torch.FloatTensor, optional
             A scalar loss to be optimised.
-        best_span_str : List[str]
-            If sufficient metadata was provided for the instances in the batch, we also return the
-            string from the original passage that the model thinks is the best answer to the
-            question.
         """
         # Precomputation
         a_turn = None
         if not self.is_judge:
             assert(metadata is not None and 'a_turn' in metadata[0])
             a_turn = torch.tensor([sample_metadata['a_turn'] for sample_metadata in metadata]).to(passage['tokens']).unsqueeze(1).float()
-        sep_token = metadata[0]['[SEP]'] if '[SEP]' in metadata[0] else self.vocab._token_to_index['bert']['[SEP]']
+        try:
+            sep_token = metadata[0]['[SEP]'] if '[SEP]' in metadata[0] else self.vocab._token_to_index['bert']['[SEP]']
+        except:
+            sep_token = 102
 
         # Calculate answer
         option_logits, value = self.compute_logits_and_value(question, passage, options, sep_token, a_turn)
@@ -142,15 +137,12 @@ class BertMC(Model):
 
         # Store results
         output_dict = {
-                "span_start_logits": option_logits,
-                "span_start_probs": option_probs,
-                "best_span": best_answer_index,
+                "option_logits": option_logits,
+                "option_probs": option_probs,
+                "best_answer_index": best_answer_index,
                 "value": value if not self.is_judge else None,
-                "accuracy": best_answer_index == answer_index if self.is_judge else None  # TODO: Use this as tmp_squad_metrics in Oracle
+                "acc": best_answer_index == answer_index if self.is_judge else None  # TODO: Use this as tmp_squad_metrics in Oracle
                 }
-        # Providing dummy EM and F1 values for RL training reward
-        output_dict['em'] = output_dict['accuracy']
-        output_dict['f1'] = output_dict['accuracy']
 
         # Compute the loss for training.
         if answer_index is not None:

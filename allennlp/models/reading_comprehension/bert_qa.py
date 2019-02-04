@@ -152,8 +152,7 @@ class BertQA(Model):
             string from the original passage that the model thinks is the best answer to the
             question.
         """
-        # sep_token = metadata[0]['[SEP]'] if '[SEP]' in metadata[0] else self.vocab._token_to_index['bert']['[SEP]']
-        sep_token = 102  # TODO: Fix hard-coding later for ee.g. BERT Large
+        sep_token = metadata[0]['[SEP]'] if '[SEP]' in metadata[0] else self.vocab._token_to_index['bert']['[SEP]']
         sep_token_mask = (passage['tokens'] == sep_token).long()
         token_type_ids = (sep_token_mask.cumsum(-1) - sep_token_mask).clamp(max=1)
         if not self.is_judge:

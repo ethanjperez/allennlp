@@ -356,7 +356,7 @@ class Trainer(TrainerBase):
 
     @staticmethod
     def _print_debate(batch, num_sents, debate_mode, sent_choice_input_masks, sent_choice_idxs, output_dict,
-                      j_em, j_f1, j_ssp, sc_diffs=None):
+                      j_em=None, j_f1=None, j_ssp=None, sc_diffs=None):
         """
         Neatly prints all debates from a batch.
         """
@@ -377,7 +377,10 @@ class Trainer(TrainerBase):
                         sent_str = ' '.join(toks[turn_sent_start_input_idx: turn_sent_end_input_idx])
                     print('\n---', method.upper(), '--- Sentence', int(sent_choice_idxs[turn][sample_no]), '\n', sent_str)
                 print('\n--- J --- EM / F1 / SSP / SC_DIFF',
-                      float(j_em[sample_no]), '/', float(j_f1[sample_no]), '/', float(j_ssp[sample_no]), '/', float(sc_diffs[sample_no]) if sc_diffs is not None else 'N/A')
+                      float(j_em[sample_no]) if j_em is not None else 'N/A', '/',
+                      float(j_f1[sample_no]) if j_f1 is not None else 'N/A', '/',
+                      float(j_ssp[sample_no]) if j_ssp is not None else 'N/A', '/',
+                      float(sc_diffs[sample_no]) if sc_diffs is not None else 'N/A')
                 print(' '.join(toks[output_dict['best_span'][sample_no][0]:output_dict['best_span'][sample_no][1] + 1]))
         return
 
@@ -589,7 +592,8 @@ class Trainer(TrainerBase):
         sent_input_idxs = debate_choice_input_mask.cumsum(1) - debate_choice_input_mask
         sent_input_idxs = sent_input_idxs.masked_fill(required_text_input_mask.byte(), -1.)
         sent_input_idxs = sent_input_idxs.masked_fill(sent_input_idxs == num_sents.unsqueeze(-1), -1.)
-        sent_answer_idx = sent_output_idxs.gather(1, batch['span_start'].to(sent_input_idxs.device))  # TODO: Verify
+        if not mc:
+            sent_answer_idx = sent_output_idxs.gather(1, batch['span_start'].to(sent_input_idxs.device))  # TODO: Verify
 
         # Execute player turns to determine mask.
         sent_choice_idxs = []
@@ -652,29 +656,35 @@ class Trainer(TrainerBase):
                     oracle_all_sent_choice_input_mask = oracle_all_sent_choice_input_mask / (oracle_all_sent_choice_input_mask.clamp(min=1))  # Differentiable clamp to max=1
                     oracle_batch = self._modify_input_passage(oracle_batch, oracle_all_sent_choice_input_mask, mask_tok_val, mod_type)
 
-                    # Get judge results
+                    # Get judge results (May require multiple batches)
                     # TODO: Check judge_output_mask is as expected. TODO: Check this gets sliced appropriately and included in oracle_batch
-                    oracle_batch['valid_output_mask'] = judge_output_mask[sample_no].unsqueeze(0).expand(num_sent_options, -1)
+                    if not self._mc_dataset_reader:
+                        oracle_batch['valid_output_mask'] = judge_output_mask[sample_no].unsqueeze(0).expand(num_sent_options, -1)
                     # NB: Slice batch based on batch_size. Do several separate forward passes.
-                    num_oracle_batch_pieces = (num_sent_options // bsz) + 1
+                    num_oracle_batch_slices = math.ceil(num_sent_options.item() / float(bsz))
                     oracle_output_dict = None
-                    for oracle_batch_piece_no in range(num_oracle_batch_pieces):
-                        oracle_batch_slice = slice(oracle_batch_piece_no * bsz, (oracle_batch_piece_no + 1) * bsz)
-                        oracle_batch_piece = self._slice_batch(oracle_batch, oracle_batch_slice)
-                        oracle_output_dict_piece = self._forward([oracle_batch_piece], judge)
+                    for oracle_batch_slice_num in range(num_oracle_batch_slices):
+                        feed_slice = slice(oracle_batch_slice_num * bsz, (oracle_batch_slice_num + 1) * bsz)
+                        oracle_batch_slice = self._slice_batch(oracle_batch, feed_slice)
+                        oracle_batch_slice_output_dict = self._forward([oracle_batch_slice], judge)
+                        # Add results to overall results dictionary
                         if oracle_output_dict is None:
-                            oracle_output_dict = oracle_output_dict_piece
+                            oracle_output_dict = oracle_batch_slice_output_dict
                         else:
-                            for k, v in oracle_output_dict_piece.items():
+                            for k, v in oracle_batch_slice_output_dict.items():
                                 if isinstance(v, torch.Tensor) and v.dim() > 0:
-                                    oracle_output_dict[k] = torch.cat([oracle_output_dict[k], oracle_output_dict_piece[k]], dim=0)
+                                    oracle_output_dict[k] = torch.cat([oracle_output_dict[k], oracle_batch_slice_output_dict[k]], dim=0)
                                 else:
                                     if k in oracle_output_dict.keys():
                                         oracle_output_dict.pop(k)
-                    oracle_batch.pop('valid_output_mask')
+                    if not self._mc_dataset_reader:
+                        oracle_batch.pop('valid_output_mask')
 
                     if oracle_eval_method == 'ssp':
-                        oracle_metrics = [oracle_output_dict['span_start_probs'][i, oracle_batch['span_start'][i]].item() for i in range(oracle_output_dict['span_start_probs'].size(0))]
+                        if self._mc_dataset_reader:
+                            oracle_metrics = [oracle_output_dict['option_probs'][i, oracle_batch['answer_index'][i]].item() for i in range(oracle_output_dict['option_probs'].size(0))]
+                        else:
+                            oracle_metrics = [oracle_output_dict['span_start_probs'][i, oracle_batch['span_start'][i]].item() for i in range(oracle_output_dict['span_start_probs'].size(0))]
                     else:
                         oracle_metrics = oracle_output_dict[oracle_eval_method].tolist()
                     opt_sc = float(oracle_func(oracle_metrics))
@@ -684,7 +694,7 @@ class Trainer(TrainerBase):
                     # NB: Hard-coding different baseline score based on debate_mode
                     if debate_mode == 'gb':  # No sentence choice is baseline
                         baseline_sc = oracle_metrics[past_sent_choice_idxs[sample_no, 0]]
-                    # TODO: Add saved sc_diffs for accuracy/em/f1
+                    # TODO: Add saved sc_diffs for acc/em/f1
                     sc_diffs.append(baseline_sc - opt_sc)
                 if judge_was_training:
                     judge.train()
@@ -697,6 +707,8 @@ class Trainer(TrainerBase):
                 # Add some debater-specific batch info. NB: 'metadata' usually optional but will now cause error if missing
                 for batch_idx in range(bsz):
                     batch['metadata'][batch_idx]['a_turn'] = a_turn[turn]
+                if self._mc_dataset_reader:
+                    raise NotImplementedError
                 batch['valid_output_mask'] = debate_choice_output_mask
 
                 # Debate forward pass
@@ -709,7 +721,7 @@ class Trainer(TrainerBase):
                 batch.pop('valid_output_mask')
 
                 # Sample from policy's sentence-level distribution
-                eos_choice_distribution = debater_output_dict['span_start_probs']
+                eos_choice_distribution = debater_output_dict['span_start_probs']  # TODO: Make BERT MC models capable of outputting distributions over EOS tokens
                 word_choice_idx = torch.multinomial(eos_choice_distribution, 1) if for_training else torch.argmax(eos_choice_distribution, dim=1, keepdim=True)
                 sent_choice_idx = sent_output_idxs.gather(1, word_choice_idx.to(sent_output_idxs.device))
 
@@ -754,8 +766,9 @@ class Trainer(TrainerBase):
             sent_choice_probs.append(sent_choice_prob)
             values.append(value.cpu())
 
-            answer_sent_chosen = (sent_choice_idx == sent_answer_idx).float()  # NOTE: Assumes answer does not cross ./?/! boundary
-            self._update_trainer_metrics('answer_sent_chosen' + turn_str[turn], answer_sent_chosen.mean())
+            if not mc:
+                answer_sent_chosen = (sent_choice_idx == sent_answer_idx).float()  # NOTE: Assumes answer does not cross ./?/! boundary
+                self._update_trainer_metrics('answer_sent_chosen' + turn_str[turn], answer_sent_chosen.mean())
 
         # Mask Judge's input
         sent_choice_input_masks = [(sent_input_idxs == sent_choice_idx) for sent_choice_idx in sent_choice_idxs]
@@ -764,9 +777,11 @@ class Trainer(TrainerBase):
         batch = self._modify_input_passage(batch, all_sent_choice_input_mask, mask_tok_val, mod_type)
 
         # Judge forward pass
-        batch['valid_output_mask'] = judge_output_mask  # TODO: Check judge_output_mask is as expected
+        if not self._mc_dataset_reader:
+            batch['valid_output_mask'] = judge_output_mask  # TODO: Check judge_output_mask is as expected
         output_dict = self._forward([batch], judge)
-        batch.pop('valid_output_mask')
+        if not self._mc_dataset_reader:
+            batch.pop('valid_output_mask')
 
         # Debate metrics and losses
         if debater is not None:
@@ -774,22 +789,21 @@ class Trainer(TrainerBase):
             # j_metrics = judge.get_metrics()
             # j_em = torch.tensor(j_metrics['em']).to(sent_choice_probs[0])
             # j_f1 = torch.tensor(j_metrics['f1']).to(sent_choice_probs[0])
-            j_em = output_dict['em'].to(sent_choice_probs[0])
-            j_f1 = output_dict['f1'].to(sent_choice_probs[0])
-            j_ssp = torch.tensor([output_dict['span_start_probs'][i, batch['span_start'][i]] for i in range(bsz)])
-            if debater.reward_method == 'f1':
-                j_score = j_f1
-            elif debater.reward_method == 'ssp':
-                j_score = j_ssp
-            else:  # EM or SL (where EM is a dummy value)
-                j_score = j_em
-            j_score = j_score.detach()  # Judge shouldn't get gradients through j_score, used to reward A/B
+            j_scores = {
+                'em': output_dict['em'].to(sent_choice_probs[0]) if 'em' in output_dict else None,
+                'f1': output_dict['f1'].to(sent_choice_probs[0]) if 'f1' in output_dict else None,
+            }
+            if self._mc_dataset_reader:
+                j_scores['ssp'] = torch.tensor([output_dict['option_probs'][i, batch['answer_index'][i]] for i in range(bsz)])
+            else:
+                j_scores['ssp'] = torch.tensor([output_dict['span_start_probs'][i, batch['span_start'][i]] for i in range(bsz)])
+            j_score = j_scores[debater.reward_method].detach()  # Judge shouldn't get gradients through j_score, used to reward A/B
 
             self._add_debate_metrics(output_dict, sent_output_idxs, sent_choice_idxs, num_turns, turn_str)
             print_every = 1 if mc else 20
             if self._eval_mode and ((self._batch_num_total % print_every) == 0):
                 self._print_debate(batch, num_sents, debate_mode, sent_choice_input_masks, sent_choice_idxs, output_dict,
-                                   j_em, j_f1, j_ssp, sc_diffs)
+                                   j_scores['em'], j_scores['f1'], j_scores['ssp'], sc_diffs)
 
             # Initialize loss (including J's supervised loss if necessary)
             output_dict = output_dict if self.model.update_judge else {'loss': torch.Tensor([0])}
