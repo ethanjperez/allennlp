@@ -783,28 +783,25 @@ class Trainer(TrainerBase):
         if not self._mc_dataset_reader:
             batch.pop('valid_output_mask')
 
-        # Debate metrics and losses
+        # Judge metrics
+        j_scores = {
+            'em': output_dict['em'].to(sent_choice_probs[0]) if 'em' in output_dict else None,
+            'f1': output_dict['f1'].to(sent_choice_probs[0]) if 'f1' in output_dict else None,
+        }
+        if self._mc_dataset_reader:
+            j_scores['ssp'] = torch.tensor([output_dict['option_probs'][i, batch['answer_index'][i]] for i in range(bsz)])
+        else:
+            j_scores['ssp'] = torch.tensor([output_dict['span_start_probs'][i, batch['span_start'][i]] for i in range(bsz)])
+
+        self._add_debate_metrics(output_dict, sent_output_idxs, sent_choice_idxs, num_turns, turn_str)
+        print_every = 1 if mc else 20
+        if self._eval_mode and ((self._batch_num_total % print_every) == 0):
+            self._print_debate(batch, num_sents, debate_mode, sent_choice_input_masks, sent_choice_idxs, output_dict,
+                               j_scores['em'], j_scores['f1'], j_scores['ssp'], sc_diffs)
+
+        # Debate losses
         if debater is not None:
-            # Debate metrics
-            # j_metrics = judge.get_metrics()
-            # j_em = torch.tensor(j_metrics['em']).to(sent_choice_probs[0])
-            # j_f1 = torch.tensor(j_metrics['f1']).to(sent_choice_probs[0])
-            j_scores = {
-                'em': output_dict['em'].to(sent_choice_probs[0]) if 'em' in output_dict else None,
-                'f1': output_dict['f1'].to(sent_choice_probs[0]) if 'f1' in output_dict else None,
-            }
-            if self._mc_dataset_reader:
-                j_scores['ssp'] = torch.tensor([output_dict['option_probs'][i, batch['answer_index'][i]] for i in range(bsz)])
-            else:
-                j_scores['ssp'] = torch.tensor([output_dict['span_start_probs'][i, batch['span_start'][i]] for i in range(bsz)])
             j_score = j_scores[debater.reward_method].detach()  # Judge shouldn't get gradients through j_score, used to reward A/B
-
-            self._add_debate_metrics(output_dict, sent_output_idxs, sent_choice_idxs, num_turns, turn_str)
-            print_every = 1 if mc else 20
-            if self._eval_mode and ((self._batch_num_total % print_every) == 0):
-                self._print_debate(batch, num_sents, debate_mode, sent_choice_input_masks, sent_choice_idxs, output_dict,
-                                   j_scores['em'], j_scores['f1'], j_scores['ssp'], sc_diffs)
-
             # Initialize loss (including J's supervised loss if necessary)
             output_dict = output_dict if self.model.update_judge else {'loss': torch.Tensor([0])}
             output_dict['loss'] = output_dict['loss'].to(j_score)
