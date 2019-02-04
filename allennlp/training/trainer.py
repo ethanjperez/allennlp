@@ -589,7 +589,10 @@ class Trainer(TrainerBase):
         # Calculate number of choosable input/passage sentences
         num_output_sents = debate_choice_output_mask.sum(1)
         num_input_sents = debate_choice_input_mask.sum(1)
-        assert nn_util.tensors_equal(num_output_sents, num_input_sents), 'Error: Discrepancy in # of output and input sentences:' + str(num_output_sents) + ', ' + str(num_input_sents)
+        try:
+            assert nn_util.tensors_equal(num_output_sents, num_input_sents), 'Error: Discrepancy in # of output and input sentences:' + str(num_output_sents) + ', ' + str(num_input_sents)
+        except:
+            import ipdb; ipdb.set_trace()
         num_sents = num_output_sents
         self._update_trainer_metrics('num_sents', num_sents.float().mean())
 
