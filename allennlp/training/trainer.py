@@ -321,10 +321,7 @@ class Trainer(TrainerBase):
             for idx in range(batch['passage']['tokens'].size(0)):
                 toks = batch['passage']['tokens'][idx]
                 reveal_idxs = (toks * (1. - sent_choice_input_masks[idx])).nonzero().squeeze(-1)
-                try:
-                    post_delete_toks[idx][:toks[reveal_idxs].size(0)] = toks[reveal_idxs]
-                except:
-                    import ipdb; ipdb.set_trace()
+                post_delete_toks[idx][:toks[reveal_idxs].size(0)] = toks[reveal_idxs]
                 if has_chars:
                     tok_chars = batch['passage']['token_characters'][idx]
                     post_delete_tok_chars[idx][:toks[reveal_idxs].size(0)] = tok_chars[reveal_idxs]
