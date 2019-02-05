@@ -561,7 +561,7 @@ class Trainer(TrainerBase):
             required_bert_tokens = {'[CLS]', '[SEP]'}
             for i in range(bsz):
                 for j, output_token in enumerate(batch['metadata'][i]['passage_tokens']):
-                    if output_token in required_bert_tokens:
+                    if (output_token in required_bert_tokens) and (j < output_dim):
                         required_text_output_mask[i, j] = 1.  # NB: Mask will change after deletion (for final [SEP]).
                         required_text_input_mask[i, self._output_to_input_idx(batch, i, j)] = 1.
         required_text_output_mask = required_text_output_mask.clamp(max=1)  # In case of double-counting (which shouldn't happen)
@@ -578,7 +578,7 @@ class Trainer(TrainerBase):
                     debate_choice_input_mask[i, self._output_to_input_idx(batch, i, j)] = 1.
         # Force last non-padding token to be an eos token in the mask
         for i in range(bsz):
-            last_output_token_idx = len(batch['metadata'][i]['passage_tokens']) - 1
+            last_output_token_idx = min(len(batch['metadata'][i]['passage_tokens']), output_dim) - 1
             debate_choice_output_mask[i, last_output_token_idx] = 1.
             last_input_token_idx = self._output_to_input_idx(batch, i, last_output_token_idx)
             debate_choice_input_mask[i, last_input_token_idx] = 1.
@@ -618,7 +618,7 @@ class Trainer(TrainerBase):
             sent_choice_prob = None
             value = None
             sc_diffs = None  # Optional to fill in each turns, resets every turn
-            if method == 'r':  # Random selection. TODO: Make without replacement policy 'R'
+            if method == 'r':  # Random selection. NB: Make without replacement policy 'R'
                 sent_choice_idx = (torch.rand_like(num_sents.float()) * (num_sents.float())).trunc().long().unsqueeze(1)
                 sent_choice_prob = torch.ones(bsz) / (num_sents.float())
                 value = -1 * torch.ones(bsz)
