@@ -562,11 +562,7 @@ class Trainer(TrainerBase):
                 for j, output_token in enumerate(batch['metadata'][i]['passage_tokens']):
                     if output_token in required_bert_tokens:
                         required_text_output_mask[i, j] = 1.  # NB: Mask will change after deletion (for final [SEP]).
-                        try:
-                            required_text_input_mask[i, self._output_to_input_idx(batch, i, j)] = 1.
-                        except:
-                            print(batch)
-                            import ipdb; ipdb.set_trace()
+                        required_text_input_mask[i, self._output_to_input_idx(batch, i, j)] = 1.
             # for required_bert_tok in required_bert_tokens:
             #     required_text_input_mask += (batch['passage']['tokens'] == self.get_token_index(required_bert_tok)).long()  # NB: Mask will change after deletion (e.g., for final [SEP]).
         required_text_output_mask = required_text_output_mask.clamp(max=1)  # In case of double-counting (which shouldn't happen)
@@ -579,8 +575,12 @@ class Trainer(TrainerBase):
         for i in range(bsz):
             for j, output_token in enumerate(batch['metadata'][i]['passage_tokens']):
                 if output_token in punct_tokens:
-                    debate_choice_output_mask[i, j] = 1.  # IndexError: index 489 is out of bounds for dimension 0 with size 479. 88% through validation, with random sentence removed.
-                    debate_choice_input_mask[i, self._output_to_input_idx(batch, i, j)] = 1.
+                    try:
+                        debate_choice_output_mask[i, j] = 1.  # IndexError: index 489 is out of bounds for dimension 0 with size 479. 88% through validation, with random sentence removed.
+                        debate_choice_input_mask[i, self._output_to_input_idx(batch, i, j)] = 1.
+                    except:
+                        print(batch)
+                        import ipdb; ipdb.set_trace()
         # Force last non-padding token to be an eos token in the mask
         for i in range(bsz):
             last_output_token_idx = len(batch['metadata'][i]['passage_tokens']) - 1
