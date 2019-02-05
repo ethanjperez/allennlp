@@ -162,6 +162,7 @@ class BertMC(Model):
         Packs two BERT-formatted sequences into BERT format: [CLS] seq1 tokens [SEP] seq2 tokens [SEP].
         If packed sequence exceeds BERT's max input length, then the first sequence is always truncated.
         """
+        # TODO: Modify valid_output_mask
         assert (tokens_1.dim() == 2) and (tokens_2.dim() == 2), 'pack_sequences only supports 2-dimensional sequences.'
         batch_size = tokens_1.size(0)
         packed_seqs = torch.zeros(batch_size, maxlen, dtype=torch.long, device=tokens_1.device)

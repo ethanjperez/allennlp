@@ -463,6 +463,7 @@ class Trainer(TrainerBase):
         if (not self._mc_dataset_reader) and (self._breakpoint_level >= 1) and for_training:
             for batch in batch_group:
                 for i in range(batch['passage']['tokens'].size(0)):
+                    print('ID:', batch['metadata'][i]['id'], ' ...')
                     char_span_start = batch['metadata'][i]['token_offsets'][batch['span_start'][i]][0]
                     char_span_end = batch['metadata'][i]['token_offsets'][batch['span_end'][i]][1]
                     answer_text = batch['metadata'][i]['answer_texts'][0]
@@ -563,8 +564,6 @@ class Trainer(TrainerBase):
                     if output_token in required_bert_tokens:
                         required_text_output_mask[i, j] = 1.  # NB: Mask will change after deletion (for final [SEP]).
                         required_text_input_mask[i, self._output_to_input_idx(batch, i, j)] = 1.
-            # for required_bert_tok in required_bert_tokens:
-            #     required_text_input_mask += (batch['passage']['tokens'] == self.get_token_index(required_bert_tok)).long()  # NB: Mask will change after deletion (e.g., for final [SEP]).
         required_text_output_mask = required_text_output_mask.clamp(max=1)  # In case of double-counting (which shouldn't happen)
         required_text_input_mask = required_text_input_mask.clamp(max=1)  # In case of double-counting (which shouldn't happen)  TODO: Delete if unused
 
@@ -574,13 +573,9 @@ class Trainer(TrainerBase):
         debate_choice_input_mask = torch.zeros(bsz, input_dim, dtype=torch.long)
         for i in range(bsz):
             for j, output_token in enumerate(batch['metadata'][i]['passage_tokens']):
-                if output_token in punct_tokens:
-                    try:
-                        debate_choice_output_mask[i, j] = 1.  # IndexError: index 489 is out of bounds for dimension 0 with size 479. 88% through validation, with random sentence removed.
-                        debate_choice_input_mask[i, self._output_to_input_idx(batch, i, j)] = 1.
-                    except:
-                        print(batch)
-                        import ipdb; ipdb.set_trace()
+                if (output_token in punct_tokens) and (j < output_dim):
+                    debate_choice_output_mask[i, j] = 1.  # IndexError: index 489 is out of bounds for dimension 0 with size 479. 88% through validation, with random sentence removed.
+                    debate_choice_input_mask[i, self._output_to_input_idx(batch, i, j)] = 1.
         # Force last non-padding token to be an eos token in the mask
         for i in range(bsz):
             last_output_token_idx = len(batch['metadata'][i]['passage_tokens']) - 1
