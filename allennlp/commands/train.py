@@ -141,6 +141,11 @@ class Train(Subcommand):
                                default=1,
                                help='Number of steps to accumulate gradient for before taking an optimizer step.')
 
+        subparser.add_argument('-p', '--pickle_filename',
+                               type=str,
+                               default='id_to_oracle.pkl',
+                               help='Name of pickle file to store.')
+
         subparser.set_defaults(func=train_model_from_args)
 
         return subparser
@@ -164,7 +169,8 @@ def train_model_from_args(args: argparse.Namespace):
                           args.detach_value_head,
                           args.breakpoint_level,
                           args.id_to_oracle_filename,
-                          args.accumulation_steps)
+                          args.accumulation_steps,
+                          args.pickle_filename)
 
 
 def train_model_from_file(parameter_filename: str,
@@ -181,7 +187,8 @@ def train_model_from_file(parameter_filename: str,
                           detach_value_head: bool = False,
                           breakpoint_level: int = 0,
                           id_to_oracle_filename: str = None,
-                          accumulation_steps: int = 1) -> Model:
+                          accumulation_steps: int = 1,
+                          pickle_filename: str = 'id_to_oracle.pkl') -> Model:
     """
     A wrapper around :func:`train_model` which loads the params from a file.
 
@@ -208,7 +215,7 @@ def train_model_from_file(parameter_filename: str,
     params = Params.from_file(parameter_filename, overrides)
     return train_model(params, serialization_dir, debate_mode, file_friendly_logging, recover, force, judge_filename,
                        update_judge, eval_mode, reward_method, detach_value_head, breakpoint_level,
-                       id_to_oracle_filename, accumulation_steps)
+                       id_to_oracle_filename, accumulation_steps, pickle_filename)
 
 
 def train_model(params: Params,
@@ -224,7 +231,8 @@ def train_model(params: Params,
                 detach_value_head: bool = False,
                 breakpoint_level: int = 0,
                 id_to_oracle_filename: str = None,
-                accumulation_steps: int = 1) -> Model:
+                accumulation_steps: int = 1,
+                pickle_filename: str = 'id_to_oracle.pkl') -> Model:
     """
     Trains the model specified in the given :class:`Params` object, using the data and training
     parameters also specified in that object, and saves the results in ``serialization_dir``.
@@ -288,7 +296,8 @@ def train_model(params: Params,
                 eval_mode=eval_mode,
                 breakpoint_level=breakpoint_level,
                 id_to_oracle_filename=id_to_oracle_filename,
-                accumulation_steps=accumulation_steps)
+                accumulation_steps=accumulation_steps,
+                pickle_filename=pickle_filename)
         evaluation_iterator = pieces.validation_iterator or pieces.iterator
         evaluation_dataset = pieces.test_dataset
         # TODO: Check you're not modifying variables important for later on, in TrainerPieces

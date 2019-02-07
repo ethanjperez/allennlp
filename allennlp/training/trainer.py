@@ -67,7 +67,8 @@ class Trainer(TrainerBase):
                  eval_mode: bool = False,
                  breakpoint_level: int = 0,
                  id_to_oracle_filename: str = None,
-                 accumulation_steps: int = 1) -> None:
+                 accumulation_steps: int = 1,
+                 pickle_filename='id_to_oracle.pkl') -> None:
         """
         A trainer for doing supervised learning. It just takes a labeled dataset
         and a ``DataIterator``, and uses the supplied ``Optimizer`` to learn the weights
@@ -180,6 +181,8 @@ class Trainer(TrainerBase):
         self._eval_mode = eval_mode
         self._breakpoint_level = breakpoint_level
         self._accumulation_steps = accumulation_steps
+        self._pickle_filename = pickle_filename
+
         self._using_bert = hasattr(self.model, '_text_field_embedder') and \
                    hasattr(self.model._text_field_embedder, 'token_embedder_tokens') and \
                    'bert_token_embedder' in str(type(self.model._text_field_embedder.token_embedder_tokens))
@@ -1144,7 +1147,7 @@ class Trainer(TrainerBase):
                         ('A' in self._debate_mode) or
                         ('B' in self._debate_mode)):
                     self._id_to_oracle_is_complete = True
-                    with open(os.path.join(self._serialization_dir, f'id_to_oracle.pkl'), 'wb') as f:
+                    with open(os.path.join(self._serialization_dir, self._pickle_filename), 'wb') as f:
                         pickle.dump(self._id_to_oracle, f, pickle.HIGHEST_PROTOCOL)
                 dump_metrics(os.path.join(self._serialization_dir, f'metrics_epoch_{epoch}.json'), metrics)
 
@@ -1275,7 +1278,8 @@ class Trainer(TrainerBase):
                     eval_mode: bool = False,
                     breakpoint_level: int = 0,
                     id_to_oracle_filename: str = None,
-                    accumulation_steps: int = 1) -> 'Trainer':
+                    accumulation_steps: int = 1,
+                    pickle_filename: str = 'id_to_oracle.pkl') -> 'Trainer':
         # pylint: disable=arguments-differ
         patience = params.pop_int("patience", None)
         validation_metric = params.pop("validation_metric", "-loss")
@@ -1338,7 +1342,8 @@ class Trainer(TrainerBase):
                    eval_mode=eval_mode,
                    breakpoint_level=breakpoint_level,
                    id_to_oracle_filename=id_to_oracle_filename,
-                   accumulation_steps=accumulation_steps)
+                   accumulation_steps=accumulation_steps,
+                   pickle_filename=pickle_filename)
 
 
 class TrainerPieces(NamedTuple):
