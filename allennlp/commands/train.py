@@ -328,7 +328,9 @@ def train_model(params: Params,
     # Now tar up results
     if not eval_mode:
         archive_model(serialization_dir, files_to_archive=params.files_to_archive)
-    dump_metrics(os.path.join(serialization_dir, "metrics.json"), metrics, log=True)
+        dump_metrics(os.path.join(serialization_dir, "metrics.json"), metrics, log=True)
+    else:
+        dump_metrics(os.path.join(serialization_dir, "metrics.eval.d=" + '-'.join(debate_mode) + ".json"), metrics, log=True)
 
     # We count on the trainer to have the model with best weights
     return trainer.model

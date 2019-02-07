@@ -1156,7 +1156,10 @@ class Trainer(TrainerBase):
                     with open(self._oracle_outputs_path, 'wb') as f:
                         pickle.dump(self._oracle_outputs, f, pickle.HIGHEST_PROTOCOL)
                     logger.info('Saved oracle_outputs to: ' + self._oracle_outputs_path)
-                dump_metrics(os.path.join(self._serialization_dir, f'metrics_epoch_{epoch}.json'), metrics)
+                if self._eval_mode:
+                    dump_metrics(os.path.join(self._serialization_dir, f'metrics_epoch_{epoch}.d=' + '-'.join(self._debate_mode) + '.json'), metrics)
+                else:
+                    dump_metrics(os.path.join(self._serialization_dir, f'metrics_epoch_{epoch}.json'), metrics)
 
             if self._eval_mode:
                 return metrics
