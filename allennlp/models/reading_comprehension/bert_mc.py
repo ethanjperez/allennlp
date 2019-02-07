@@ -63,6 +63,7 @@ class BertMC(Model):
         self._text_field_embedder = text_field_embedder
         self._hidden_dim = text_field_embedder.get_output_dim()
         self.answer_type = 'mc'
+        self.output_type = 'mc'
 
         if not self.is_judge:
             self._value_head = TimeDistributed(torch.nn.Linear(self._hidden_dim, 1))  # NB: Can make MLP

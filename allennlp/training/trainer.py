@@ -66,9 +66,8 @@ class Trainer(TrainerBase):
                  log_batch_size_period: Optional[int] = None,
                  eval_mode: bool = False,
                  breakpoint_level: int = 0,
-                 id_to_oracle_filename: str = None,
-                 accumulation_steps: int = 1,
-                 pickle_filename='id_to_oracle.pkl') -> None:
+                 oracle_outputs_path: str = None,
+                 accumulation_steps: int = 1) -> None:
         """
         A trainer for doing supervised learning. It just takes a labeled dataset
         and a ``DataIterator``, and uses the supplied ``Optimizer`` to learn the weights
@@ -180,24 +179,34 @@ class Trainer(TrainerBase):
         self._validation_data = validation_dataset
         self._eval_mode = eval_mode
         self._breakpoint_level = breakpoint_level
+        self._oracle_outputs_path = oracle_outputs_path
         self._accumulation_steps = accumulation_steps
-        self._pickle_filename = pickle_filename
 
         self._using_bert = hasattr(self.model, '_text_field_embedder') and \
                    hasattr(self.model._text_field_embedder, 'token_embedder_tokens') and \
                    'bert_token_embedder' in str(type(self.model._text_field_embedder.token_embedder_tokens))
-        self._mc_dataset_reader = 'answer_index' in self.train_data[0].fields
+        self._span_model = (self.model.output_type == 'span')
         self._mc = (self.model.answer_type == 'mc')
-        self._answer_id_tokens = ['1st', '2nd', '3rd', '4th'] if ((self.model.answer_type == 'mc') and (not self._mc_dataset_reader)) else None
+        self._answer_id_tokens = ['1st', '2nd', '3rd', '4th'] if (self._mc and self._span_model) else None
         self.mod_type = 'delete' if self._mc else 'mask'
         self._mask_token = '[MASK]' if self._using_bert else '.'
         self._eos_tokens = {'.', '?', '!'}
+        self._using_oracle = ((self.model.reward_method is not None) and (self.model.reward_method == 'sl')) or \
+                             ('A' in self._debate_mode) or ('B' in self._debate_mode)
 
-        self._id_to_oracle_is_complete = (id_to_oracle_filename is not None)
-        self._id_to_oracle = {}
-        if id_to_oracle_filename is not None:
-            with open(id_to_oracle_filename, 'rb') as id_to_oracle_file:
-                self._id_to_oracle = pickle.load(id_to_oracle_file)
+        if self._oracle_outputs_path is None:
+            self._oracle_outputs_path = os.path.join(serialization_dir, 'model_oracle_outputs.pkl')
+        try:
+            with open(self._oracle_outputs_path, 'rb') as f:
+                self._oracle_outputs = pickle.load(f)
+            self._oracle_outputs_is_complete = True
+            logger.info('Loaded oracle_outputs from filepath: ' + self._oracle_outputs_path)
+        except:
+            self._oracle_outputs = {}
+            self._oracle_outputs_is_complete = False
+            if self._using_oracle:
+                logger.info('No oracle_outputs at filepath: ' + self._oracle_outputs_path)
+                logger.info('Will save oracle_outputs to: ' + self._oracle_outputs_path)
 
         self._trainer_metrics = {}
         if patience is None:  # no early stopping
@@ -487,8 +496,8 @@ class Trainer(TrainerBase):
         Batches together all possible next outcomes for one sample.
         """
         sample_id = batch['metadata'][sample_no]['id']
-        if sample_id in self._id_to_oracle:
-            return self._id_to_oracle[sample_id]
+        if sample_id in self._oracle_outputs:
+            return self._oracle_outputs[sample_id]
 
         judge = self.model if self.model.is_judge else self.model.judge
         bsz = batch['passage']['tokens'].size(0)
@@ -508,7 +517,7 @@ class Trainer(TrainerBase):
 
         # Get judge results (May require multiple batches)
         # TODO: Check this gets sliced appropriately and included in oracle_batch
-        if not self._mc_dataset_reader:
+        if self._span_model:
             oracle_batch['valid_output_mask'] = judge_mask['output'][sample_no].unsqueeze(0).expand(num_sent_options, -1)
         # NB: Slice batch based on batch_size. Do several separate forward passes.
         num_oracle_batch_slices = math.ceil(num_sent_options.item() / float(bsz))
@@ -527,9 +536,9 @@ class Trainer(TrainerBase):
                     else:
                         if k in oracle_output_dict.keys():
                             oracle_output_dict.pop(k)
-        if not self._mc_dataset_reader:
+        if self._span_model:
             oracle_batch.pop('valid_output_mask')
-        self._id_to_oracle[sample_id] = oracle_output_dict  # Cache for later use and saving to file
+        self._oracle_outputs[sample_id] = oracle_output_dict  # Cache for later use and saving to file
 
         return oracle_output_dict
 
@@ -650,7 +659,7 @@ class Trainer(TrainerBase):
             'input': torch.zeros(bsz, input_dim, dtype=torch.long),
             'output': torch.zeros(bsz, output_dim, dtype=torch.long)
         }  # TODO: BERT: When encoding P/Q together, provide char_question_span in DatasetReader. Otherwise model can give span in question.
-        if (not self._mc_dataset_reader) and ('question_span' in batch['metadata'][0]):
+        if self._span_model and (batch['metadata'][0].get('question_span', None) is not None):
             for i in range(bsz):
                 question_output_span = batch['metadata'][i]['question_span']
                 question_mask['output'][i, question_output_span[0]: question_output_span[1]+1] = 1.
@@ -667,7 +676,7 @@ class Trainer(TrainerBase):
         # Ensure Judge receives answers. Limit where Judge can answer (if applicable)
         passage_mask = {'output': nn_util.get_text_field_mask(batch['passage'], 0)}
         judge_mask = {'output': (passage_mask['output'] - question_mask['output']).clamp(min=0)}
-        if self._mc and (not self._mc_dataset_reader) and ('answer_choice_spans' in batch['metadata'][0]):
+        if self._mc and self._span_model and ('answer_choice_spans' in batch['metadata'][0]):
             judge_mask['output'] = torch.zeros(bsz, output_dim, dtype=torch.long)
             pos_answer_mask = {
                 'output': torch.zeros(bsz, output_dim, dtype=torch.long),
@@ -799,10 +808,10 @@ class Trainer(TrainerBase):
             batch = self._modify_input_passage(batch, all_sent_choice_input_mask)
 
             # Judge forward pass
-            if not self._mc_dataset_reader:
+            if self._span_model:
                 batch['valid_output_mask'] = judge_mask['output']  # TODO: Verify value
             output_dict = self._forward([batch], judge)
-            if not self._mc_dataset_reader:
+            if self._span_model:
                 batch.pop('valid_output_mask')
             j_scores: TensorDict = {score_type: output_dict.get(score_type, None) for score_type in {'prob', 'em', 'f1'}}
 
@@ -857,7 +866,7 @@ class Trainer(TrainerBase):
                     print('ID:', batch['metadata'][i]['id'], '...')
 
         # Optional debugging sanity check
-        if (not self._mc_dataset_reader) and (self._breakpoint_level >= 1) and for_training:
+        if self._span_model and (self._breakpoint_level >= 1) and for_training:
             for batch in batch_group:
                 for i in range(batch['passage']['tokens'].size(0)):
                     char_span_start = batch['metadata'][i]['token_offsets'][batch['span_start'][i]][0]
@@ -1141,14 +1150,12 @@ class Trainer(TrainerBase):
                     metrics["best_validation_" + key] = value
 
             if self._serialization_dir:
-                # Save id_to_oracle mapping if it's newly computed
-                if (not self._id_to_oracle_is_complete) and (
-                        ((self.model.reward_method is not None) and self.model.reward_method == 'sl') or
-                        ('A' in self._debate_mode) or
-                        ('B' in self._debate_mode)):
-                    self._id_to_oracle_is_complete = True
-                    with open(os.path.join(self._serialization_dir, self._pickle_filename), 'wb') as f:
-                        pickle.dump(self._id_to_oracle, f, pickle.HIGHEST_PROTOCOL)
+                # Save oracle_outputs mapping if it's newly computed
+                if (not self._oracle_outputs_is_complete) and (self._using_oracle):
+                    self._oracle_outputs_is_complete = True
+                    with open(self._oracle_outputs_path, 'wb') as f:
+                        pickle.dump(self._oracle_outputs, f, pickle.HIGHEST_PROTOCOL)
+                    logger.info('Saved oracle_outputs to: ' + self._oracle_outputs_path)
                 dump_metrics(os.path.join(self._serialization_dir, f'metrics_epoch_{epoch}.json'), metrics)
 
             if self._eval_mode:
@@ -1277,9 +1284,8 @@ class Trainer(TrainerBase):
                     validation_iterator: DataIterator = None,
                     eval_mode: bool = False,
                     breakpoint_level: int = 0,
-                    id_to_oracle_filename: str = None,
-                    accumulation_steps: int = 1,
-                    pickle_filename: str = 'id_to_oracle.pkl') -> 'Trainer':
+                    oracle_outputs_path: str = None,
+                    accumulation_steps: int = 1) -> 'Trainer':
         # pylint: disable=arguments-differ
         patience = params.pop_int("patience", None)
         validation_metric = params.pop("validation_metric", "-loss")
@@ -1341,9 +1347,8 @@ class Trainer(TrainerBase):
                    log_batch_size_period=log_batch_size_period,
                    eval_mode=eval_mode,
                    breakpoint_level=breakpoint_level,
-                   id_to_oracle_filename=id_to_oracle_filename,
-                   accumulation_steps=accumulation_steps,
-                   pickle_filename=pickle_filename)
+                   oracle_outputs_path=oracle_outputs_path,
+                   accumulation_steps=accumulation_steps)
 
 
 class TrainerPieces(NamedTuple):

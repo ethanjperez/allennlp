@@ -62,6 +62,7 @@ class BertQA(Model):
         self._detach_value_head = detach_value_head
         self._text_field_embedder = text_field_embedder
         self.answer_type = 'span' if (span_end_encoder is not None) else 'mc'
+        self.output_type = 'span'  # The actual way the output is given (here it's as a pointer to input)
 
         span_start_input_dim = text_field_embedder.get_output_dim()
         if not self.is_judge:

@@ -131,20 +131,15 @@ class Train(Subcommand):
                                default=0,
                                help='Debugging option: Increase to run with more breakpoints. 0 for no breakpoints.')
 
-        subparser.add_argument('-i', '--id_to_oracle_filename',
+        subparser.add_argument('-p', '--oracle_outputs_path',
                                type=str,
                                default=None,
-                               help='Path to file containing oracle predictions to do Supervised Learning on.')
+                               help='Name file containing oracle predictions to do Supervised Learning on.')
 
         subparser.add_argument('-a', '--accumulation_steps',
                                type=int,
                                default=1,
                                help='Number of steps to accumulate gradient for before taking an optimizer step.')
-
-        subparser.add_argument('-p', '--pickle_filename',
-                               type=str,
-                               default='id_to_oracle.pkl',
-                               help='Name of pickle file to store.')
 
         subparser.set_defaults(func=train_model_from_args)
 
@@ -157,38 +152,36 @@ def train_model_from_args(args: argparse.Namespace):
     """
     train_model_from_file(args.param_path,
                           args.serialization_dir,
-                          args.debate_mode,
                           args.overrides,
                           args.file_friendly_logging,
                           args.recover,
                           args.force,
+                          args.debate_mode,
                           args.judge_filename,
                           args.update_judge,
                           args.eval_mode,
                           args.reward_method,
                           args.detach_value_head,
                           args.breakpoint_level,
-                          args.id_to_oracle_filename,
-                          args.accumulation_steps,
-                          args.pickle_filename)
+                          args.oracle_outputs_path,
+                          args.accumulation_steps)
 
 
 def train_model_from_file(parameter_filename: str,
                           serialization_dir: str,
-                          debate_mode: List[str] = ('f'),
                           overrides: str = "",
                           file_friendly_logging: bool = False,
                           recover: bool = False,
                           force: bool = False,
+                          debate_mode: List[str] = ('f'),
                           judge_filename: str = None,
                           update_judge: bool = False,
                           eval_mode: bool = False,
                           reward_method: str = None,
                           detach_value_head: bool = False,
                           breakpoint_level: int = 0,
-                          id_to_oracle_filename: str = None,
-                          accumulation_steps: int = 1,
-                          pickle_filename: str = 'id_to_oracle.pkl') -> Model:
+                          oracle_outputs_path: str = None,
+                          accumulation_steps: int = 1) -> Model:
     """
     A wrapper around :func:`train_model` which loads the params from a file.
 
@@ -213,26 +206,25 @@ def train_model_from_file(parameter_filename: str,
     """
     # Load the experiment config from a file and pass it to ``train_model``.
     params = Params.from_file(parameter_filename, overrides)
-    return train_model(params, serialization_dir, debate_mode, file_friendly_logging, recover, force, judge_filename,
+    return train_model(params, serialization_dir, file_friendly_logging, recover, force, debate_mode, judge_filename,
                        update_judge, eval_mode, reward_method, detach_value_head, breakpoint_level,
-                       id_to_oracle_filename, accumulation_steps, pickle_filename)
+                       oracle_outputs_path, accumulation_steps)
 
 
 def train_model(params: Params,
                 serialization_dir: str,
-                debate_mode: List[str] = ('f'),
                 file_friendly_logging: bool = False,
                 recover: bool = False,
                 force: bool = False,
+                debate_mode: List[str] = ('f'),
                 judge_filename: str = None,
                 update_judge: bool = False,
                 eval_mode: bool = False,
                 reward_method: str = None,
                 detach_value_head: bool = False,
                 breakpoint_level: int = 0,
-                id_to_oracle_filename: str = None,
-                accumulation_steps: int = 1,
-                pickle_filename: str = 'id_to_oracle.pkl') -> Model:
+                oracle_outputs_path: str = None,
+                accumulation_steps: int = 1) -> Model:
     """
     Trains the model specified in the given :class:`Params` object, using the data and training
     parameters also specified in that object, and saves the results in ``serialization_dir``.
@@ -295,9 +287,8 @@ def train_model(params: Params,
                 validation_iterator=pieces.validation_iterator,
                 eval_mode=eval_mode,
                 breakpoint_level=breakpoint_level,
-                id_to_oracle_filename=id_to_oracle_filename,
-                accumulation_steps=accumulation_steps,
-                pickle_filename=pickle_filename)
+                oracle_outputs_path=oracle_outputs_path,
+                accumulation_steps=accumulation_steps)
         evaluation_iterator = pieces.validation_iterator or pieces.iterator
         evaluation_dataset = pieces.test_dataset
         # TODO: Check you're not modifying variables important for later on, in TrainerPieces
