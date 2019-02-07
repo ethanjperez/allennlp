@@ -220,6 +220,8 @@ class BertQA(Model):
                 "span_end_probs": span_end_probs,
                 "best_span": best_span,
                 "value": value if not self.is_judge else None,
+                "prob": torch.tensor([span_start_probs[i, span_start[i]] if span_start[i] < span_start_probs.size(1) else 0. for i in range(batch_size)]),  # prob(true ans)
+                "prob_dist": span_start_probs,
                 }
 
         # Compute the loss for training.

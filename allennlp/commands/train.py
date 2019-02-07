@@ -115,8 +115,8 @@ class Train(Subcommand):
 
         subparser.add_argument('-m', '--reward_method',
                                type=str,
-                               choices=['em', 'f1', 'ssp',  # Exact Match, F1, Span Start Prob.
-                                        'sl', 'sl-ssp'],  # Supervised Learning (Oracle EM/F1 or SSP)
+                               choices=['em', 'f1', 'prob',  # Exact Match, F1, (Span Start) Probability
+                                        'sl'],  # Supervised Learning (Oracle Prob)
                                default='f1',
                                help='how to reward debate agents')
 

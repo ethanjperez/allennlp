@@ -123,9 +123,10 @@ class BertMC(Model):
         # Precomputation
         a_turn = None
         if not self.is_judge:
+            raise NotImplementedError('SL/RL training not yet supported for pure MC models')  # TODO
             assert(metadata is not None and 'a_turn' in metadata[0])
             a_turn = torch.tensor([sample_metadata['a_turn'] for sample_metadata in metadata]).to(passage['tokens']).unsqueeze(1).float()
-        try:
+        try:  # NB: Clean this up
             sep_token = metadata[0]['[SEP]'] if '[SEP]' in metadata[0] else self.vocab._token_to_index['bert']['[SEP]']
         except:
             sep_token = 102
@@ -141,7 +142,9 @@ class BertMC(Model):
                 "option_probs": option_probs,
                 "best_answer_index": best_answer_index,
                 "value": value if not self.is_judge else None,
-                "acc": best_answer_index == answer_index if self.is_judge else None  # TODO: Use this as tmp_squad_metrics in Oracle
+                "em": best_answer_index == answer_index.squeeze(-1) if self.is_judge else None,  # TODO: Use this as tmp_squad_metrics in Oracle
+                "prob": torch.tensor([option_probs[i, answer_index[i]] for i in range(option_probs.size(0))]),  # prob(true ans)
+                "prob_dist": None if not self.is_judge else None,  # TODO: Implement debaters which predict prob_dist
                 }
 
         # Compute the loss for training.
