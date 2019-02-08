@@ -838,17 +838,15 @@ class Trainer(TrainerBase):
                             # Judge shouldn't get gradients through j_score, used to reward A/B
                             j_score = j_scores[debater.reward_method].to(loss_device).detach()
                             reward = j_score if a_turn[turn] else (1. - j_score)
-                            j_score_pred = values[turn].to(loss_device)
-                            baseline = j_score_pred if a_turn[turn] else (1. - j_score_pred)
+                            baseline = values[turn].to(loss_device)
                             policy_loss = -(torch.log(sent_choice_probs[turn]) * (reward - baseline.detach())).mean()
                             output_dict['loss'] += policy_loss
-                            value_loss = 0.5 * ((j_score.detach() - baseline) ** 2).mean()
+                            value_loss = 0.5 * ((baseline - reward.detach()) ** 2).mean()
                             output_dict['loss'] += value_loss
                             self._update_trainer_metrics('policy_loss' + turn_str[turn], policy_loss)
-                            self._update_trainer_metrics('value' + turn_str[turn], baseline.mean())
+                            self._update_trainer_metrics('baseline' + turn_str[turn], baseline.mean())
                             self._update_trainer_metrics('value_loss' + turn_str[turn], value_loss)  # Upper bound ~= .125
-                if len(values) == 2:
-                    self._update_trainer_metrics('abs_diff_in_turn_value', (values[1] - values[0]).cpu().abs().mean())
+                            self._update_trainer_metrics('reward' + turn_str[turn], reward.mean())
 
             return output_dict  # NB: Can just instead return output_dict['loss']. For multi-turn, maintain loss across rounds.
 

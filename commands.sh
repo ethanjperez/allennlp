@@ -4,19 +4,22 @@
 
 # NB: Span-based debates: Do NOT use span_end_encoder in debater config (only SQUAD judge config)
 # BERT RACE RL
-allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.a.m=prob.bsz=32.lr=1e-5 -j tmp/race.best.f/model.tar.gz -b 1 -d a -m prob -a 32
-allennlp train training_config/race.best.debate.lr=5e-6.jsonnet -s tmp/race.a.m=prob.bsz=32.lr=5e-6 -j tmp/race.best.f/model.tar.gz -b 1 -d a -m prob -a 32
-allennlp train training_config/race.best.debate.lr=2e-6.jsonnet -s tmp/race.a.m=prob.bsz=32.lr=2e-6 -j tmp/race.best.f/model.tar.gz -b 1 -d a -m prob -a 32
-allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.a.m=prob.bsz=64.lr=1e-5 -j tmp/race.best.f/model.tar.gz -b 1 -d a -m prob -a 64
-allennlp train training_config/race.best.debate.lr=5e-6.jsonnet -s tmp/race.a.m=prob.bsz=64.lr=5e-6 -j tmp/race.best.f/model.tar.gz -b 1 -d a -m prob -a 64
-allennlp train training_config/race.best.debate.lr=2e-6.jsonnet -s tmp/race.a.m=prob.bsz=64.lr=2e-6 -j tmp/race.best.f/model.tar.gz -b 1 -d a -m prob -a 64
+allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.a.m=prob.bsz=32.lr=1e-5 -j tmp/race.best.f/model.tar.gz -b 1 -d a -m prob -a 32 # titanxp
+allennlp train training_config/race.best.debate.lr=5e-6.jsonnet -s tmp/race.a.m=prob.bsz=32.lr=5e-6 -j tmp/race.best.f/model.tar.gz -b 1 -d a -m prob -a 32 # titanxp
+allennlp train training_config/race.best.debate.lr=2e-6.jsonnet -s tmp/race.a.m=prob.bsz=32.lr=2e-6 -j tmp/race.best.f/model.tar.gz -b 1 -d a -m prob -a 32 # titanxp
+allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.a.m=prob.bsz=64.lr=1e-5 -j tmp/race.best.f/model.tar.gz -b 1 -d a -m prob -a 64 # v100
+allennlp train training_config/race.best.debate.lr=5e-6.jsonnet -s tmp/race.a.m=prob.bsz=64.lr=5e-6 -j tmp/race.best.f/model.tar.gz -b 1 -d a -m prob -a 64 # p40
+allennlp train training_config/race.best.debate.lr=2e-6.jsonnet -s tmp/race.a.m=prob.bsz=64.lr=2e-6 -j tmp/race.best.f/model.tar.gz -b 1 -d a -m prob -a 64 # titanxp
 
-allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.b.m=prob.bsz=32.lr=1e-5 -j tmp/race.best.f/model.tar.gz -b 1 -d b -m prob -a 32
-allennlp train training_config/race.best.debate.lr=5e-6.jsonnet -s tmp/race.b.m=prob.bsz=32.lr=5e-6 -j tmp/race.best.f/model.tar.gz -b 1 -d b -m prob -a 32
-allennlp train training_config/race.best.debate.lr=2e-6.jsonnet -s tmp/race.b.m=prob.bsz=32.lr=2e-6 -j tmp/race.best.f/model.tar.gz -b 1 -d b -m prob -a 32
-allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.b.m=prob.bsz=64.lr=1e-5 -j tmp/race.best.f/model.tar.gz -b 1 -d b -m prob -a 64
-allennlp train training_config/race.best.debate.lr=5e-6.jsonnet -s tmp/race.b.m=prob.bsz=64.lr=5e-6 -j tmp/race.best.f/model.tar.gz -b 1 -d b -m prob -a 64
-allennlp train training_config/race.best.debate.lr=2e-6.jsonnet -s tmp/race.b.m=prob.bsz=64.lr=2e-6 -j tmp/race.best.f/model.tar.gz -b 1 -d b -m prob -a 64
+allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.b.m=prob.bsz=32.lr=1e-5.2 -j tmp/race.best.f/model.tar.gz -b 1 -d b -m prob -a 32 # titanxp
+allennlp train training_config/race.best.debate.lr=5e-6.jsonnet -s tmp/race.b.m=prob.bsz=32.lr=5e-6.2 -j tmp/race.best.f/model.tar.gz -b 1 -d b -m prob -a 32 # titanxp
+allennlp train training_config/race.best.debate.lr=2e-6.jsonnet -s tmp/race.b.m=prob.bsz=32.lr=2e-6.2 -j tmp/race.best.f/model.tar.gz -b 1 -d b -m prob -a 32 # titanxp
+allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.b.m=prob.bsz=64.lr=1e-5.2 -j tmp/race.best.f/model.tar.gz -b 1 -d b -m prob -a 64 # v100
+allennlp train training_config/race.best.debate.lr=5e-6.jsonnet -s tmp/race.b.m=prob.bsz=64.lr=5e-6.2 -j tmp/race.best.f/model.tar.gz -b 1 -d b -m prob -a 64 # p40
+allennlp train training_config/race.best.debate.lr=2e-6.jsonnet -s tmp/race.b.m=prob.bsz=64.lr=2e-6.2 -j tmp/race.best.f/model.tar.gz -b 1 -d b -m prob -a 64 # titanxp
+
+allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.ab.m=prob.bsz=32.lr=1e-5.2 -j tmp/race.best.f/model.tar.gz -b 1 -d ab -m prob -a 32 # p40
+allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.ab.m=prob.bsz=64.lr=1e-5.2 -j tmp/race.best.f/model.tar.gz -b 1 -d ab -m prob -a 64 # p40
 
 # BERT RACE Q2A (Cassio)
 allennlp train training_config/bert_mc_q2a.race.lr=2e-5.jsonnet -s tmp/race.bert_mc_q2a.bsz=32.lr=2e-5.f -d f -a 4 -f #29.0
@@ -108,6 +111,9 @@ allennlp train training_config/race.best.jsonnet -s tmp/race.best.f -e -r -d A -
 0.9815615752333258
 0.9808194302576325
 0.9815103586544888
+0.9804660726525017
+0.982861743731309
+0.8129306850425618 (test)
 
 18.466575622558594
 18.506685256958008
@@ -117,8 +123,10 @@ allennlp train training_config/race.best.jsonnet -s tmp/race.best.f -e -r -d A -
 18.153654098510742
 18.357053756713867
 18.349742889404297
+18.148160934448242
+18.37451171875
+18.477502822875977 (test)
 
-scancel 149964 149963 149962 149961 149960 149891 149890 149889
 
 # BERT RACE: top_layer_only=false, lr={1e-5, 2e-5, 3e-5}, bsz={32}. 41.6 @ 2 Epochs
 allennlp train training_config/bert.race.lr=3e-5.top_layer_only=false.jsonnet -s tmp/race.bert.bsz=32.lr=3e-5.top_layer_only=false.f -d f -a 4 -f #
@@ -297,7 +305,7 @@ srun --pty --mem=20000 -t 6-23:58 --gres=gpu:p40 bash
 srun --pty --mem=20000 -t 6-23:58 --gres=gpu:k80 bash
 
 # SBATCH
-export COMMAND="allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.a.m=prob.bsz=32.lr=1e-5 -j tmp/race.best.f/model.tar.gz -b 1 -d a -m prob -a 32"
+export COMMAND="allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.ab.m=prob.bsz=64.lr=1e-5 -j tmp/race.best.f/model.tar.gz -b 1 -d ab -m prob -a 64"
 export COMMAND_ARRAY=($COMMAND)
 export SERIALIZATION_DIR="${COMMAND_ARRAY[4]}"
 if test -e $SERIALIZATION_DIR; then echo -e "\n${PURPLE}NOTICE: Directory already exists.\n"; else mkdir -p $SERIALIZATION_DIR; fi
