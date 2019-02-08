@@ -115,8 +115,8 @@ class Train(Subcommand):
 
         subparser.add_argument('-m', '--reward_method',
                                type=str,
-                               choices=['em', 'f1', 'ssp',  # Exact Match, F1, Span Start Prob.
-                                        'sl', 'sl-ssp'],  # Supervised Learning (Oracle EM/F1 or SSP)
+                               choices=['em', 'f1', 'prob',  # Exact Match, F1, (Span Start) Probability
+                                        'sl'],  # Supervised Learning (Oracle Prob)
                                default='f1',
                                help='how to reward debate agents')
 
@@ -131,10 +131,10 @@ class Train(Subcommand):
                                default=0,
                                help='Debugging option: Increase to run with more breakpoints. 0 for no breakpoints.')
 
-        subparser.add_argument('-i', '--id_to_oracle_filename',
+        subparser.add_argument('-p', '--oracle_outputs_path',
                                type=str,
                                default=None,
-                               help='Path to file containing oracle predictions to do Supervised Learning on.')
+                               help='Name file containing oracle predictions to do Supervised Learning on.')
 
         subparser.add_argument('-a', '--accumulation_steps',
                                type=int,
@@ -152,35 +152,35 @@ def train_model_from_args(args: argparse.Namespace):
     """
     train_model_from_file(args.param_path,
                           args.serialization_dir,
-                          args.debate_mode,
                           args.overrides,
                           args.file_friendly_logging,
                           args.recover,
                           args.force,
+                          args.debate_mode,
                           args.judge_filename,
                           args.update_judge,
                           args.eval_mode,
                           args.reward_method,
                           args.detach_value_head,
                           args.breakpoint_level,
-                          args.id_to_oracle_filename,
+                          args.oracle_outputs_path,
                           args.accumulation_steps)
 
 
 def train_model_from_file(parameter_filename: str,
                           serialization_dir: str,
-                          debate_mode: List[str] = ('f'),
                           overrides: str = "",
                           file_friendly_logging: bool = False,
                           recover: bool = False,
                           force: bool = False,
+                          debate_mode: List[str] = ('f'),
                           judge_filename: str = None,
                           update_judge: bool = False,
                           eval_mode: bool = False,
                           reward_method: str = None,
                           detach_value_head: bool = False,
                           breakpoint_level: int = 0,
-                          id_to_oracle_filename: str = None,
+                          oracle_outputs_path: str = None,
                           accumulation_steps: int = 1) -> Model:
     """
     A wrapper around :func:`train_model` which loads the params from a file.
@@ -206,24 +206,24 @@ def train_model_from_file(parameter_filename: str,
     """
     # Load the experiment config from a file and pass it to ``train_model``.
     params = Params.from_file(parameter_filename, overrides)
-    return train_model(params, serialization_dir, debate_mode, file_friendly_logging, recover, force, judge_filename,
+    return train_model(params, serialization_dir, file_friendly_logging, recover, force, debate_mode, judge_filename,
                        update_judge, eval_mode, reward_method, detach_value_head, breakpoint_level,
-                       id_to_oracle_filename, accumulation_steps)
+                       oracle_outputs_path, accumulation_steps)
 
 
 def train_model(params: Params,
                 serialization_dir: str,
-                debate_mode: List[str] = ('f'),
                 file_friendly_logging: bool = False,
                 recover: bool = False,
                 force: bool = False,
+                debate_mode: List[str] = ('f'),
                 judge_filename: str = None,
                 update_judge: bool = False,
                 eval_mode: bool = False,
                 reward_method: str = None,
                 detach_value_head: bool = False,
                 breakpoint_level: int = 0,
-                id_to_oracle_filename: str = None,
+                oracle_outputs_path: str = None,
                 accumulation_steps: int = 1) -> Model:
     """
     Trains the model specified in the given :class:`Params` object, using the data and training
@@ -287,7 +287,7 @@ def train_model(params: Params,
                 validation_iterator=pieces.validation_iterator,
                 eval_mode=eval_mode,
                 breakpoint_level=breakpoint_level,
-                id_to_oracle_filename=id_to_oracle_filename,
+                oracle_outputs_path=oracle_outputs_path,
                 accumulation_steps=accumulation_steps)
         evaluation_iterator = pieces.validation_iterator or pieces.iterator
         evaluation_dataset = pieces.test_dataset
@@ -328,7 +328,9 @@ def train_model(params: Params,
     # Now tar up results
     if not eval_mode:
         archive_model(serialization_dir, files_to_archive=params.files_to_archive)
-    dump_metrics(os.path.join(serialization_dir, "metrics.json"), metrics, log=True)
+        dump_metrics(os.path.join(serialization_dir, "metrics.json"), metrics, log=True)
+    else:
+        dump_metrics(os.path.join(serialization_dir, "metrics.eval.d=" + '-'.join(debate_mode) + ".json"), metrics, log=True)
 
     # We count on the trainer to have the model with best weights
     return trainer.model

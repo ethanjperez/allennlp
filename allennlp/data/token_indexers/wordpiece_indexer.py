@@ -94,6 +94,8 @@ class WordpieceIndexer(TokenIndexer[int]):
                                for token in (end_tokens or [])
                                for wordpiece in wordpiece_tokenizer(token)]
 
+        self.num_truncated = 0
+
     @overrides
     def count_vocab_items(self, token: Token, counter: Dict[str, Dict[str, int]]):
         # If we only use pretrained models, we don't need to do anything here.
@@ -152,6 +154,7 @@ class WordpieceIndexer(TokenIndexer[int]):
             else:
                 # TODO(joelgrus): figure out a better way to handle this
                 logger.warning(f"Too many wordpieces, truncating: {[token.text for token in tokens]}")
+                self.num_truncated += 1
                 break
 
         # By construction, we still have enough room to add the end_token ids.

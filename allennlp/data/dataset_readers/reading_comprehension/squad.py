@@ -69,6 +69,8 @@ class SquadReader(DatasetReader):
                     if self._using_bert:
                         tokenized_question = self._tokenizer.tokenize(question_text)
                         sep_str = '[SEP]'
+                        # TODO: Provide char_question_span which turns into token_question_span
+                        # TODO: Adjust indices to account for prepended [CLS]
                         prepend_text = question_text + ' ' + sep_str + ' '
                         span_starts = [len(prepend_text) + span_start for span_start in span_starts]
                         span_ends = [len(prepend_text) + span_end for span_end in span_ends]
@@ -78,7 +80,7 @@ class SquadReader(DatasetReader):
                             new_token = Token(text=token.text, idx=token.idx+len(prepend_text), lemma=token.lemma,
                                               pos=token.pos, tag=token.tag, dep=token.dep, ent_type=token.ent_type)
                             tokenized_question_paragraph.append(new_token)
-                        instance = self.text_to_instance('?',
+                        instance = self.text_to_instance(question_text,  # usually not used in this case but still given
                                                          prepend_text + paragraph,
                                                          zip(span_starts, span_ends),
                                                          answer_texts,

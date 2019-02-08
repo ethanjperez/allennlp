@@ -5,6 +5,7 @@ contains the answer, answer the question.
 These submodules contain models for things that are predominantly focused on reading comprehension.
 """
 
+from allennlp.models.reading_comprehension.bert_mc import BertMC
 from allennlp.models.reading_comprehension.bert_qa import BertQA
 from allennlp.models.reading_comprehension.bidaf import BidirectionalAttentionFlow
 from allennlp.models.reading_comprehension.bidaf_ensemble import BidafEnsemble

@@ -68,30 +68,42 @@ class RaceReader(DatasetReader):
                     span_starts = [answer['answer_start'] for answer in question_answer['answers']]
                     span_ends = [start + len(answer) for start, answer in zip(span_starts, answer_texts)]
                     if self._using_bert:
+                        # TODO: Add [SEP] cleanly with nlp.tokenizer.add_special_case('[SEP]', [{ORTH: '[SEP]', LEMMA: '[SEP]', POS: 'PUNCT'}]). Facilitates moving around Q/P/A
+                        # Add Q to passage with a [SEP] token
+                        char_question_span = (0, len(question_text))
                         tokenized_question = self._tokenizer.tokenize(question_text)
                         sep_str = '[SEP]'
                         prepend_text = question_text + ' ' + sep_str + ' '
+
+                        # Adjust spans indices appropriately
                         span_starts = [len(prepend_text) + span_start for span_start in span_starts]
                         span_ends = [len(prepend_text) + span_end for span_end in span_ends]
+                        char_answer_choice_spans = [(len(prepend_text) + char_answer_choice_span[0], len(prepend_text) + char_answer_choice_span[1])
+                                                    for char_answer_choice_span in question_answer['char_answer_choice_spans']]
+
+                        # Adjust passage token indices due to text added to passage
                         tokenized_question_paragraph = tokenized_question
                         tokenized_question_paragraph.append(Token(sep_str, len(question_text + ' ')))
                         for token in tokenized_paragraph:
                             new_token = Token(text=token.text, idx=token.idx+len(prepend_text), lemma=token.lemma,
                                               pos=token.pos, tag=token.tag, dep=token.dep, ent_type=token.ent_type)
                             tokenized_question_paragraph.append(new_token)
-                        instance = self.text_to_instance('?',
+                        instance = self.text_to_instance(question_text,  # usually not used in this case but still given
                                                          prepend_text + paragraph,
                                                          zip(span_starts, span_ends),
                                                          answer_texts,
                                                          tokenized_question_paragraph,
-                                                         question_answer['id'])
+                                                         question_answer['id'],
+                                                         char_answer_choice_spans,
+                                                         char_question_span)
                     else:
                         instance = self.text_to_instance(question_text,
                                                          paragraph,
                                                          zip(span_starts, span_ends),
                                                          answer_texts,
                                                          tokenized_paragraph,
-                                                         question_answer['id'])
+                                                         question_answer['id'],
+                                                         question_answer['char_answer_choice_spans'])
                     yield instance
 
     @overrides
@@ -101,7 +113,9 @@ class RaceReader(DatasetReader):
                          char_spans: List[Tuple[int, int]] = None,
                          answer_texts: List[str] = None,
                          passage_tokens: List[Token] = None,
-                         qa_id: str = None) -> Instance:
+                         qa_id: str = None,
+                         char_answer_choice_spans: List[Tuple[int, int]] = None,
+                         char_question_span: Tuple[int, int] = None) -> Instance:
         # pylint: disable=arguments-differ
         if not passage_tokens:
             passage_tokens = self._tokenizer.tokenize(passage_text)
@@ -115,14 +129,23 @@ class RaceReader(DatasetReader):
             (span_start, span_end), error = util.char_span_to_token_span(passage_offsets,
                                                                          (char_span_start, char_span_end))
             if error:
-                logger.debug("Passage: %s", passage_text)
-                logger.debug("Passage tokens: %s", passage_tokens)
-                logger.debug("Question text: %s", question_text)
-                logger.debug("Answer span: (%d, %d)", char_span_start, char_span_end)
-                logger.debug("Token span: (%d, %d)", span_start, span_end)
-                logger.debug("Tokens in answer: %s", passage_tokens[span_start:span_end + 1])
-                logger.debug("Answer: %s", passage_text[char_span_start:char_span_end])
+                self.log_error(passage_text, passage_tokens, question_text, char_span_start, char_span_end, span_start, span_end)
             token_spans.append((span_start, span_end))
+
+        additional_metadata = {'id': qa_id, 'answer_choice_spans': None, 'question_span': None}
+        if char_answer_choice_spans is not None:
+            additional_metadata['answer_choice_spans']: List[Tuple[int, int]] = []
+            for char_answer_choice_span_start, char_answer_choice_span_end in char_answer_choice_spans:
+                (answer_choice_span_start, answer_choice_span_end), error = util.char_span_to_token_span(passage_offsets, (char_answer_choice_span_start, char_answer_choice_span_end))
+                if error:
+                    self.log_error(passage_text, passage_tokens, question_text, char_answer_choice_span_start, char_answer_choice_span_end, answer_choice_span_start, answer_choice_span_end)
+                additional_metadata['answer_choice_spans'].append((answer_choice_span_start, answer_choice_span_end))
+
+        if char_question_span is not None:
+            (question_span_start, question_span_end), error = util.char_span_to_token_span(passage_offsets, (char_question_span[0], char_question_span[1]))
+            if error:
+                self.log_error(passage_text, passage_tokens, question_text, char_question_span[0], char_question_span[1], question_span_start, question_span_end)
+            additional_metadata['question_span'] = (question_span_start, question_span_end)
 
         return util.make_reading_comprehension_instance(self._tokenizer.tokenize(question_text),
                                                         passage_tokens,
@@ -130,7 +153,21 @@ class RaceReader(DatasetReader):
                                                         passage_text,
                                                         token_spans,
                                                         answer_texts,
-                                                        {'id': qa_id})
+                                                        additional_metadata)
+
+    @staticmethod
+    def log_error(passage_text, passage_tokens, question_text, char_span_start, char_span_end, span_start, span_end):
+        """
+        Logs an tokenization / span conversion error with the text info of the sample.
+        """
+        logger.debug("Passage: %s", passage_text)
+        logger.debug("Passage tokens: %s", passage_tokens)
+        logger.debug("Question text: %s", question_text)
+        logger.debug("Answer span: (%d, %d)", char_span_start, char_span_end)
+        logger.debug("Token span: (%d, %d)", span_start, span_end)
+        logger.debug("Tokens in answer: %s", passage_tokens[span_start:span_end + 1])
+        logger.debug("Answer: %s", passage_text[char_span_start:char_span_end])
+        return
 
 
 if __name__ == "__main__":
@@ -139,7 +176,7 @@ if __name__ == "__main__":
     race_raw_path = "datasets/race_raw"
     answer_tokens = ["1st", "2nd", "3rd", "4th"]
     letter_to_answer_token = {'A': "1st", 'B': "2nd", 'C': "3rd", 'D': "4th"}
-    augment_data = True
+    augment_data = False
 
     if augment_data:
         race_path = "datasets/race_augmented"
@@ -192,25 +229,32 @@ if __name__ == "__main__":
                         answer = art_data["answers"][q]
 
                         # Build Context with all Options
-                        span_answer_start, span_answer_text = None, None
-                        all_pos_answers_text = ""
+                        answer_loc_to_predict, span_answer_text = None, None
+                        pos_answers_text = ""
+                        char_answer_choice_spans = []
                         for i, answer_token in enumerate(answer_tokens):
+                            option_start_char = len(pos_answers_text)
                             if i not in excluded_options:
-                                all_pos_answers_text += options[i] + " "
+                                pos_answers_text += options[i] + " "
                             if answer_token == letter_to_answer_token[answer]:
-                                span_answer_start = len(all_pos_answers_text)
+                                answer_loc_to_predict = len(pos_answers_text)
                                 span_answer_text = answer_token
-                            all_pos_answers_text += answer_token + " "
-                        base_context = all_pos_answers_text + base_context
+                            pos_answers_text += answer_token
+                            option_end_char = len(pos_answers_text)
+                            char_answer_choice_spans.append((option_start_char, option_end_char))
+                            pos_answers_text += " "
+                        base_context = pos_answers_text + base_context
 
                         # Get Q_ID
                         qid = hex(hash(art_file + question + removed_answers_str))[2:]
 
                         # Assemble dictionary
                         paragraph_dict["context"] = base_context
-                        paragraph_dict["qas"] = [{"answers": [{"answer_start": span_answer_start, "text": span_answer_text}],
+                        paragraph_dict["qas"] = [{"answers": [{"answer_start": answer_loc_to_predict,  # Official answer for prediction/evaluation is last token of the right multiple choice answer's actual text
+                                                               "text": span_answer_text}],
                                                   "question": question,
-                                                  "id": qid}]
+                                                  "id": qid,
+                                                  "char_answer_choice_spans": char_answer_choice_spans}]  # Location of answer tokens (not directly predicted)
 
                         # Append to article dict
                         article_dict["paragraphs"].append(paragraph_dict)
