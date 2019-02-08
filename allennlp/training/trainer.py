@@ -789,7 +789,7 @@ class Trainer(TrainerBase):
                 'input': self._get_sent_idxs(required_text_mask, debate_choice_mask, num_sents, 'input')
             }
             sent_answer_idx = None
-            if not self._mc:
+            if not self._mc:  # NB: Why does BiDAF RACE model have self._mc == True here?
                 span_start = batch['span_start'].to(sent_idxs['output'].device)
                 sent_answer_idx = sent_idxs['output'].gather(1, span_start.clamp(max=(output_dim-1)))  # TODO: Verify  # TODO: Check sent_idxs[[SEP] token loc] = -1
                 sent_answer_idx[span_start >= output_dim] = -100  # Dummy negative value, can't be -1 (used for padding)
