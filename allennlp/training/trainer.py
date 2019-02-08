@@ -356,19 +356,20 @@ class Trainer(TrainerBase):
     def _add_debate_metrics(self, output_dict: TensorDict, sent_idxs: TensorDict, sent_choice_idxs: List[torch.Tensor],
                             turn_str: Dict[str, str]) -> None:
         """
-        Add various metrics related to the batch's debate (excluding losses)
+        Add various metrics related to the batch's debate (excluding losses).
+        Add stats on if J chosen a sentence from A or B.
         """
-        # Add stats on if J chosen a sentence from A or B
-        # NB: Not useful for RACE (except to check if there's a bug), may be incorrect for SQuAD deletion setting
-        j_span_start_sent = sent_idxs['output'].gather(1, output_dict['best_span'][:, :1].to(sent_idxs['output'].device))
-        j_span_end_sent = sent_idxs['output'].gather(1, output_dict['best_span'][:, 1:].to(sent_idxs['output'].device))
-        j_num_debater_sents_chosen = torch.zeros_like(j_span_start_sent).float()
-        for turn in range(len(sent_choice_idxs)):
-            j_sent_chosen = ((j_span_start_sent <= sent_choice_idxs[turn]) * (sent_choice_idxs[turn] <= j_span_end_sent)).float()
-            self._update_trainer_metrics('j_sent_chosen' + turn_str[turn], j_sent_chosen.mean())
-            j_num_debater_sents_chosen += j_sent_chosen
-        j_chose_no_debater_sents = (j_num_debater_sents_chosen == 0).float()
-        self._update_trainer_metrics('j_chose_no_debater_sents', j_chose_no_debater_sents.mean())
+        if not self._mc:
+            # NB: May be incorrect for SQuAD deletion setting
+            j_span_start_sent = sent_idxs['output'].gather(1, output_dict['best_span'][:, :1].to(sent_idxs['output'].device))
+            j_span_end_sent = sent_idxs['output'].gather(1, output_dict['best_span'][:, 1:].to(sent_idxs['output'].device))
+            j_num_debater_sents_chosen = torch.zeros_like(j_span_start_sent).float()
+            for turn in range(len(sent_choice_idxs)):
+                j_sent_chosen = ((j_span_start_sent <= sent_choice_idxs[turn]) * (sent_choice_idxs[turn] <= j_span_end_sent)).float()
+                self._update_trainer_metrics('j_sent_chosen' + turn_str[turn], j_sent_chosen.mean())
+                j_num_debater_sents_chosen += j_sent_chosen
+            j_chose_no_debater_sents = (j_num_debater_sents_chosen == 0).float()
+            self._update_trainer_metrics('j_chose_no_debater_sents', j_chose_no_debater_sents.mean())
         return
 
     @staticmethod
@@ -598,7 +599,7 @@ class Trainer(TrainerBase):
             # Add some debater-specific batch info.
             for i in range(bsz):
                 batch['metadata'][i]['a_turn'] = cur_a_turn
-            batch['valid_output_mask'] = debate_choice_mask['output']
+            batch['valid_output_mask'] = debate_choice_mask['input']  # NOTE: input-level mask, to predict a span over Judge's input tokens
 
             # Debate forward pass
             debater_output_dict = self._forward([batch], debater)
@@ -612,7 +613,7 @@ class Trainer(TrainerBase):
             # Sample from policy's sentence-level distribution
             eos_choice_distribution = debater_output_dict['prob_dist']  # TODO: Predict prob_dist with BERT MC models
             word_choice_idx = torch.multinomial(eos_choice_distribution, 1) if for_training else torch.argmax(eos_choice_distribution, dim=1, keepdim=True)
-            sent_choice_idx = sent_idxs['output'].gather(1, word_choice_idx.to(sent_idxs['output'].device))
+            sent_choice_idx = sent_idxs['input'].gather(1, word_choice_idx.to(sent_idxs['input'].device))
 
             if debater.reward_method == 'sl':  # SL: No sampling for prediction probs. Forcibly choose Oracle's prediction
                 oracle_sent_choice_idx, _, _, oracle_sc_diffs = self._get_sent_choice_prob_value(batch, sent_idxs, judge_mask,
@@ -630,12 +631,13 @@ class Trainer(TrainerBase):
                     for idx in oracle_sc_diff_in_thres_idxs:
                         self._update_trainer_metrics('sl_sampling_acc_where_MaxScoreDrop_in_' + str(thres_end) + '_' + str(thres_start) + cur_turn_str, sl_sampling_acc[idx])
                 self._update_trainer_metrics('sl_non_default_preds_per_batch' + cur_turn_str, (sent_choice_idx != 0).float().sum())
-                sent_choice_output_mask = (sent_idxs['output'] == oracle_sent_choice_idx)  # Force model to choose oracle's choice. Necessary to get the right probability for the NLL loss.
+                sent_choice_input_mask = (sent_idxs['input'] == oracle_sent_choice_idx)  # Force model to choose oracle's choice. Necessary to get the right probability for the NLL loss.
             else:  # RL: Use prob of sampled sentence to calculate loss
-                sent_choice_output_mask = (sent_idxs['output'] == sent_choice_idx)
+                sent_choice_input_mask = (sent_idxs['input'] == sent_choice_idx)
 
-            sent_choice_prob = (eos_choice_distribution.to(sent_choice_output_mask.device) *
-                                sent_choice_output_mask.float()).sum(1)
+            masked_sent_choice_probs = (eos_choice_distribution.to(sent_choice_input_mask.device) * sent_choice_input_mask.float())
+            assert masked_sent_choice_probs.nonzero().size(0) == bsz, 'Sentence choice masking did not mask exactly one non-zero probability value for each sample in batch:' + batch['metadata']
+            sent_choice_prob = masked_sent_choice_probs.sum(1)  # if (sent_choice_prob != 0): logger.warning('Likely masked out possible answer on accident: sent_choice_prob is exactly zero.')
             value = debater_output_dict['value']
         else:
             raise NotImplementedError('Unimplemented answer selection debate method', method)
@@ -790,7 +792,7 @@ class Trainer(TrainerBase):
             if not self._mc:
                 span_start = batch['span_start'].to(sent_idxs['output'].device)
                 sent_answer_idx = sent_idxs['output'].gather(1, span_start.clamp(max=(output_dim-1)))  # TODO: Verify  # TODO: Check sent_idxs[[SEP] token loc] = -1
-                sent_answer_idx[span_start >= output_dim] = -100  # Dummy negative value, excluding -1 (used for padding)
+                sent_answer_idx[span_start >= output_dim] = -100  # Dummy negative value, can't be -1 (used for padding)
 
             # Execute player turns to determine decisions.
             sent_choice_idxs, sent_choice_probs, values, sc_diffs = [], [], [], None

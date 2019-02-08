@@ -22,7 +22,7 @@ class FiLM(torch.nn.Module):
     'FiLM: Visual Reasoning with a General Conditioning Layer'
     """
     def forward(self, x, gammas, betas):
-        gammas = gammas.unsqueeze(1)
+        gammas = gammas.unsqueeze(1)  # NB: Make -2? Consistent with bert_mc. Add to general utils.
         betas = betas.unsqueeze(1)
         return (gammas * x) + betas
 
@@ -263,9 +263,8 @@ class BidirectionalAttentionFlow(Model):
             a_turn = torch.tensor([sample_metadata['a_turn'] for sample_metadata in metadata]).to(final_merged_passage).unsqueeze(1)
             turn_film_params = self._turn_film_gen(a_turn)
             turn_gammas, turn_betas = torch.split(turn_film_params, self._modeling_layer.get_input_dim(), dim=-1)
-            # NB: Using heuristic to get mask
-            final_merged_passage_mask = (final_merged_passage != 0).float()
-            final_merged_passage = self._film(final_merged_passage, turn_gammas - 1., turn_betas) * final_merged_passage_mask
+            final_merged_passage_mask = (final_merged_passage != 0).float()  # NOTE: Using heuristic to get mask
+            final_merged_passage = self._film(final_merged_passage, 1. + turn_gammas, turn_betas) * final_merged_passage_mask
         modeled_passage = self._dropout(self._modeling_layer(final_merged_passage, passage_lstm_mask))
         modeling_dim = modeled_passage.size(-1)
 
@@ -275,7 +274,8 @@ class BidirectionalAttentionFlow(Model):
         if not self.is_judge:
             value_head_input = span_start_input_full.detach() if self._detach_value_head else span_start_input_full
             # Shape: (batch_size)
-            value = (self._value_head(value_head_input).squeeze(-1) * passage_mask).mean(1)  # TODO: Don't count masked areas in mean!!
+            tokenwise_values = self._value_head(value_head_input).squeeze(-1)
+            value, value_loc = util.replace_masked_values(tokenwise_values, passage_mask, -1e7).max(-1)
         # Shape: (batch_size, passage_length)
         span_start_logits = self._span_start_predictor(span_start_input).squeeze(-1)
         valid_output_mask = passage_mask if valid_output_mask is None else valid_output_mask

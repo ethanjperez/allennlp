@@ -20,7 +20,7 @@ class FiLM(torch.nn.Module):
     'FiLM: Visual Reasoning with a General Conditioning Layer'
     """
     def forward(self, x, gammas, betas):
-        gammas = gammas.unsqueeze(1)
+        gammas = gammas.unsqueeze(1)  # NB: Make -2? Consistent with bert_mc
         betas = betas.unsqueeze(1)
         return (gammas * x) + betas
 
@@ -181,7 +181,8 @@ class BertQA(Model):
         if not self.is_judge:
             value_head_input = modeled_passage.detach() if self._detach_value_head else modeled_passage
             # Shape: (batch_size)
-            value = (self._value_head(value_head_input).squeeze(-1) * passage_mask).mean(1)  # TODO: Don't count masked areas in mean!!
+            tokenwise_values = self._value_head(value_head_input).squeeze(-1)
+            value, value_loc = util.replace_masked_values(tokenwise_values, passage_mask, -1e7).max(-1)
         # Shape: (batch_size, passage_length)
         span_start_logits = self._span_start_predictor(span_start_input).squeeze(-1)
         # Shape: (batch_size, passage_length)

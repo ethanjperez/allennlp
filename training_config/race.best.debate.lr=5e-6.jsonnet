@@ -10,8 +10,8 @@
       }
     }
   },
-  "train_data_path": "allennlp/tests/fixtures/data/race_raw/train",
-  "validation_data_path": "allennlp/tests/fixtures/data/race_raw/train",
+  "train_data_path": "datasets/race_raw/train",
+  "validation_data_path": "datasets/race_raw/dev",
   "model": {
     "type": "bert-mc-gpt",
     "text_field_embedder": {
@@ -37,17 +37,10 @@
 
   "trainer": {
     "num_epochs": 20,
-    "patience": 3,
     "validation_metric": "+start_acc",
-    "cuda_device": -1,
-    "learning_rate_scheduler": {
-      "type": "reduce_on_plateau",
-      "factor": 0.67,
-      "mode": "max",
-      "patience": 1
-    },
+    "cuda_device": 0,
     "optimizer": {
-      "lr": 0.00001,
+      "lr": 0.000005,
       "type": "bert_adam"
     }
   }

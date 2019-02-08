@@ -20,8 +20,8 @@ class FiLM(torch.nn.Module):
     'FiLM: Visual Reasoning with a General Conditioning Layer'
     """
     def forward(self, x, gammas, betas):
-        gammas = gammas.unsqueeze(1)
-        betas = betas.unsqueeze(1)
+        gammas = gammas.unsqueeze(-2)
+        betas = betas.unsqueeze(-2)
         return (gammas * x) + betas
 
 
@@ -66,6 +66,7 @@ class BertMC(Model):
         self.output_type = 'mc'
 
         if not self.is_judge:
+            self._policy_head = TimeDistributed(torch.nn.Linear(self._hidden_dim, 1))  # NB: Can make MLP
             self._value_head = TimeDistributed(torch.nn.Linear(self._hidden_dim, 1))  # NB: Can make MLP
             self._turn_film_gen = torch.nn.Linear(1, 2 * self._hidden_dim)
             self._film = FiLM()
@@ -80,7 +81,8 @@ class BertMC(Model):
                 options: Dict[str, torch.LongTensor],
                 answer_index: torch.IntTensor = None,
                 metadata: List[Dict[str, Any]] = None,
-                store_metrics: bool = True) -> Dict[str, torch.Tensor]:
+                store_metrics: bool = True,
+                valid_output_mask: torch.LongTensor = None) -> Dict[str, torch.Tensor]:
         # pylint: disable=arguments-differ
         """
         Parameters
@@ -122,19 +124,30 @@ class BertMC(Model):
             A scalar loss to be optimised.
         """
         # Precomputation
-        a_turn = None
+        options_to_support = None
         if not self.is_judge:
-            raise NotImplementedError('SL/RL training not yet supported for pure MC models')  # TODO
             assert(metadata is not None and 'a_turn' in metadata[0])
-            a_turn = torch.tensor([sample_metadata['a_turn'] for sample_metadata in metadata]).to(passage['tokens']).unsqueeze(1).float()
+            options_to_support = torch.zeros_like(options['tokens'][:, :, 0]).float()
+            for i in range(options['tokens'].size(0)):
+                if metadata[i]['a_turn']:
+                    options_to_support[i, answer_index[i]] = 1.  # Support only correct option
+                else:
+                    options_to_support[i] = 1. - options_to_support[i]  # Support all options
+                    options_to_support[i, answer_index[i]] = 0.         # except correct one
+
         try:  # NB: Clean this up
             sep_token = metadata[0]['[SEP]'] if '[SEP]' in metadata[0] else self.vocab._token_to_index['bert']['[SEP]']
         except:
             sep_token = 102
 
         # Calculate answer
-        option_logits, value = self.compute_logits_and_value(question, passage, options, sep_token, a_turn)
-        option_probs = softmax(option_logits, dim=1)
+        option_logits, value = self.compute_logits_and_value(question, passage, options, sep_token, options_to_support)
+        if self.is_judge:
+            option_probs = softmax(option_logits, dim=1)
+        else:
+            # Truncate option_logits, since valid_output_mask may only be defined on the passage
+            # NOTE: Assumes passage always comes first.
+            option_probs = util.masked_softmax(option_logits[:, :valid_output_mask.size(1)], valid_output_mask)
         best_answer_index = option_probs.max(dim=1)[1]
 
         # Store results
@@ -145,7 +158,7 @@ class BertMC(Model):
                 "value": value if not self.is_judge else None,
                 "em": best_answer_index == answer_index.squeeze(-1) if self.is_judge else None,  # TODO: Use this as tmp_squad_metrics in Oracle
                 "prob": torch.tensor([option_probs[i, answer_index[i]] for i in range(option_probs.size(0))]),  # prob(true ans)
-                "prob_dist": None if not self.is_judge else None,  # TODO: Implement debaters which predict prob_dist
+                "prob_dist": option_probs,
                 }
 
         # Compute the loss for training.
@@ -210,11 +223,11 @@ class BertMC(Model):
         }
 
     def compute_logits_and_value(self,  # type: ignore
-                question: Dict[str, torch.LongTensor],
-                passage: Dict[str, torch.LongTensor],
-                options: Dict[str, torch.LongTensor],
-                sep_token: int,
-                a_turn: torch.FloatTensor = None) -> Tuple[torch.FloatTensor, torch.FloatTensor]:
+                                 question: Dict[str, torch.LongTensor],
+                                 passage: Dict[str, torch.LongTensor],
+                                 options: Dict[str, torch.LongTensor],
+                                 sep_token: int,
+                                 options_to_support: torch.FloatTensor = None) -> Tuple[torch.FloatTensor, torch.FloatTensor]:
         """
         Architecture-specific forward pass. Must be implemented by subclass.
         """
@@ -252,11 +265,11 @@ class BertMCDCMN(BertMC):
         self._initializer(self)
 
     def compute_logits_and_value(self,  # type: ignore
-                question: Dict[str, torch.LongTensor],
-                passage: Dict[str, torch.LongTensor],
-                options: Dict[str, torch.LongTensor],
-                sep_token: int,
-                a_turn: torch.FloatTensor = None) -> Tuple[torch.FloatTensor, torch.FloatTensor]:
+                                 question: Dict[str, torch.LongTensor],
+                                 passage: Dict[str, torch.LongTensor],
+                                 options: Dict[str, torch.LongTensor],
+                                 sep_token: int,
+                                 options_to_support: torch.FloatTensor = None) -> Tuple[torch.FloatTensor, torch.FloatTensor]:
         """
         Architecture-specific forward pass
         """
@@ -272,7 +285,7 @@ class BertMCDCMN(BertMC):
         if not self.is_judge:
             # TODO: Use boolean variable passed in to determine if A/B should use Frozen Judge BERT or their own updating BERT
             if self._text_field_embedder._token_embedders['tokens'].requires_grad:
-                conditioning = a_turn.long().squeeze(1)
+                conditioning = options_to_support.long().squeeze(1)
                 passage['token-type-ids'][:, 0] = conditioning
                 question['token-type-ids'][:, 0] = conditioning
                 options['token-type-ids'][:, :, 0] = conditioning
@@ -288,7 +301,7 @@ class BertMCDCMN(BertMC):
 
         # Debate: Post-BERT agent-based conditioning
         if not self.is_judge:
-            turn_film_params = self._turn_film_gen(a_turn)
+            turn_film_params = self._turn_film_gen(options_to_support)
             turn_gammas, turn_betas = torch.split(turn_film_params, self._hidden_dim, dim=-1)
             # NB: Check you need to apply passage_mask here
             hidden_passage = self._film(hidden_passage, 1. + turn_gammas, turn_betas) * passage_mask.unsqueeze(-1)
@@ -369,17 +382,14 @@ class BertMCGPT(BertMC):
         self._initializer(self)
 
     def compute_logits_and_value(self,  # type: ignore
-                question: Dict[str, torch.LongTensor],
-                passage: Dict[str, torch.LongTensor],
-                options: Dict[str, torch.LongTensor],
-                sep_token: int,
-                a_turn: torch.FloatTensor = None) -> Tuple[torch.FloatTensor, torch.FloatTensor]:
+                                 question: Dict[str, torch.LongTensor],
+                                 passage: Dict[str, torch.LongTensor],
+                                 options: Dict[str, torch.LongTensor],
+                                 sep_token: int,
+                                 options_to_support: torch.FloatTensor = None) -> Tuple[torch.FloatTensor, torch.FloatTensor]:
         """
         Architecture-specific forward pass
         """
-        if not self.is_judge:
-            raise NotImplementedError
-
         # BERT-formatting input
         batch_size, num_options, _ = options['tokens'].size()
         pqo_tokens_list = []
@@ -393,10 +403,26 @@ class BertMCGPT(BertMC):
             pqo_tokens[:, i, :pqo_tokens_list[i].size(-1)] = pqo_tokens_list[i]
         pqo = self.tokens_to_bert_input(pqo_tokens, sep_token)
 
+        # Condition debater on stance. Change segment embedding for [CLS] tokens only.
+        if not self.is_judge:
+            pqo['token-type-ids'][:, :, 0] = options_to_support
+
         hidden_pqo = self._text_field_embedder(pqo)
-        pred_hidden_a = hidden_pqo[:, :, 0]
-        option_logits = self._logit_predictor(pred_hidden_a).squeeze(-1)
-        return option_logits, None
+        if self.is_judge:
+            pred_hidden_a = hidden_pqo[:, :, 0]
+            option_logits = self._logit_predictor(pred_hidden_a).squeeze(-1)
+            return option_logits, None
+        else:
+            # TODO: Verify
+            # TODO: Add Linear/FiLM layers for conditioning
+            agent_film_params = self._turn_film_gen(options_to_support.unsqueeze(-1))
+            agent_gammas, agent_betas = torch.split(agent_film_params, self._hidden_dim, dim=-1)
+            agent_hidden_pqo = self._film(hidden_pqo, 1. + agent_gammas, agent_betas) * pqo['mask'].float().unsqueeze(-1)
+            tokenwise_values = self._value_head(agent_hidden_pqo.detach() if self._detach_value_head else agent_hidden_pqo).squeeze(-1)
+            value, value_option = util.replace_masked_values(tokenwise_values, pqo['mask'], -1e7).max(-1)[0].max(-1)
+            policy_logits = self._policy_head(agent_hidden_pqo).squeeze(-1)
+            option_logits = policy_logits.sum(1)
+            return option_logits, value
 
 
 @Model.register("bert-mc-pq2a")
@@ -424,11 +450,11 @@ class BertMCPQ2A(BertMC):
         self._initializer(self)
 
     def compute_logits_and_value(self,  # type: ignore
-                question: Dict[str, torch.LongTensor],
-                passage: Dict[str, torch.LongTensor],
-                options: Dict[str, torch.LongTensor],
-                sep_token: int,
-                a_turn: torch.FloatTensor = None) -> Tuple[torch.FloatTensor, torch.FloatTensor]:
+                                 question: Dict[str, torch.LongTensor],
+                                 passage: Dict[str, torch.LongTensor],
+                                 options: Dict[str, torch.LongTensor],
+                                 sep_token: int,
+                                 options_to_support: torch.FloatTensor = None) -> Tuple[torch.FloatTensor, torch.FloatTensor]:
         """
         Architecture-specific forward pass
         """
@@ -442,7 +468,7 @@ class BertMCPQ2A(BertMC):
         # Debate: Post-BERT agent-based conditioning
         value = None
         if not self.is_judge:
-            turn_film_params = self._turn_film_gen(a_turn)
+            turn_film_params = self._turn_film_gen(options_to_support)
             turn_gammas, turn_betas = torch.split(turn_film_params, self._hidden_dim, dim=-1)
             # NB: Check you need to apply passage_mask here
             hidden_passage_question = self._film(hidden_passage_question, 1. + turn_gammas, turn_betas) * passage_question['mask'].unsqueeze(-1)
@@ -485,11 +511,11 @@ class BertMCQ2A(BertMC):
         self._initializer(self)
 
     def compute_logits_and_value(self,  # type: ignore
-                question: Dict[str, torch.LongTensor],
-                passage: Dict[str, torch.LongTensor],
-                options: Dict[str, torch.LongTensor],
-                sep_token: int,
-                a_turn: torch.FloatTensor = None) -> Tuple[torch.FloatTensor, torch.FloatTensor]:
+                                 question: Dict[str, torch.LongTensor],
+                                 passage: Dict[str, torch.LongTensor],
+                                 options: Dict[str, torch.LongTensor],
+                                 sep_token: int,
+                                 options_to_support: torch.FloatTensor = None) -> Tuple[torch.FloatTensor, torch.FloatTensor]:
         """
         Architecture-specific forward pass
         """
@@ -534,11 +560,11 @@ class BertMCP2A(BertMC):
         self._initializer(self)
 
     def compute_logits_and_value(self,  # type: ignore
-                question: Dict[str, torch.LongTensor],
-                passage: Dict[str, torch.LongTensor],
-                options: Dict[str, torch.LongTensor],
-                sep_token: int,
-                a_turn: torch.FloatTensor = None) -> Tuple[torch.FloatTensor, torch.FloatTensor]:
+                                 question: Dict[str, torch.LongTensor],
+                                 passage: Dict[str, torch.LongTensor],
+                                 options: Dict[str, torch.LongTensor],
+                                 sep_token: int,
+                                 options_to_support: torch.FloatTensor = None) -> Tuple[torch.FloatTensor, torch.FloatTensor]:
         """
         Architecture-specific forward pass
         """
@@ -584,11 +610,11 @@ class BertMCA(BertMC):
         self._initializer(self)
 
     def compute_logits_and_value(self,  # type: ignore
-                question: Dict[str, torch.LongTensor],
-                passage: Dict[str, torch.LongTensor],
-                options: Dict[str, torch.LongTensor],
-                sep_token: int,
-                a_turn: torch.FloatTensor = None) -> Tuple[torch.FloatTensor, torch.FloatTensor]:
+                                 question: Dict[str, torch.LongTensor],
+                                 passage: Dict[str, torch.LongTensor],
+                                 options: Dict[str, torch.LongTensor],
+                                 sep_token: int,
+                                 options_to_support: torch.FloatTensor = None) -> Tuple[torch.FloatTensor, torch.FloatTensor]:
         """
         Architecture-specific forward pass
         """
