@@ -195,11 +195,7 @@ class Trainer(TrainerBase):
         self._using_oracle = ((self.model.reward_method is not None) and (self.model.reward_method == 'sl')) or \
                              ('A' in self._debate_mode) or ('B' in self._debate_mode)
 
-        self._id_to_oracle_is_complete = (id_to_oracle_filename is not None)
-        self._id_to_oracle = {}
-        if id_to_oracle_filename is not None:
-            with open(id_to_oracle_filename) as id_to_oracle_file:
-                self._id_to_oracle = json.load(id_to_oracle_file)
+        self._oracle_outputs_is_complete = (self._oracle_outputs_path is not None)
         if self._oracle_outputs_path is None:
             self._oracle_outputs_path = os.path.join(serialization_dir, 'model_oracle_outputs.pkl')
         try:
