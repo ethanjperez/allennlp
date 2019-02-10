@@ -158,7 +158,8 @@ class BidirectionalAttentionFlow(Model):
                 span_end: torch.IntTensor = None,
                 metadata: List[Dict[str, Any]] = None,
                 store_metrics: bool = True,
-                valid_output_mask: torch.LongTensor = None) -> Dict[str, torch.Tensor]:
+                valid_output_mask: torch.LongTensor = None,
+                sent_targets: torch.Tensor = None) -> Dict[str, torch.Tensor]:
         # pylint: disable=arguments-differ
         """
         Parameters
@@ -314,12 +315,12 @@ class BidirectionalAttentionFlow(Model):
                 "span_end_probs": span_end_probs,
                 "best_span": best_span,
                 "value": value if not self.is_judge else None,
-                "prob": torch.tensor([span_start_probs[i, span_start[i]] if span_start[i] < span_start_probs.size(1) else 0. for i in range(batch_size)]),  # prob(true ans)
+                "prob": torch.tensor([span_start_probs[i, span_start[i]] if span_start[i] < span_start_probs.size(1) else 0. for i in range(batch_size)]) if self.is_judge else None,  # prob(true ans)
                 "prob_dist": span_start_probs,
                 }
 
         # Compute the loss for training.
-        if span_start is not None:
+        if (span_start is not None) and self.is_judge:
             span_start[span_start >= passage_mask.size(1)] = -100  # NB: Hacky. Don't add to loss if span not in input
             loss = nll_loss(util.masked_log_softmax(span_start_logits, valid_output_mask), span_start.squeeze(-1))
             if store_metrics:
@@ -330,6 +331,16 @@ class BidirectionalAttentionFlow(Model):
                 self._span_end_accuracy(span_end_logits, span_end.squeeze(-1))
                 self._span_accuracy(best_span, torch.stack([span_start, span_end], -1))
             output_dict["loss"] = loss
+        elif (span_start is not None) and (not self.is_judge):  # Debate SL
+            if self.reward_method == 'sl':  # sent_targets should be a vector of target indices
+                output_dict["loss"] = nll_loss(util.masked_log_softmax(span_start_logits, valid_output_mask), sent_targets.squeeze(-1))
+                if store_metrics:
+                    self._span_start_accuracy(span_start_logits, sent_targets.squeeze(-1))
+            elif self.reward_method == 'sl-sents':  # sent_targets should be a matrix of target values (non-zero only in EOS indices)
+                sent_targets = util.replace_masked_values(sent_targets, valid_output_mask, -1e7)
+                output_dict["loss"] = util.masked_mean(((span_start_logits - sent_targets) ** 2), valid_output_mask, 1)
+                if store_metrics:
+                    self._span_start_accuracy(span_start_logits, sent_targets.max(-1)[1])
 
         # Compute the EM and F1 on SQuAD and add the tokenized input to the output.
         batch_ems = []
