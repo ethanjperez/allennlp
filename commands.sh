@@ -5,15 +5,15 @@
 # NB: Span-based debates: Do NOT use span_end_encoder in debater config (only SQUAD judge config)
 
 # BERT RACE SL NB: Actually using oracle outputs?
-allennlp train training_config/race.best.debate.lr=3e-5.jsonnet -s tmp/race.a.m=sl.bsz=32.lr=3e-5 -j tmp/race.best.f/model.tar.gz -b 1 -d a -m sl -p tmp/race.best.f/oracle_outputs.all.pkl -a 32 -f
-allennlp train training_config/race.best.debate.lr=2e-5.jsonnet -s tmp/race.a.m=sl.bsz=32.lr=2e-5 -j tmp/race.best.f/model.tar.gz -b 1 -d a -m sl -p tmp/race.best.f/oracle_outputs.all.pkl -a 32 -f
-allennlp train training_config/race.best.debate.lr=3e-5.jsonnet -s tmp/race.a.m=sl.bsz=64.lr=3e-5 -j tmp/race.best.f/model.tar.gz -b 1 -d a -m sl -p tmp/race.best.f/oracle_outputs.all.pkl -a 64 -f
-allennlp train training_config/race.best.debate.lr=2e-5.jsonnet -s tmp/race.a.m=sl.bsz=64.lr=2e-5 -j tmp/race.best.f/model.tar.gz -b 1 -d a -m sl -p tmp/race.best.f/oracle_outputs.all.pkl -a 64 -f
+allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.a.m=sl.bsz=32.lr=1e-5.2 -j tmp/race.best.f/model.tar.gz -b 1 -d a -m sl -p tmp/race.best.f/oracle_outputs.all.pkl -a 32 -f
+allennlp train training_config/race.best.debate.lr=2e-5.jsonnet -s tmp/race.a.m=sl.bsz=32.lr=2e-5.2 -j tmp/race.best.f/model.tar.gz -b 1 -d a -m sl -p tmp/race.best.f/oracle_outputs.all.pkl -a 32 -f
+allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.a.m=sl.bsz=64.lr=1e-5.2 -j tmp/race.best.f/model.tar.gz -b 1 -d a -m sl -p tmp/race.best.f/oracle_outputs.all.pkl -a 64 -f
+allennlp train training_config/race.best.debate.lr=2e-5.jsonnet -s tmp/race.a.m=sl.bsz=64.lr=2e-5.2 -j tmp/race.best.f/model.tar.gz -b 1 -d a -m sl -p tmp/race.best.f/oracle_outputs.all.pkl -a 64 -f
 
-allennlp train training_config/race.best.debate.lr=3e-5.jsonnet -s tmp/race.b.m=sl.bsz=32.lr=3e-5 -j tmp/race.best.f/model.tar.gz -b 1 -d b -m sl -p tmp/race.best.f/oracle_outputs.all.pkl -a 32 -f
-allennlp train training_config/race.best.debate.lr=2e-5.jsonnet -s tmp/race.b.m=sl.bsz=32.lr=2e-5 -j tmp/race.best.f/model.tar.gz -b 1 -d b -m sl -p tmp/race.best.f/oracle_outputs.all.pkl -a 32 -f
-allennlp train training_config/race.best.debate.lr=3e-5.jsonnet -s tmp/race.b.m=sl.bsz=64.lr=3e-5 -j tmp/race.best.f/model.tar.gz -b 1 -d b -m sl -p tmp/race.best.f/oracle_outputs.all.pkl -a 64 -f
-allennlp train training_config/race.best.debate.lr=2e-5.jsonnet -s tmp/race.b.m=sl.bsz=64.lr=2e-5 -j tmp/race.best.f/model.tar.gz -b 1 -d b -m sl -p tmp/race.best.f/oracle_outputs.all.pkl -a 64 -f
+allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.b.m=sl.bsz=32.lr=1e-5.2 -j tmp/race.best.f/model.tar.gz -b 1 -d b -m sl -p tmp/race.best.f/oracle_outputs.all.pkl -a 32 -f
+allennlp train training_config/race.best.debate.lr=2e-5.jsonnet -s tmp/race.b.m=sl.bsz=32.lr=2e-5.2 -j tmp/race.best.f/model.tar.gz -b 1 -d b -m sl -p tmp/race.best.f/oracle_outputs.all.pkl -a 32 -f
+allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.b.m=sl.bsz=64.lr=1e-5.2 -j tmp/race.best.f/model.tar.gz -b 1 -d b -m sl -p tmp/race.best.f/oracle_outputs.all.pkl -a 64 -f
+allennlp train training_config/race.best.debate.lr=2e-5.jsonnet -s tmp/race.b.m=sl.bsz=64.lr=2e-5.2 -j tmp/race.best.f/model.tar.gz -b 1 -d b -m sl -p tmp/race.best.f/oracle_outputs.all.pkl -a 64 -f
 
 allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.a.m=sl-sents.bsz=32.lr=1e-5 -j tmp/race.best.f/model.tar.gz -b 1 -d a -m sl-sents -p tmp/race.best.f/oracle_outputs.all.pkl -a 32 -f
 allennlp train training_config/race.best.debate.lr=2e-5.jsonnet -s tmp/race.a.m=sl-sents.bsz=32.lr=2e-5 -j tmp/race.best.f/model.tar.gz -b 1 -d a -m sl-sents -p tmp/race.best.f/oracle_outputs.all.pkl -a 32 -f
@@ -32,6 +32,12 @@ allennlp train training_config/race.best.debate.lr=2e-6.jsonnet -s tmp/race.a.m=
 allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.a.m=prob.bsz=64.lr=1e-5 -j tmp/race.best.f/model.tar.gz -b 1 -d a -m prob -a 64 -f # v100
 allennlp train training_config/race.best.debate.lr=5e-6.jsonnet -s tmp/race.a.m=prob.bsz=64.lr=5e-6 -j tmp/race.best.f/model.tar.gz -b 1 -d a -m prob -a 64 -f # p40
 allennlp train training_config/race.best.debate.lr=2e-6.jsonnet -s tmp/race.a.m=prob.bsz=64.lr=2e-6 -j tmp/race.best.f/model.tar.gz -b 1 -d a -m prob -a 64 -f # titanxp
+allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.a.m=prob.bsz=128.lr=1e-5 -j tmp/race.best.f/model.tar.gz -b 1 -d a -m prob -a 128 -f # v100?
+allennlp train training_config/race.best.debate.lr=5e-6.jsonnet -s tmp/race.a.m=prob.bsz=128.lr=5e-6 -j tmp/race.best.f/model.tar.gz -b 1 -d a -m prob -a 128 -f # p40?
+allennlp train training_config/race.best.debate.lr=2e-6.jsonnet -s tmp/race.a.m=prob.bsz=128.lr=2e-6 -j tmp/race.best.f/model.tar.gz -b 1 -d a -m prob -a 128 -f # p100?
+allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.a.m=prob.bsz=256.lr=1e-5 -j tmp/race.best.f/model.tar.gz -b 1 -d a -m prob -a 256 -f # v100?
+allennlp train training_config/race.best.debate.lr=5e-6.jsonnet -s tmp/race.a.m=prob.bsz=256.lr=5e-6 -j tmp/race.best.f/model.tar.gz -b 1 -d a -m prob -a 256 -f # p40?
+allennlp train training_config/race.best.debate.lr=2e-6.jsonnet -s tmp/race.a.m=prob.bsz=256.lr=2e-6 -j tmp/race.best.f/model.tar.gz -b 1 -d a -m prob -a 256 -f # p100?
 
 allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.b.m=prob.bsz=32.lr=1e-5.2 -j tmp/race.best.f/model.tar.gz -b 1 -d b -m prob -a 32 -f # 1080
 allennlp train training_config/race.best.debate.lr=5e-6.jsonnet -s tmp/race.b.m=prob.bsz=32.lr=5e-6.2 -j tmp/race.best.f/model.tar.gz -b 1 -d b -m prob -a 32 -f # 1080
@@ -327,9 +333,9 @@ srun --pty --mem=20000 -t 6-23:58 --gres=gpu:p40 bash
 srun --pty --mem=20000 -t 6-23:58 --gres=gpu:k80 bash
 
 # SBATCH: TODO: Cut memory usage based on plots
-export COMMAND="allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.ab.m=prob.bsz=64.lr=1e-5.2 -j tmp/race.best.f/model.tar.gz -b 1 -d ab -m prob -a 64 -f"
+export COMMAND="allennlp train training_config/race.best.debate.lr=2e-6.jsonnet -s tmp/race.a.m=prob.bsz=128.lr=2e-6 -j tmp/race.best.f/model.tar.gz -b 1 -d a -m prob -a 128 -f"
 export COMMAND_ARRAY=($COMMAND)
 export SERIALIZATION_DIR="${COMMAND_ARRAY[4]}"
 if test -e $SERIALIZATION_DIR; then echo -e "\n${PURPLE}NOTICE: Directory already exists.\n"; else mkdir -p $SERIALIZATION_DIR; fi
-sbatch --job-name $SERIALIZATION_DIR --mem=20000 -t 1-23:58 --gres=gpu:1080ti:1 --open-mode append --requeue --wrap "$COMMAND"
+sbatch --job-name $SERIALIZATION_DIR --mem=20000 -t 3-23:58 --gres=gpu:p100 --open-mode append --requeue --wrap "$COMMAND"
 echo -e "\n${CYAN}${SERIALIZATION_DIR}/train.log\n"
