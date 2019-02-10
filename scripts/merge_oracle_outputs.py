@@ -40,7 +40,6 @@ for k, v in all_oracle_outputs.items():
                 break
     else:
         fixed_all_oracle_outputs[k] = v
-import ipdb; ipdb.set_trace()
 
 print('Saving to file...')
 with open(save_file, 'wb') as f:
