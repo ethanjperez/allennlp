@@ -82,7 +82,8 @@ class BertMC(Model):
                 answer_index: torch.IntTensor = None,
                 metadata: List[Dict[str, Any]] = None,
                 store_metrics: bool = True,
-                valid_output_mask: torch.LongTensor = None) -> Dict[str, torch.Tensor]:
+                valid_output_mask: torch.LongTensor = None,
+                sent_targets: torch.Tensor = None) -> Dict[str, torch.Tensor]:
         # pylint: disable=arguments-differ
         """
         Parameters
@@ -147,7 +148,8 @@ class BertMC(Model):
         else:
             # Truncate option_logits, since valid_output_mask may only be defined on the passage
             # NOTE: Assumes passage always comes first.
-            option_probs = util.masked_softmax(option_logits[:, :valid_output_mask.size(1)], valid_output_mask)
+            option_logits = util.replace_masked_values(option_logits[:, :valid_output_mask.size(1)], valid_output_mask, -1e7)
+            option_probs = util.masked_softmax(option_logits, valid_output_mask)
         best_answer_index = option_probs.max(dim=1)[1]
 
         # Store results
@@ -155,18 +157,29 @@ class BertMC(Model):
                 "option_logits": option_logits,
                 "option_probs": option_probs,
                 "best_answer_index": best_answer_index,
-                "value": value if not self.is_judge else None,
-                "em": best_answer_index == answer_index.squeeze(-1) if self.is_judge else None,  # TODO: Use this as tmp_squad_metrics in Oracle
-                "prob": torch.tensor([option_probs[i, answer_index[i]] for i in range(option_probs.size(0))]),  # prob(true ans)
+                "value": value if (not self.is_judge) and (not self.reward_method.startswith('sl')) else None,
+                "f1": None,
+                "em": best_answer_index == answer_index.squeeze(-1) if self.is_judge else None,
+                "prob": torch.tensor([option_probs[i, answer_index[i]] for i in range(option_probs.size(0))]) if self.is_judge else None,  # prob(true ans)
                 "prob_dist": option_probs,
                 }
 
         # Compute the loss for training.
-        if answer_index is not None:
-            loss = nll_loss(log_softmax(option_logits, dim=1), answer_index.squeeze(-1))
+        if (answer_index is not None) and self.is_judge:  # Judge SL
+            output_dict["loss"] = nll_loss(log_softmax(option_logits, dim=1), answer_index.squeeze(-1))
             if store_metrics:
                 self._span_start_accuracy(option_logits, answer_index.squeeze(-1))
-            output_dict["loss"] = loss
+        elif (answer_index is not None) and (not self.is_judge):  # Debate SL
+            if self.reward_method == 'sl':  # sent_targets should be a vector of target indices
+                output_dict["loss"] = nll_loss(util.masked_log_softmax(option_logits, valid_output_mask), sent_targets.squeeze(-1))
+                if store_metrics:
+                    self._span_start_accuracy(option_logits, sent_targets.squeeze(-1))
+            elif self.reward_method.startswith('sl-sents'):  # sent_targets should be a matrix of target values (non-zero only in EOS indices)
+                sent_targets = util.replace_masked_values(sent_targets, valid_output_mask, -1e7)
+                output_dict["loss"] = util.masked_mean(((option_logits - sent_targets) ** 2), valid_output_mask, 1)
+                if store_metrics:
+                    self._span_start_accuracy(option_logits, sent_targets.max(-1)[1])
+
         return output_dict
 
     def get_metrics(self, reset: bool = False,) -> Dict[str, float]:
@@ -313,13 +326,13 @@ class BertMCDCMN(BertMC):
         # Shape: (batch_size, passage_length, hidden_dim)
         passage_question_vectors = util.weighted_sum(hidden_question, passage_question_attention) * passage_mask.unsqueeze(-1)  # M^p'
         summary_passage_question = relu(self._final_passage_question_encoder(torch.cat([passage_question_vectors - hidden_passage, passage_question_vectors * hidden_passage], dim=2)))  # S^q
-        pooled_summary_passage_question = util.replace_masked_values(summary_passage_question, passage_mask.unsqueeze(-1), -1e7).max(dim=1)[0]
+        pooled_summary_passage_question = util.replace_masked_values(summary_passage_question, passage_mask.unsqueeze(-1), -1e7).max(dim=1)[0]  # NOTE: Simpler to use util.masked_max
         # Shape: (batch_size, question_length, hidden_dim)
         question_passage_attention = util.masked_softmax(passage_question_similarity.transpose(1, 2), passage_mask)
         question_passage_vectors = util.weighted_sum(hidden_passage, question_passage_attention) * question_mask.unsqueeze(-1)  # M^q
         summary_question = relu(self._final_question_encoder(torch.cat([question_passage_vectors - hidden_question, question_passage_vectors * hidden_question], dim=2)))  # S^p'
         # Shape: (batch_size, hidden_dim)
-        pooled_summary_question = util.replace_masked_values(summary_question, question_mask.unsqueeze(-1), -1e7).max(dim=1)[0]
+        pooled_summary_question = util.replace_masked_values(summary_question, question_mask.unsqueeze(-1), -1e7).max(dim=1)[0]  # NOTE: Simpler to use util.masked_max
         # Shape: (batch_size, 2 * hidden_dim)
         final_passage_question = torch.cat([pooled_summary_question, pooled_summary_passage_question], dim=1)
 
