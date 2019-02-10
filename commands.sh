@@ -4,7 +4,7 @@
 
 # NB: Span-based debates: Do NOT use span_end_encoder in debater config (only SQUAD judge config)
 
-allennlp train training_config/race.best.debate..jsonnet -s tmp/race.a.m=sl.bsz=32.lr=1e-5.2 -j tmp/race.best.f/model.tar.gz -b 1 -d a -m sl -p tmp/race.best.f/oracle_outputs.all.pkl -a 32 -f
+allennlp train training_config/race.best.debate.debug.gpu.jsonnet -s tmp/debug -j tmp/race.best.f/model.tar.gz -b 1 -d a -m sl -p tmp/race.best.f/oracle_outputs.all.pkl -a 32 -f
 
 # BERT RACE SL
 allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.a.m=sl.bsz=32.lr=1e-5.2 -j tmp/race.best.f/model.tar.gz -b 1 -d a -m sl -p tmp/race.best.f/oracle_outputs.all.pkl -a 32 -f
