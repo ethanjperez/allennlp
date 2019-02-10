@@ -304,6 +304,8 @@ class Trainer(TrainerBase):
                 sliced_batch[k] = {}
                 for inner_k, inner_v in v.items():
                     sliced_batch[k][inner_k] = inner_v[idx].repeat(num_repeat, *[1 for _ in range(inner_v[idx].dim())])
+            elif v is None:
+                sliced_batch[k] = v
             elif isinstance(v, torch.Tensor):
                 sliced_batch[k] = v[idx].repeat(num_repeat, 1)
             elif isinstance(v, list):
@@ -499,6 +501,8 @@ class Trainer(TrainerBase):
         sample_id = batch['metadata'][sample_no]['id']
         if sample_id in self._oracle_outputs:
             return self._oracle_outputs[sample_id]
+        elif self._oracle_outputs_is_complete:
+            logger.warning('Recalculating Oracle despite _oracle_outputs_is_complete = True !')
 
         judge = self.model if self.model.is_judge else self.model.judge
         bsz = batch['passage']['tokens'].size(0)

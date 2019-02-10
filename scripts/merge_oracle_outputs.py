@@ -30,7 +30,7 @@ all_oracle_outputs = merge_dicts(*oracle_outputs)
 
 print('Correcting dictionary...')
 fixed_all_oracle_outputs = {}
-for k, v in all_oracle_outputs:
+for k, v in all_oracle_outputs.items():
     if 'train' in k:
         for i in range(10):
             bad_str = 'train.' + str(i)
