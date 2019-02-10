@@ -633,14 +633,15 @@ class Trainer(TrainerBase):
                 if debater.reward_method == 'sl':
                     answer_token_mask_input = ((oracle_sent_choice_idx == sent_idxs['input']).long() * batch['valid_output_mask'])
                     batch['sent_targets'] = answer_token_mask_input.nonzero()[:, 1].unsqueeze(-1)
-                elif debater.reward_method == 'sl-sents':
+                elif debater.reward_method.startswith('sl-sents'):
                     # Place all_values in appropriate EOS indices
                     oracle_token_values = sent_idxs['input'].clone().detach().float()
                     for i in range(bsz):
                         if num_sents[i].item() != len(all_values[i]):
                             logger.warning('Discrepancy in loaded Oracle num_sents ' + str(num_sents[i].item()) + ' and SL num_sents ' + str(len(all_values[i])) + ' for sample: ' + str(batch['metadata'][i]['id']))
+                        target_shift = sum(all_values[i]) / float(len(all_values[i])) if debater.reward_method == 'sl-sents-delta' else 0.
                         for sent_no in range(num_sents[i]):
-                            oracle_token_values[i] = oracle_token_values[i].masked_fill(sent_idxs['input'][i] == sent_no, all_values[i][sent_no])
+                            oracle_token_values[i] = oracle_token_values[i].masked_fill(sent_idxs['input'][i] == sent_no, all_values[i][sent_no] - target_shift)
                         if not batch['metadata'][i]['a_turn']:  # b should predict/choose based on negated values
                             oracle_token_values[i] = -1 * oracle_token_values[i]
                     oracle_token_values = nn_util.replace_masked_values(oracle_token_values, batch['valid_output_mask'], -1e7)
@@ -840,7 +841,7 @@ class Trainer(TrainerBase):
                 'input': self._get_sent_idxs(required_text_mask, debate_choice_mask, num_sents, 'input')
             }
             sent_answer_idx = None
-            if not self._mc:  # NB: Why does BiDAF RACE model have self._mc == True here?
+            if not self._mc:  # NOTE: Issue that BiDAF RACE model has self._mc == True here?
                 span_start = batch['span_start'].to(sent_idxs['output'].device)
                 sent_answer_idx = sent_idxs['output'].gather(1, span_start.clamp(max=(output_dim-1)))  # TODO: Verify  # TODO: Check sent_idxs[[SEP] token loc] = -1
                 sent_answer_idx[span_start >= output_dim] = -100  # Dummy negative value, can't be -1 (used for padding)

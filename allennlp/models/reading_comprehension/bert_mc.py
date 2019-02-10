@@ -174,7 +174,7 @@ class BertMC(Model):
                 output_dict["loss"] = nll_loss(util.masked_log_softmax(option_logits, valid_output_mask), sent_targets.squeeze(-1))
                 if store_metrics:
                     self._span_start_accuracy(option_logits, sent_targets.squeeze(-1))
-            elif self.reward_method == 'sl-sents':  # sent_targets should be a matrix of target values (non-zero only in EOS indices)
+            elif self.reward_method.startswith('sl-sents'):  # sent_targets should be a matrix of target values (non-zero only in EOS indices)
                 sent_targets = util.replace_masked_values(sent_targets, valid_output_mask, -1e7)
                 output_dict["loss"] = util.masked_mean(((option_logits - sent_targets) ** 2), valid_output_mask, 1)
                 if store_metrics:
