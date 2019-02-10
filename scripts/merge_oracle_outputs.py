@@ -5,7 +5,7 @@ folder = 'tmp/race.best.f/'
 files = ['oracle_outputs.dev.pkl', 'oracle_outputs.test.pkl', 'oracle_outputs.train.0.pkl', 'oracle_outputs.train.1.pkl', 'oracle_outputs.train.2.pkl', 'oracle_outputs.train.3.pkl', 'oracle_outputs.train.4.pkl', 'oracle_outputs.train.5.pkl', 'oracle_outputs.train.6.pkl', 'oracle_outputs.train.7.pkl', 'oracle_outputs.train.8.pkl', 'oracle_outputs.train.9.pkl']
 
 save_file = os.path.join(folder, 'oracle_outputs.all.corrected.pkl')
-assert os.path.exists(save_file), 'Save file already exists! Not overriding: ' + save_file
+assert not os.path.exists(save_file), 'Save file already exists! Not overriding: ' + save_file
 
 
 def merge_dicts(*dict_args):
