@@ -123,7 +123,7 @@ class Train(Subcommand):
                                type=str,
                                choices=['em', 'f1', 'prob',  # Exact Match, F1, (Span Start) Probability
                                         'sl', 'sl-sents', 'sl-sents-delta'],  # Supervised Learning (Oracle Prob), SL
-                               default='f1',
+                               default='prob',
                                help='how to reward debate agents')
 
         subparser.add_argument('-v', '--detach_value_head',
@@ -159,6 +159,12 @@ class Train(Subcommand):
                                default=False,
                                help='Run in model-parallel multiple GPU mode (gpu allocation in config file)')
 
+        subparser.add_argument('-c', '--choice_mode',
+                               type=str,
+                               choices=['delete', 'reveal', 'concat'],
+                               default=None,  # if None, set automatically in Trainer by dataset type
+                               help='type of action debating agents take')
+
         subparser.set_defaults(func=train_model_from_args)
 
         return subparser
@@ -183,7 +189,8 @@ def train_model_from_args(args: argparse.Namespace):
                           args.breakpoint_level,
                           args.oracle_outputs_path,
                           args.accumulation_steps,
-                          args.multi_gpu)
+                          args.multi_gpu,
+                          args.choice_mode)
 
 
 def train_model_from_file(parameter_filename: str,
@@ -201,7 +208,8 @@ def train_model_from_file(parameter_filename: str,
                           breakpoint_level: int = 0,
                           oracle_outputs_path: str = None,
                           accumulation_steps: int = 1,
-                          multi_gpu: bool = False) -> Model:
+                          multi_gpu: bool = False,
+                          choice_mode: str = None) -> Model:
     """
     A wrapper around :func:`train_model` which loads the params from a file.
 
@@ -254,7 +262,7 @@ def train_model_from_file(parameter_filename: str,
     params = Params.from_file(parameter_filename, overrides)
     return train_model(params, serialization_dir, file_friendly_logging, recover, force, debate_mode, judge_filename,
                        update_judge, eval_mode, reward_method, detach_value_head, breakpoint_level,
-                       oracle_outputs_path, accumulation_steps, multi_gpu)
+                       oracle_outputs_path, accumulation_steps, multi_gpu, choice_mode)
 
 
 def train_model(params: Params,
@@ -271,7 +279,8 @@ def train_model(params: Params,
                 breakpoint_level: int = 0,
                 oracle_outputs_path: str = None,
                 accumulation_steps: int = 1,
-                multi_gpu: bool = False) -> Model:
+                multi_gpu: bool = False,
+                choice_mode: str = None) -> Model:
     """
     Trains the model specified in the given :class:`Params` object, using the data and training
     parameters also specified in that object, and saves the results in ``serialization_dir``.
@@ -378,7 +387,8 @@ def train_model(params: Params,
                 breakpoint_level=breakpoint_level,
                 oracle_outputs_path=oracle_outputs_path,
                 accumulation_steps=accumulation_steps,
-                allocation_dict=allocation_dict)
+                allocation_dict=allocation_dict,
+                choice_mode=choice_mode)
         evaluation_iterator = pieces.validation_iterator or pieces.iterator
         evaluation_dataset = pieces.test_dataset
         # TODO: Check you're not modifying variables important for later on, in TrainerPieces

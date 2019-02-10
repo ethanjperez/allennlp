@@ -176,7 +176,7 @@ class BertMC(Model):
                     self._span_start_accuracy(option_logits, sent_targets.squeeze(-1))
             elif self.reward_method.startswith('sl-sents'):  # sent_targets should be a matrix of target values (non-zero only in EOS indices)
                 sent_targets = util.replace_masked_values(sent_targets, valid_output_mask, -1e7)
-                output_dict["loss"] = util.masked_mean(((option_logits - sent_targets) ** 2), valid_output_mask, 1)
+                output_dict["loss"] = ((option_logits - sent_targets) ** 2).sum(dim=1)  # or: util.masked_mean(((option_logits - sent_targets) ** 2), valid_output_mask, 1)
                 if store_metrics:
                     self._span_start_accuracy(option_logits, sent_targets.max(-1)[1])
 
@@ -426,8 +426,6 @@ class BertMCGPT(BertMC):
             option_logits = self._logit_predictor(pred_hidden_a).squeeze(-1)
             return option_logits, None
         else:
-            # TODO: Verify
-            # TODO: Add Linear/FiLM layers for conditioning
             agent_film_params = self._turn_film_gen(options_to_support.unsqueeze(-1))
             agent_gammas, agent_betas = torch.split(agent_film_params, self._hidden_dim, dim=-1)
             agent_hidden_pqo = self._film(hidden_pqo, 1. + agent_gammas, agent_betas) * pqo['mask'].float().unsqueeze(-1)
@@ -441,8 +439,8 @@ class BertMCGPT(BertMC):
 @Model.register("bert-mc-pq2a")
 class BertMCPQ2A(BertMC):
     """
-    The SOTA (1/2019) architecture on RACE, from:
-    `Dual Co-Matching Network for Multi-choice Reading Comprehension` (https://arxiv.org/pdf/1901.09381.pdf)
+    Compares the encoded Passage+Question with each encoded Option separately:
+        Softmax(BERT(P, Q) * BERT(Option_i), for i in range(num_options))
     """
     def __init__(self, vocab: Vocabulary,
                  text_field_embedder: TextFieldEmbedder,
