@@ -37,15 +37,8 @@
 
   "trainer": {
     "num_epochs": 20,
-    "patience": 3,
     "validation_metric": "+start_acc",
     "cuda_device": 0,
-    "learning_rate_scheduler": {
-      "type": "reduce_on_plateau",
-      "factor": 0.67,
-      "mode": "max",
-      "patience": 1
-    },
     "optimizer": {
       "lr": 0.00001,
       "type": "bert_adam"
