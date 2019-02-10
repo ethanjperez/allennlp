@@ -376,12 +376,12 @@ class BidirectionalAttentionFlow(Model):
     def get_metrics(self, reset: bool = False) -> Dict[str, float]:
         exact_match, f1_score = self._squad_metrics.get_metric(reset)
         return {
-                'start_acc': self._span_start_accuracy.get_metric(reset),
-                'end_acc': self._span_end_accuracy.get_metric(reset),
-                'span_acc': self._span_accuracy.get_metric(reset),
-                'em': exact_match,
-                'f1': f1_score,
-                }
+            'start_acc': self._span_start_accuracy.get_metric(reset),
+            'end_acc': self._span_end_accuracy.get_metric(reset),
+            'span_acc': self._span_accuracy.get_metric(reset),
+            'em': exact_match,
+            'f1': f1_score,
+        }
 
     @staticmethod
     def get_best_span(span_start_logits: torch.Tensor, span_end_logits: torch.Tensor) -> torch.Tensor:

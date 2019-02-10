@@ -67,7 +67,8 @@ class Trainer(TrainerBase):
                  eval_mode: bool = False,
                  breakpoint_level: int = 0,
                  oracle_outputs_path: str = None,
-                 accumulation_steps: int = 1) -> None:
+                 accumulation_steps: int = 1,
+                 allocation_dict: Dict[str, int] = None) -> None:
         """
         A trainer for doing supervised learning. It just takes a labeled dataset
         and a ``DataIterator``, and uses the supplied ``Optimizer`` to learn the weights
@@ -164,7 +165,7 @@ class Trainer(TrainerBase):
         log_batch_size_period : ``int``, optional, (default = ``None``)
             If defined, how often to log the average batch size.
         """
-        super().__init__(serialization_dir, cuda_device)
+        super().__init__(serialization_dir, cuda_device, allocation_dict)
 
         # I am not calling move_to_gpu here, because if the model is
         # not already on the GPU then the optimizer is going to be wrong.
@@ -194,6 +195,7 @@ class Trainer(TrainerBase):
         self._using_oracle = ((self.model.reward_method is not None) and (self.model.reward_method.startswith('sl'))) or \
                              ('A' in self._debate_mode) or ('B' in self._debate_mode)
 
+        self._oracle_outputs_is_complete = (self._oracle_outputs_path is not None)
         if self._oracle_outputs_path is None:
             self._oracle_outputs_path = os.path.join(serialization_dir, 'model_oracle_outputs.pkl')
         try:
@@ -268,8 +270,24 @@ class Trainer(TrainerBase):
         else:
             assert len(batch_group) == 1
             batch = batch_group[0]
-            batch = nn_util.move_to_device(batch, self._cuda_devices[0])
+
+            # Move batch to appropriate GPU
+            if model.is_judge:
+                # Check allocation_dict
+                if self._allocation_dict is not None:
+                    batch = nn_util.move_to_device(batch, self._allocation_dict['judge'])
+                else:
+                    batch = nn_util.move_to_device(batch, self._cuda_devices[0])
+            else:
+                # Check allocation_dict
+                if self._allocation_dict is not None:
+                    batch = nn_util.move_to_device(batch, self._allocation_dict['debate'])
+                else:
+                    batch = nn_util.move_to_device(batch, self._cuda_devices[0])
+
+            # Run batch through model
             output_dict = model(**batch)
+
         return output_dict
 
     def _slice_batch(self, batch: TensorDict, idxs: slice) -> TensorDict:
@@ -447,6 +465,60 @@ class Trainer(TrainerBase):
         """
         output_field = 'tokens-offsets' if 'tokens-offsets' in batch['passage'] else 'tokens'
         return batch['passage'][output_field].size(1)
+
+    def batch_loss(self,
+                   batch_group: List[TensorDict],
+                   for_training: bool,
+                   debate_mode: List[str] = None) -> torch.Tensor:
+        """
+        Does a forward pass on the given batches and returns the ``loss`` value in the result.
+        If ``for_training`` is `True` also applies regularization penalty.
+        """
+        # If overriding default passage choosing method
+        if debate_mode is None:
+            debate_mode = self._debate_mode
+
+        # Optional debugging sanity check
+        if self._breakpoint_level >= 1 and for_training:
+            for batch in batch_group:
+                for i in range(batch['passage']['tokens'].size(0)):
+                    char_span_start = batch['metadata'][i]['token_offsets'][batch['span_start'][i]][0]
+                    char_span_end = batch['metadata'][i]['token_offsets'][batch['span_end'][i]][1]
+                    answer_text = batch['metadata'][i]['answer_texts'][0]
+                    post_processing_answer_text = batch['metadata'][i]['original_passage'][char_span_start:
+                                                                                           char_span_end]
+                    answer_processing_error = not (answer_text in post_processing_answer_text)
+                    if self._dataset_name == 'race':  # TODO: Remove _dataset_name
+                        answer_processing_error = (answer_text != post_processing_answer_text) or \
+                                                  (answer_text not in ['1st', '2nd', '3rd', '4th'])
+                    if answer_processing_error:  # Print: unexpected mismatch with true answer
+                        self._print_tokens(batch['passage']['tokens'][i, :])
+                        print('answer_text =', answer_text)
+                        print('post_processing_answer_text =', post_processing_answer_text)
+
+        # Set output_dict['loss'] to do gradient descent on.
+        if debate_mode[0] == "f":  # Full passage training: Normal SL training
+            output_dict = self._forward(batch_group, self.model)
+
+        else:  # Training on subset of sentence (judge or debate training)
+            outputs = []
+            # TODO(Sidd): Distribute this loop across GPUs. See training_util.data_parallel
+            for batch in batch_group:
+                outputs.append(self.debate_batch_loss(batch, for_training, debate_mode))
+
+            # Taken from training_util.data_parallel
+            losses = torch.cat([output['loss'].unsqueeze(0) for output in outputs], 0)
+            output_dict = {'loss': losses.mean()}
+
+        try:
+            loss = output_dict["loss"]
+            if for_training:
+                loss += self.model.get_regularization_penalty()
+        except KeyError:
+            if for_training:
+                raise RuntimeError("The model you are trying to optimize does not contain a"
+                                   " 'loss' key in the output of model.forward(inputs).")
+            loss = None
 
     @staticmethod
     def _get_last_output_token_idx(batch: TensorDict, sample_no: int) -> int:
@@ -969,12 +1041,14 @@ class Trainer(TrainerBase):
             logger.info(f"GPU {gpu} memory usage MB: {memory}")
 
         train_loss = 0.0
+
         # Set the model to "train" mode.
         self.model.train()
         if (not self.model.update_judge) and (self.model.judge is not None):
             self.model.judge.eval()
 
-        num_gpus = len(self._cuda_devices)
+        # As this is only used for GPU Data Parallel Mode, check _allocation_dict first
+        num_gpus = len(self._cuda_devices) if (self._allocation_dict is None) else 1
 
         # Get tqdm for the training batches
         raw_train_generator = self.iterator(self.train_data,
@@ -992,8 +1066,8 @@ class Trainer(TrainerBase):
         histogram_parameters = set(self.model.get_parameters_for_histogram_tensorboard_logging())
 
         logger.info("Training")
-        train_generator_tqdm = Tqdm.tqdm(train_generator,
-                                         total=num_training_batches)
+        train_generator_tqdm = Tqdm.tqdm(train_generator, total=num_training_batches)
+
         cumulative_batch_size = 0
         for batch_group in train_generator_tqdm:
             batches_this_epoch += 1  # NOTE: Divide by self._accumulation_steps?
@@ -1047,7 +1121,7 @@ class Trainer(TrainerBase):
 
             # Log parameter values to Tensorboard
             if self._tensorboard.should_log_this_batch():
-                self._tensorboard.log_parameter_and_gradient_statistics(self.model, batch_grad_norm)
+                # self._tensorboard.log_parameter_and_gradient_statistics(self.model, batch_grad_norm)
                 self._tensorboard.log_learning_rates(self.model, self.optimizer)
 
                 self._tensorboard.add_train_scalar("loss/loss_train", metrics["loss"])
@@ -1094,15 +1168,14 @@ class Trainer(TrainerBase):
         else:
             val_iterator = self.iterator
 
-        num_gpus = len(self._cuda_devices)
+        # As this is only used for GPU Data Parallel Mode, check _allocation_dict first
+        num_gpus = len(self._cuda_devices) if (self._allocation_dict is None) else 1
 
-        raw_val_generator = val_iterator(self._validation_data,
-                                         num_epochs=1,
-                                         shuffle=False)
+        raw_val_generator = val_iterator(self._validation_data, num_epochs=1, shuffle=False)
         val_generator = lazy_groups_of(raw_val_generator, num_gpus)
         num_validation_batches = math.ceil(val_iterator.get_num_batches(self._validation_data)/num_gpus)
-        val_generator_tqdm = Tqdm.tqdm(val_generator,
-                                       total=num_validation_batches)
+        val_generator_tqdm = Tqdm.tqdm(val_generator, total=num_validation_batches)
+
         batches_this_epoch = 0
         val_loss = 0
         for batch_group in val_generator_tqdm:
@@ -1340,7 +1413,9 @@ class Trainer(TrainerBase):
                     eval_mode: bool = False,
                     breakpoint_level: int = 0,
                     oracle_outputs_path: str = None,
-                    accumulation_steps: int = 1) -> 'Trainer':
+                    accumulation_steps: int = 1,
+                    allocation_dict: Dict[str, int] = None) -> 'Trainer':
+
         # pylint: disable=arguments-differ
         patience = params.pop_int("patience", None)
         validation_metric = params.pop("validation_metric", "-loss")
@@ -1351,15 +1426,25 @@ class Trainer(TrainerBase):
         grad_clipping = params.pop_float("grad_clipping", None)
         lr_scheduler_params = params.pop("learning_rate_scheduler", None)
 
-        if isinstance(cuda_device, list):
-            model_device = cuda_device[0]
-        else:
-            model_device = cuda_device
-        if model_device >= 0:
-            # Moving model to GPU here so that the optimizer state gets constructed on
-            # the right device.
-            model = model.cuda(model_device)
+        # Move models to appropriate devices (if running in multi-gpu mode) => ensures optimizer created properly
+        if len(allocation_dict) == 3:
+            # Move model depending on whether or not it is the judge
+            if model.is_judge:
+                model = model.cuda(allocation_dict['judge'])
+            else:
+                # Move entire model to debate GPU (gross, but best you can do)
+                model = model.cuda(allocation_dict['debate'])
 
+                # Move model.judge to judge GPU
+                model.judge = model.judge.cuda(allocation_dict['judge'])
+
+        # Otherwise, if not multi-gpu mode, run with the default behavior
+        else:
+            model_device = cuda_device if isinstance(cuda_device, int) else cuda_device[0]
+            if model_device >= 0:
+                model = model.cuda(model_device)
+
+        # Creates Optimizer Parameters on the appropriate GPU
         parameters = [[n, p] for n, p in model.named_parameters() if p.requires_grad]
         optimizer = Optimizer.from_params(parameters, params.pop("optimizer"))
 
@@ -1403,7 +1488,8 @@ class Trainer(TrainerBase):
                    eval_mode=eval_mode,
                    breakpoint_level=breakpoint_level,
                    oracle_outputs_path=oracle_outputs_path,
-                   accumulation_steps=accumulation_steps)
+                   accumulation_steps=accumulation_steps,
+                   allocation_dict=allocation_dict)
 
 
 class TrainerPieces(NamedTuple):
@@ -1424,12 +1510,17 @@ class TrainerPieces(NamedTuple):
     params: Params
 
     @staticmethod
-    def from_params(params: Params, serialization_dir: str, cuda_device: int, recover: bool = False,
+    def from_params(params: Params,
+                    serialization_dir: str,
+                    cuda_device: Union[int, List],
+                    recover: bool = False,
                     judge_filename: str = None,
                     update_judge: bool = False,
                     eval_mode: bool = False,
                     reward_method: str = None,
-                    detach_value_head: bool = False) -> 'TrainerPieces':
+                    detach_value_head: bool = False,
+                    allocation_dict: Dict[str, int] = None) -> 'TrainerPieces':
+
         all_datasets = training_util.datasets_from_params(params)
         if eval_mode:  # NB: --eval_mode does not expand vocab based on test data
             params["datasets_for_vocab_creation"] = ['train', 'validation']
@@ -1458,15 +1549,21 @@ class TrainerPieces(NamedTuple):
         if judge_filename is not None:
             judge_file_ending = judge_filename.split('.')[-1]
             if judge_file_ending == 'gz':
-                archive = load_archive(judge_filename, cuda_device=cuda_device)
+                # Place on appropriate GPU if allocation_dict is specified
+                judge_device = allocation_dict.get('judge',
+                                                   cuda_device if isinstance(cuda_device, int) else cuda_device[-1])
+                archive = load_archive(judge_filename, cuda_device=judge_device)
                 config = archive.config
                 prepare_environment(config)
                 judge = archive.model
+
             elif judge_file_ending == 'json' or judge_file_ending == 'jsonnet':
                 # NB: No overrides for judge. Also, only 'model' field is used.
                 judge_params = Params.from_file(judge_filename, params_overrides='')
+
+                # NB: No judge inside this model
                 judge = Model.from_params(vocab=vocab, params=judge_params.get('model'),
-                                          judge=None, update_judge=False, reward_method=None,  # No judge inside this model
+                                          judge=None, update_judge=False, reward_method=None,
                                           detach_value_head=False)
                 if not update_judge:
                     warnings.warn('Provided Judge file was a training config file. '

@@ -28,7 +28,8 @@ class TrainerBase(Registrable):
 
     def __init__(self,
                  serialization_dir: str,
-                 cuda_device: Union[int, List] = -1) -> None:
+                 cuda_device: Union[int, List] = -1,
+                 allocation_dict: Dict[str, int] = None) -> None:
         check_for_gpu(cuda_device)
 
         self._serialization_dir = serialization_dir
@@ -38,13 +39,26 @@ class TrainerBase(Registrable):
             raise ConfigurationError("Expected an int or list for cuda_device, got {}".format(cuda_device))
 
         if isinstance(cuda_device, list):
-            logger.warning(f"Multiple GPU support is experimental not recommended for use. "
-                           "In some cases it may lead to incorrect results or undefined behavior.")
-            self._multiple_gpu = True
-            self._cuda_devices = cuda_device
+            # Only enter standard multiple GPU mode (data parallel) if allocation_dict is empty
+            if allocation_dict is None or len(allocation_dict) == 0:
+                logger.warning(f"Data Parallel Multiple GPU support is experimental not recommended for use. "
+                               "In some cases it may lead to incorrect results or undefined behavior.")
+                self._multiple_gpu = True
+                self._cuda_devices = cuda_device
+                self._allocation_dict = None
+
+            # Otherwise, set cuda devices and allocation dictionary
+            else:
+                self._multiple_gpu = False
+                self._cuda_devices = cuda_device
+                self._allocation_dict = allocation_dict
+
         else:
+            assert (allocation_dict is None or len(allocation_dict) == 0), \
+                "Should not specify GPU Allocation if only one GPU!"
             self._multiple_gpu = False
             self._cuda_devices = [cuda_device]
+            self._allocation_dict = None
 
     def _move_to_gpu(self, model: Model) -> Model:
         if self._cuda_devices[0] != -1:

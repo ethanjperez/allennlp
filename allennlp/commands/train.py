@@ -32,6 +32,18 @@ which to write the results.
                            refresh rate
      --include-package INCLUDE_PACKAGE
                             additional packages to include
+
+   debate arguments:
+     -d, --debate_mode     List of debate turns (e.g. aa, ar, rr, Ar) => capital implies oracle agent
+     -j, --judge_filename  Path to judge config or pre-trained judge model. If config, judge trained during debate
+     -u, --update_judge    Boolean whether or not to update Judge model during debate training
+     -m, --reward_method   Choice of Debate Reward function - [em (exact match), f1, ssp (start span prob), sl, sl-ssp]
+     -v, --detach_val...   Boolean whether or not to detach value function from policy network to isolate gradients
+     -b, --breakpoint...   Debugging option to set sensitivity of breakpoints
+     -i, --id_to_oracle... Path to file with oracle predictions for supervised learning
+     -a, --accumulation... Number of steps to accumulate gradient for before taking an optimizer step
+     -e, --eval_mode       Boolean whether or not to run in eval-only mode, on test data
+     -g, --multi-gpu       Boolean whether or not to load in model-parallel multi-gpu mode (allocation in config file)
 """
 from typing import List
 import argparse
@@ -107,12 +119,6 @@ class Train(Subcommand):
                                default=False,
                                help='update judge while training debate agents')
 
-        # NB: --evaluate does not expand vocab based on test data
-        subparser.add_argument('-e', '--eval_mode',
-                               action='store_true',
-                               default=False,
-                               help='run in evaluation-only mode on test_data_path (validation if no test given)')
-
         subparser.add_argument('-m', '--reward_method',
                                type=str,
                                choices=['em', 'f1', 'prob',  # Exact Match, F1, (Span Start) Probability
@@ -141,6 +147,18 @@ class Train(Subcommand):
                                default=1,
                                help='Number of steps to accumulate gradient for before taking an optimizer step.')
 
+        # NB: --evaluate does not expand vocab based on test data
+        subparser.add_argument('-e', '--eval_mode',
+                               action='store_true',
+                               default=False,
+                               help='run in evaluation-only mode on test_data_path (validation if no test given)')
+
+        # NB: --per-gpu model/loader allocation goes in Configuration File (e.g. bidaf.race.size=0.5.gpu=2.jsonnet)
+        subparser.add_argument('-g', '--multi-gpu',
+                               action='store_true',
+                               default=False,
+                               help='Run in model-parallel multiple GPU mode (gpu allocation in config file)')
+
         subparser.set_defaults(func=train_model_from_args)
 
         return subparser
@@ -164,7 +182,8 @@ def train_model_from_args(args: argparse.Namespace):
                           args.detach_value_head,
                           args.breakpoint_level,
                           args.oracle_outputs_path,
-                          args.accumulation_steps)
+                          args.accumulation_steps,
+                          args.multi_gpu)
 
 
 def train_model_from_file(parameter_filename: str,
@@ -181,7 +200,8 @@ def train_model_from_file(parameter_filename: str,
                           detach_value_head: bool = False,
                           breakpoint_level: int = 0,
                           oracle_outputs_path: str = None,
-                          accumulation_steps: int = 1) -> Model:
+                          accumulation_steps: int = 1,
+                          multi_gpu: bool = False) -> Model:
     """
     A wrapper around :func:`train_model` which loads the params from a file.
 
@@ -192,6 +212,8 @@ def train_model_from_file(parameter_filename: str,
     serialization_dir : ``str``
         The directory in which to save results and logs. We just pass this along to
         :func:`train_model`.
+    debate_mode : ``List[str]``
+        List of debate turns (e.g. aa, ar, rr, Ar) => capitalization implies oracle agent
     overrides : ``str``
         A JSON string that we will use to override values in the input parameter file.
     file_friendly_logging : ``bool``, optional (default=False)
@@ -203,12 +225,36 @@ def train_model_from_file(parameter_filename: str,
         of a run.  For continuing training a model on new data, see the ``fine-tune`` command.
     force : ``bool``, optional (default=False)
         If ``True``, we will overwrite the serialization directory if it already exists.
+    judge_filename : ``str``, optional (default=None)
+        Path to judge config or pre-trained judge model. If config, judge trained during debate. Necessary parameter
+        if running in debate mode.
+    update_judge : ``bool``, optional (default=False)
+        Boolean whether or not to update Judge model during debate training.
+    eval_mode : ``bool``, optional (default=False)
+        Boolean whether or not to run in eval-only mode, on test data. Does not update/train any of the models.
+    reward_method : ``str``, optional (default=False)
+        Choice of Debate Reward function for rewarding debaters. Choices include: [em (exact match), f1,
+        ssp (start span prob), sl (supervised learning), sl-ssp (supervised learning w/ start span probs]
+    detach_value_head : ``bool``, optional (default=False)
+        Boolean whether or not to detatch value function gradient updates from the policy network. This prevents
+        value function gradients from affecting policy network parameters.
+    breakpoint_level : ``int`` optional (default=0)
+        Debugging option to set breakpoint sensitivity (0 - no breakpoints).
+    id_to_oracle_filename : ``str`` optional (default=None)
+        Path to file with oracle predictions for each agent - necessary for supervised training
+    accumulation_steps : ``int`` (default=1)
+        Number of gradient steps to accumulate over before performing an update. Poor-man's batching for instances where
+        number of examples per batch is small (limited GPU memory)
+    multi_gpu : ``bool`` (default=False)
+        Boolean whether or not to run models/training in model parallel mode. Requires specifying GPU allocations for
+        trainer, judge, and debaters in the training config file (see training_config/bidaf.race.size=0.5.gpu=2.jsonnet
+        for example usage).
     """
     # Load the experiment config from a file and pass it to ``train_model``.
     params = Params.from_file(parameter_filename, overrides)
     return train_model(params, serialization_dir, file_friendly_logging, recover, force, debate_mode, judge_filename,
                        update_judge, eval_mode, reward_method, detach_value_head, breakpoint_level,
-                       oracle_outputs_path, accumulation_steps)
+                       oracle_outputs_path, accumulation_steps, multi_gpu)
 
 
 def train_model(params: Params,
@@ -224,7 +270,8 @@ def train_model(params: Params,
                 detach_value_head: bool = False,
                 breakpoint_level: int = 0,
                 oracle_outputs_path: str = None,
-                accumulation_steps: int = 1) -> Model:
+                accumulation_steps: int = 1,
+                multi_gpu: bool = False) -> Model:
     """
     Trains the model specified in the given :class:`Params` object, using the data and training
     parameters also specified in that object, and saves the results in ``serialization_dir``.
@@ -235,6 +282,8 @@ def train_model(params: Params,
         A parameter object specifying an AllenNLP Experiment.
     serialization_dir : ``str``
         The directory in which to save results and logs.
+    debate_mode : ``List[str]``
+        List of debate turns (e.g. aa, ar, rr, Ar) => capitalization implies oracle agent
     file_friendly_logging : ``bool``, optional (default=False)
         If ``True``, we add newlines to tqdm output, even on an interactive terminal, and we slow
         down tqdm's output to only once every 10 seconds.
@@ -244,14 +293,39 @@ def train_model(params: Params,
         of a run.  For continuing training a model on new data, see the ``fine-tune`` command.
     force : ``bool``, optional (default=False)
         If ``True``, we will overwrite the serialization directory if it already exists.
+    judge_filename : ``str``, optional (default=None)
+        Path to judge config or pre-trained judge model. If config, judge trained during debate. Necessary parameter
+        if running in debate mode.
+    update_judge : ``bool``, optional (default=False)
+        Boolean whether or not to update Judge model during debate training.
+    eval_mode : ``bool``, optional (default=False)
+        Boolean whether or not to run in eval-only mode, on test data. Does not update/train any of the models.
+    reward_method : ``str``, optional (default=False)
+        Choice of Debate Reward function for rewarding debaters. Choices include: [em (exact match), f1,
+        ssp (start span prob), sl (supervised learning), sl-ssp (supervised learning w/ start span probs]
+    detach_value_head : ``bool``, optional (default=False)
+        Boolean whether or not to detatch value function gradient updates from the policy network. This prevents
+        value function gradients from affecting policy network parameters.
+    breakpoint_level : ``int`` optional (default=0)
+        Debugging option to set breakpoint sensitivity (0 - no breakpoints).
+    id_to_oracle_filename : ``str`` optional (default=None)
+        Path to file with oracle predictions for each agent - necessary for supervised training
+    accumulation_steps : ``int`` (default=1)
+        Number of gradient steps to accumulate over before performing an update. Poor-man's batching for instances where
+        number of examples per batch is small (limited GPU memory)
+    multi_gpu : ``bool`` (default=False)
+        Boolean whether or not to run models/training in model parallel mode. Requires specifying GPU allocations for
+        trainer, judge, and debaters in the training config file (see training_config/bidaf.race.size=0.5.gpu=2.jsonnet
+        for example usage).
 
     Returns
     -------
     best_model: ``Model``
         The model with the best epoch weights.
     """
+    # Get number of debate turns, and assert that not performing judge-only training
     num_trained_debater_turns = sum([(('a' in debate_turn) or ('b' in debate_turn)) for debate_turn in debate_mode])
-    if ((judge_filename is not None) and (num_trained_debater_turns == 0)):
+    if (judge_filename is not None) and (num_trained_debater_turns == 0):
         warnings.warn('Unnecessary to have debaters in debate mode ' + str(debate_mode) +
                       '. If this was unintentional, please remove the -j flag.', UserWarning)
 
@@ -259,8 +333,19 @@ def train_model(params: Params,
     create_serialization_dir(params, serialization_dir, recover, force)
     prepare_global_logging(serialization_dir, file_friendly_logging)
 
+    # Check that all Desired CUDA Devices exist => trainer => cuda_devices should contain list of required devices
     cuda_device = params.params.get('trainer').get('cuda_device', -1)
     check_for_gpu(cuda_device)
+
+    # Build Allocation Dictionary (to be passed to all future functions)
+    if multi_gpu:
+        gpu_allocations, allocation_dict = params.params.pop('gpu_allocations', {}), {}
+        assert len(gpu_allocations) == 3, 'Must set gpu_allocations in config if multi-gpu'
+        for k in ['debate', 'judge', 'trainer']:
+            assert gpu_allocations[k] in cuda_device, "Desired GPU not available... current: %s" % str(cuda_device)
+            allocation_dict[k] = gpu_allocations[k]
+    else:
+        allocation_dict = {}
 
     params.to_file(os.path.join(serialization_dir, CONFIG_NAME))
 
@@ -270,12 +355,16 @@ def train_model(params: Params,
 
     if trainer_type == "default":
         # Special logic to instantiate backward-compatible trainer.
-        pieces = TrainerPieces.from_params(params, serialization_dir, cuda_device, recover,
+        pieces = TrainerPieces.from_params(params,
+                                           serialization_dir,
+                                           cuda_device,
+                                           recover,
                                            judge_filename=judge_filename,
                                            update_judge=update_judge,
                                            eval_mode=eval_mode,
                                            reward_method=reward_method,
-                                           detach_value_head=detach_value_head)  # pylint: disable=no-member
+                                           detach_value_head=detach_value_head,
+                                           allocation_dict=allocation_dict)  # pylint: disable=no-member
         trainer = Trainer.from_params(
                 model=pieces.model,
                 serialization_dir=serialization_dir,
@@ -288,7 +377,8 @@ def train_model(params: Params,
                 eval_mode=eval_mode,
                 breakpoint_level=breakpoint_level,
                 oracle_outputs_path=oracle_outputs_path,
-                accumulation_steps=accumulation_steps)
+                accumulation_steps=accumulation_steps,
+                allocation_dict=allocation_dict)
         evaluation_iterator = pieces.validation_iterator or pieces.iterator
         evaluation_dataset = pieces.test_dataset
         # TODO: Check you're not modifying variables important for later on, in TrainerPieces
