@@ -882,7 +882,7 @@ class Trainer(TrainerBase):
                 # Add existing losses (e.g., from SL)
                 for loss in losses:
                     if loss is not None:
-                        output_dict['loss'] += loss
+                        output_dict['loss'] += loss.to(loss_device)
                 # Add new post-Judge losses, (e.g., from RL)
                 for turn, method in enumerate(debate_mode[round_no]):
                     if (method in {'a', 'b'}) and (not debater.reward_method.startswith('sl')):
