@@ -283,6 +283,8 @@ class Trainer(TrainerBase):
                 sliced_batch[k] = {}
                 for inner_k, inner_v in v.items():
                     sliced_batch[k][inner_k] = inner_v[idxs]
+            elif v is None:
+                sliced_batch[k] = v
             elif isinstance(v, torch.Tensor):
                 sliced_batch[k] = v[idxs]
             elif isinstance(v, list):
