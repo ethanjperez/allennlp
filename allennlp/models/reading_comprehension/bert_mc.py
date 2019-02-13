@@ -83,7 +83,8 @@ class BertMC(Model):
                 metadata: List[Dict[str, Any]] = None,
                 store_metrics: bool = True,
                 valid_output_mask: torch.LongTensor = None,
-                sent_targets: torch.Tensor = None) -> Dict[str, torch.Tensor]:
+                sent_targets: torch.Tensor = None,
+                stance: torch.LongTensor = None) -> Dict[str, torch.Tensor]:
         # pylint: disable=arguments-differ
         """
         Parameters
@@ -127,16 +128,19 @@ class BertMC(Model):
         # Precomputation
         options_to_support = None
         if not self.is_judge:
-            assert(metadata is not None and 'a_turn' in metadata[0])
+            assert(metadata is not None and 'agent_turn' in metadata[0])
             options_to_support = torch.zeros_like(options['tokens'][:, :, 0]).float()
-            for i in range(options['tokens'].size(0)):
-                if metadata[i]['a_turn']:
-                    options_to_support[i, answer_index[i]] = 1.  # Support only correct option
-                else:
-                    options_to_support[i] = 1. - options_to_support[i]  # Support all options
-                    options_to_support[i, answer_index[i]] = 0.         # except correct one
+            if stance.dim() == options_to_support.dim():  # TODO: Verify. TODO: Add to bidaf.py, bert_qa.py
+                options_to_support = stance.float()
+            else:
+                for i in range(options['tokens'].size(0)):
+                    if stance[i] == 1:
+                        options_to_support[i, answer_index[i]] = 1.  # Support only correct option
+                    else:
+                        options_to_support[i] = 1. - options_to_support[i]  # Support all options
+                        options_to_support[i, answer_index[i]] = 0.         # except correct one
 
-        try:  # NB: Clean this up
+        try:  # NB: Clean this up for BERT_Large
             sep_token = metadata[0]['[SEP]'] if '[SEP]' in metadata[0] else self.vocab._token_to_index['bert']['[SEP]']
         except:
             sep_token = 102
@@ -169,7 +173,7 @@ class BertMC(Model):
             output_dict["loss"] = nll_loss(log_softmax(option_logits, dim=1), answer_index.squeeze(-1))
             if store_metrics:
                 self._span_start_accuracy(option_logits, answer_index.squeeze(-1))
-        elif (answer_index is not None) and (not self.is_judge):  # Debate SL
+        elif not self.is_judge:  # Debate SL
             if self.reward_method == 'sl':  # sent_targets should be a vector of target indices
                 output_dict["loss"] = nll_loss(util.masked_log_softmax(option_logits, valid_output_mask), sent_targets.squeeze(-1))
                 if store_metrics:
@@ -245,6 +249,74 @@ class BertMC(Model):
         Architecture-specific forward pass. Must be implemented by subclass.
         """
         raise NotImplementedError
+
+
+@Model.register("bert-mc-gpt")
+class BertMCGPT(BertMC):
+    """
+    Bert-for-Multiple-Choice, inspired by OpenAI GPT's RACE model. Used with BERT on RACE here:
+    `BERT for Multiple Choice Machine Comprehension`: (https://github.com/NoviScl/BERT-RACE/blob/master/BERT_RACE.pdf)
+    Applies BERT to each option to get each softmax logit: Logit_i = BERT([CLS] Passage [SEP] Question + Option_i [SEP])
+    """
+    def __init__(self, vocab: Vocabulary,
+                 text_field_embedder: TextFieldEmbedder,
+                 initializer: InitializerApplicator = InitializerApplicator(),
+                 regularizer: Optional[RegularizerApplicator] = None,
+                 judge: Model = None,
+                 update_judge: bool = False,
+                 reward_method: str = None,
+                 detach_value_head: bool = False) -> None:
+        super().__init__(vocab=vocab,
+                         text_field_embedder=text_field_embedder,
+                         initializer=initializer,
+                         regularizer=regularizer,
+                         judge=judge,
+                         update_judge=update_judge,
+                         reward_method=reward_method,
+                         detach_value_head=detach_value_head)
+        self._logit_predictor = torch.nn.Linear(self._hidden_dim, 1)
+        self._initializer(self)
+
+    def compute_logits_and_value(self,  # type: ignore
+                                 question: Dict[str, torch.LongTensor],
+                                 passage: Dict[str, torch.LongTensor],
+                                 options: Dict[str, torch.LongTensor],
+                                 sep_token: int,
+                                 options_to_support: torch.FloatTensor = None) -> Tuple[torch.FloatTensor, torch.FloatTensor]:
+        """
+        Architecture-specific forward pass
+        """
+        # BERT-formatting input
+        batch_size, num_options, _ = options['tokens'].size()
+        pqo_tokens_list = []
+        pqo_token_maxlens = []
+        for i in range(num_options):
+            qo_tokens = self.pack_sequences(question['tokens'], options['tokens'][:, i])
+            pqo_tokens_list.append(self.pack_sequences(passage['tokens'], qo_tokens, sep_token))
+            pqo_token_maxlens.append(pqo_tokens_list[i].size(-1))
+        pqo_tokens = torch.zeros(batch_size, num_options, max(pqo_token_maxlens), dtype=torch.long, device=passage['tokens'].device)
+        for i in range(num_options):
+            pqo_tokens[:, i, :pqo_tokens_list[i].size(-1)] = pqo_tokens_list[i]
+        pqo = self.tokens_to_bert_input(pqo_tokens, sep_token)
+
+        # Condition debater on stance. Change segment embedding for [CLS] tokens only.
+        if not self.is_judge:
+            pqo['token-type-ids'][:, :, 0] = options_to_support
+
+        hidden_pqo = self._text_field_embedder(pqo)
+        if self.is_judge:
+            pred_hidden_a = hidden_pqo[:, :, 0]
+            option_logits = self._logit_predictor(pred_hidden_a).squeeze(-1)
+            return option_logits, None
+        else:
+            agent_film_params = self._turn_film_gen(options_to_support.unsqueeze(-1))
+            agent_gammas, agent_betas = torch.split(agent_film_params, self._hidden_dim, dim=-1)
+            agent_hidden_pqo = self._film(hidden_pqo, 1. + agent_gammas, agent_betas) * pqo['mask'].float().unsqueeze(-1)
+            tokenwise_values = self._value_head(agent_hidden_pqo.detach() if self._detach_value_head else agent_hidden_pqo).squeeze(-1)
+            value, value_option = util.replace_masked_values(tokenwise_values, pqo['mask'], -1e7).max(-1)[0].max(-1)
+            policy_logits = self._policy_head(agent_hidden_pqo).squeeze(-1)
+            option_logits = policy_logits.sum(1)
+            return option_logits, value
 
 
 @Model.register("bert-mc")
@@ -366,74 +438,6 @@ class BertMCDCMN(BertMC):
             value = (self._value_head(value_head_input).squeeze(-1) * passage_mask).mean(1)  # TODO: Don't count masked areas in mean!!
 
         return option_logits, value
-
-
-@Model.register("bert-mc-gpt")
-class BertMCGPT(BertMC):
-    """
-    Bert-for-Multiple-Choice, inspired by OpenAI GPT's RACE model. Used with BERT on RACE here:
-    `BERT for Multiple Choice Machine Comprehension`: (https://github.com/NoviScl/BERT-RACE/blob/master/BERT_RACE.pdf)
-    Applies BERT to each option to get each softmax logit: Logit_i = BERT([CLS] Passage [SEP] Question + Option_i [SEP])
-    """
-    def __init__(self, vocab: Vocabulary,
-                 text_field_embedder: TextFieldEmbedder,
-                 initializer: InitializerApplicator = InitializerApplicator(),
-                 regularizer: Optional[RegularizerApplicator] = None,
-                 judge: Model = None,
-                 update_judge: bool = False,
-                 reward_method: str = None,
-                 detach_value_head: bool = False) -> None:
-        super().__init__(vocab=vocab,
-                         text_field_embedder=text_field_embedder,
-                         initializer=initializer,
-                         regularizer=regularizer,
-                         judge=judge,
-                         update_judge=update_judge,
-                         reward_method=reward_method,
-                         detach_value_head=detach_value_head)
-        self._logit_predictor = torch.nn.Linear(self._hidden_dim, 1)
-        self._initializer(self)
-
-    def compute_logits_and_value(self,  # type: ignore
-                                 question: Dict[str, torch.LongTensor],
-                                 passage: Dict[str, torch.LongTensor],
-                                 options: Dict[str, torch.LongTensor],
-                                 sep_token: int,
-                                 options_to_support: torch.FloatTensor = None) -> Tuple[torch.FloatTensor, torch.FloatTensor]:
-        """
-        Architecture-specific forward pass
-        """
-        # BERT-formatting input
-        batch_size, num_options, _ = options['tokens'].size()
-        pqo_tokens_list = []
-        pqo_token_maxlens = []
-        for i in range(num_options):
-            qo_tokens = self.pack_sequences(question['tokens'], options['tokens'][:, i])
-            pqo_tokens_list.append(self.pack_sequences(passage['tokens'], qo_tokens, sep_token))
-            pqo_token_maxlens.append(pqo_tokens_list[i].size(-1))
-        pqo_tokens = torch.zeros(batch_size, num_options, max(pqo_token_maxlens), dtype=torch.long, device=passage['tokens'].device)
-        for i in range(num_options):
-            pqo_tokens[:, i, :pqo_tokens_list[i].size(-1)] = pqo_tokens_list[i]
-        pqo = self.tokens_to_bert_input(pqo_tokens, sep_token)
-
-        # Condition debater on stance. Change segment embedding for [CLS] tokens only.
-        if not self.is_judge:
-            pqo['token-type-ids'][:, :, 0] = options_to_support
-
-        hidden_pqo = self._text_field_embedder(pqo)
-        if self.is_judge:
-            pred_hidden_a = hidden_pqo[:, :, 0]
-            option_logits = self._logit_predictor(pred_hidden_a).squeeze(-1)
-            return option_logits, None
-        else:
-            agent_film_params = self._turn_film_gen(options_to_support.unsqueeze(-1))
-            agent_gammas, agent_betas = torch.split(agent_film_params, self._hidden_dim, dim=-1)
-            agent_hidden_pqo = self._film(hidden_pqo, 1. + agent_gammas, agent_betas) * pqo['mask'].float().unsqueeze(-1)
-            tokenwise_values = self._value_head(agent_hidden_pqo.detach() if self._detach_value_head else agent_hidden_pqo).squeeze(-1)
-            value, value_option = util.replace_masked_values(tokenwise_values, pqo['mask'], -1e7).max(-1)[0].max(-1)
-            policy_logits = self._policy_head(agent_hidden_pqo).squeeze(-1)
-            option_logits = policy_logits.sum(1)
-            return option_logits, value
 
 
 @Model.register("bert-mc-pq2a")

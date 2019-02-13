@@ -404,9 +404,9 @@ class Trainer(TrainerBase):
             j_span_start_sent = sent_idxs['output'].gather(1, output_dict['best_span'][:, :1].to(sent_idxs['output'].device))
             j_span_end_sent = sent_idxs['output'].gather(1, output_dict['best_span'][:, 1:].to(sent_idxs['output'].device))
             j_num_debater_sents_chosen = torch.zeros_like(j_span_start_sent).float()
-            for turn in range(len(sent_choice_idxs)):
-                j_sent_chosen = ((j_span_start_sent <= sent_choice_idxs[turn]) * (sent_choice_idxs[turn] <= j_span_end_sent)).float()
-                self._update_trainer_metrics('j_sent_chosen' + turn_str[turn], j_sent_chosen.mean())
+            for turn_no in range(len(sent_choice_idxs)):
+                j_sent_chosen = ((j_span_start_sent <= sent_choice_idxs[turn_no]) * (sent_choice_idxs[turn_no] <= j_span_end_sent)).float()
+                self._update_trainer_metrics('j_sent_chosen' + turn_str[turn_no], j_sent_chosen.mean())
                 j_num_debater_sents_chosen += j_sent_chosen
             j_chose_no_debater_sents = (j_num_debater_sents_chosen == 0).float()
             self._update_trainer_metrics('j_chose_no_debater_sents', j_chose_no_debater_sents.mean())
@@ -437,12 +437,12 @@ class Trainer(TrainerBase):
                     print('\n**Answers**\n', [answer if isinstance(answer, str) else ' '.join(answer) for answer in batch['metadata'][i]['answer_texts']])
                     if 'best_span' in output_dict:
                         print(' '.join(toks[output_dict['best_span'][i][0]:output_dict['best_span'][i][1] + 1]))
-                for turn, method in enumerate(debate_mode[0]):
-                    turn_sent_idxs = {'output': sent_choice_output_masks[turn][i].nonzero().squeeze(-1)}
+                for turn_no, method in enumerate(debate_mode[0]):
+                    turn_sent_idxs = {'output': sent_choice_output_masks[turn_no][i].nonzero().squeeze(-1)}
                     sent_str = 'None'
                     if len(turn_sent_idxs['output']) > 0:
                         sent_str = ' '.join(toks[turn_sent_idxs['output'].min(): turn_sent_idxs['output'].max() + 1])
-                    print('\n**' + method.upper() + '**: Sentence', int(sent_choice_idxs[turn][i]), '\n', sent_str)
+                    print('\n**' + method.upper() + '**: Sentence', int(sent_choice_idxs[turn_no][i]), '\n', sent_str)
                 print('\n**J**:')
                 if sc_diffs is not None:
                     print('*\u0394 SCORE*:', round(float(sc_diffs[i]), 4))
@@ -656,7 +656,7 @@ class Trainer(TrainerBase):
 
     def _get_sent_choice_prob_value(self, batch: TensorDict, sent_idxs: TensorDict, judge_mask: TensorDict, debate_choice_mask: TensorDict, required_text_mask: TensorDict,
                                     past_sent_choice_idxs: List[torch.Tensor], sent_answer_idx: torch.Tensor, num_sents: torch.Tensor,
-                                    cur_a_turn: Any, cur_turn_str: str, for_training: bool, method: str
+                                    cur_agent: str, cur_turn_str: str, for_training: bool, method: str
                                     )-> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, List[torch.Tensor]]:
         """
         Returns the sentence chosen by a particular policy.
@@ -675,7 +675,7 @@ class Trainer(TrainerBase):
             assert sent_answer_idx is not None, 'No "Ground Truth" answer-supporting sentences provided.'
             sent_choice_idx = sent_answer_idx
             sent_choice_prob = torch.ones(bsz)
-        elif method in {'A', 'B'}:
+        elif method in {'A', 'B'}:  # Oracle selection
             if method == 'A':
                 oracle_func = max
             elif method == 'B':
@@ -708,12 +708,17 @@ class Trainer(TrainerBase):
             sent_choice_prob = torch.ones(bsz)
             value = torch.FloatTensor(value)
             sc_diffs = torch.Tensor(sc_diffs)
-        elif method in {'a', 'b'}:  # A/B trained selection
+        elif method in {'a', 'b', 'l'}:  # Trained agent selection
             assert debater is not None, 'Cannot use debate method ' + method + ' without debate agents!'
 
             # Add some debater-specific batch info.
-            for i in range(bsz):
-                batch['metadata'][i]['a_turn'] = cur_a_turn
+            if cur_agent in {'a', 'b'}:
+                batch['stance'] = torch.tensor([cur_agent == 'a'] * bsz).to(batch['passage']['tokens'])
+            elif cur_agent in {'l'}:
+                assert self._mc, 'Only Multiple Choice datasets support debate_mode ' + cur_agent
+                possible_stances = torch.ones_like(batch['options']['tokens'][:, :, 0])
+                adopted_stance = possible_stances[torch.multinomial(possible_stances)]
+                batch['stance'] = adopted_stance
             batch['valid_output_mask'] = debate_choice_mask['input']  # NOTE: input-level mask, to predict a span over Judge's input tokens
             batch['sent_targets'] = None
 
@@ -721,7 +726,7 @@ class Trainer(TrainerBase):
                 # Get Oracle results
                 oracle_sent_choice_idx, _, _, _, oracle_sc_diffs, all_values = self._get_sent_choice_prob_value(
                     batch, sent_idxs, judge_mask, debate_choice_mask, required_text_mask, past_sent_choice_idxs,
-                    sent_answer_idx, num_sents, cur_a_turn, cur_turn_str, for_training, method.upper())
+                    sent_answer_idx, num_sents, cur_agent, cur_turn_str, for_training, method.upper())
                 if debater.reward_method == 'sl':
                     answer_token_mask_input = ((oracle_sent_choice_idx == sent_idxs['input']).long() * batch['valid_output_mask'])
                     batch['sent_targets'] = answer_token_mask_input.nonzero()[:, 1].unsqueeze(-1)
@@ -734,7 +739,7 @@ class Trainer(TrainerBase):
                         target_shift = sum(all_values[i]) / float(len(all_values[i])) if debater.reward_method == 'sl-sents-delta' else 0.
                         for sent_no in range(num_sents[i]):
                             oracle_token_values[i] = oracle_token_values[i].masked_fill(sent_idxs['input'][i] == sent_no, all_values[i][sent_no] - target_shift)
-                        if not batch['metadata'][i]['a_turn']:  # b should predict/choose based on negated values
+                        if not batch['metadata'][i]['agent_turn']:  # b should predict/choose based on negated values
                             oracle_token_values[i] = (-1 * oracle_token_values[i]) if debater.reward_method == 'sl-sents-delta' else (1. - oracle_token_values[i])
                     oracle_token_values = nn_util.replace_masked_values(oracle_token_values, batch['valid_output_mask'], -1e7)
                     batch['sent_targets'] = oracle_token_values
@@ -743,8 +748,7 @@ class Trainer(TrainerBase):
             debater_output_dict = self._forward([batch], debater)
 
             # Remove debater-specific batch info.
-            for i in range(bsz):
-                batch['metadata'][i].pop('a_turn')
+            batch['debate_turn'] = None
             batch['valid_output_mask'] = None
             batch['sent_targets'] = None
 
@@ -922,8 +926,7 @@ class Trainer(TrainerBase):
         # Execute turns and accumulate loss across rounds.
         # Decisions/turns within a single round are sequential for Oracles, simultaneous otherwise.
         for round_no in range(len(debate_mode)):
-            a_turn = {turn: debate_mode[round_no][turn] == 'a' for turn in range(len(debate_mode[round_no]))}
-            turn_str = {turn: "_turn_" + str(turn) + "_agent_" + debate_mode[round_no][turn] for turn in range(len(debate_mode[round_no]))}
+            turn_str = {turn_no: "_turn_" + str(turn_no) + "_agent_" + debate_mode[round_no][turn_no] for turn_no in range(len(debate_mode[round_no]))}
 
             required_text_mask, judge_mask = self._judge_text_masks(batch)  # TODO: Verify for span-based, span-based with Q in P
             debate_choice_mask = self._debater_text_masks(batch, required_text_mask)  # TODO: Verify for span-based, span-based with Q in P
@@ -940,10 +943,10 @@ class Trainer(TrainerBase):
 
             # Execute player turns to determine decisions.
             sent_choice_idxs, sent_choice_probs, values, losses, sc_diffs = [], [], [], [], None
-            for turn, method in enumerate(debate_mode[round_no]):
+            for turn_no, method in enumerate(debate_mode[round_no]):
                 sent_choice_idx, sent_choice_prob, value, loss, sc_diffs, all_values = self._get_sent_choice_prob_value(
                     batch, sent_idxs, judge_mask, debate_choice_mask, required_text_mask, sent_choice_idxs, sent_answer_idx,
-                    num_sents, a_turn[turn], turn_str[turn], for_training, method)
+                    num_sents, debate_mode[round_no][turn_no], turn_str[turn_no], for_training, method)
                 sent_choice_idxs.append(sent_choice_idx)
                 sent_choice_probs.append(sent_choice_prob)
                 values.append(value)
@@ -977,20 +980,20 @@ class Trainer(TrainerBase):
                     if loss is not None:
                         output_dict['loss'] += loss.to(loss_device)
                 # Add new post-Judge losses, (e.g., from RL)
-                for turn, method in enumerate(debate_mode[round_no]):
+                for turn_no, method in enumerate(debate_mode[round_no]):
                     if (method in {'a', 'b'}) and (not debater.reward_method.startswith('sl')):
                         # Judge shouldn't get gradients through j_score, used to reward A/B
                         j_score = j_scores[debater.reward_method].to(loss_device).detach()
-                        reward = j_score if a_turn[turn] else (1. - j_score)
-                        baseline = values[turn].to(loss_device)
-                        policy_loss = -(torch.log(sent_choice_probs[turn]) * (reward - baseline.detach())).mean()
+                        reward = j_score if (debate_mode[round_no][turn_no] == 'a') else (1. - j_score)  # TODO: Generalize to l
+                        baseline = values[turn_no].to(loss_device)
+                        policy_loss = -(torch.log(sent_choice_probs[turn_no]) * (reward - baseline.detach())).mean()
                         output_dict['loss'] += policy_loss
                         value_loss = 0.5 * ((baseline - reward.detach()) ** 2).mean()
                         output_dict['loss'] += value_loss
-                        self._update_trainer_metrics('policy_loss' + turn_str[turn], policy_loss)
-                        self._update_trainer_metrics('baseline' + turn_str[turn], baseline.mean())
-                        self._update_trainer_metrics('value_loss' + turn_str[turn], value_loss)  # Upper bound ~= .125
-                        self._update_trainer_metrics('reward' + turn_str[turn], reward.mean())
+                        self._update_trainer_metrics('policy_loss' + turn_str[turn_no], policy_loss)
+                        self._update_trainer_metrics('baseline' + turn_str[turn_no], baseline.mean())
+                        self._update_trainer_metrics('value_loss' + turn_str[turn_no], value_loss)  # Upper bound ~= .125
+                        self._update_trainer_metrics('reward' + turn_str[turn_no], reward.mean())
 
             return output_dict  # NB: Can just instead return output_dict['loss']. For multi-turn, maintain loss across rounds.
 

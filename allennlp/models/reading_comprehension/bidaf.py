@@ -260,9 +260,9 @@ class BidirectionalAttentionFlow(Model):
 
         # Debate: Conditioning on whose turn it is (A/B)
         if not self.is_judge:
-            assert(metadata is not None and 'a_turn' in metadata[0])
-            a_turn = torch.tensor([sample_metadata['a_turn'] for sample_metadata in metadata]).to(final_merged_passage).unsqueeze(1)
-            turn_film_params = self._turn_film_gen(a_turn)
+            assert(metadata is not None and 'agent_turn' in metadata[0])
+            agent_turn = torch.tensor([sample_metadata['agent_turn'] for sample_metadata in metadata]).to(final_merged_passage).unsqueeze(1)
+            turn_film_params = self._turn_film_gen(agent_turn)
             turn_gammas, turn_betas = torch.split(turn_film_params, self._modeling_layer.get_input_dim(), dim=-1)
             final_merged_passage_mask = (final_merged_passage != 0).float()  # NOTE: Using heuristic to get mask
             final_merged_passage = self._film(final_merged_passage, 1. + turn_gammas, turn_betas) * final_merged_passage_mask
@@ -331,7 +331,7 @@ class BidirectionalAttentionFlow(Model):
                 self._span_end_accuracy(span_end_logits, span_end.squeeze(-1))
                 self._span_accuracy(best_span, torch.stack([span_start, span_end], -1))
             output_dict["loss"] = loss
-        elif (span_start is not None) and (not self.is_judge):  # Debate SL
+        elif not self.is_judge:  # Debate SL
             if self.reward_method == 'sl':  # sent_targets should be a vector of target indices
                 output_dict["loss"] = nll_loss(util.masked_log_softmax(span_start_logits, valid_output_mask), sent_targets.squeeze(-1))
                 if store_metrics:

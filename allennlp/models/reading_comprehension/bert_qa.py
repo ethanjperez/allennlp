@@ -159,12 +159,12 @@ class BertQA(Model):
         sep_token_mask = (passage['tokens'] == sep_token).long()
         token_type_ids = (sep_token_mask.cumsum(-1) - sep_token_mask).clamp(max=1)
         if not self.is_judge:
-            assert(metadata is not None and 'a_turn' in metadata[0])
-            a_turn = torch.tensor([sample_metadata['a_turn'] for sample_metadata in metadata]).to(passage['tokens']).unsqueeze(1)
+            assert(metadata is not None and 'agent_turn' in metadata[0])
+            agent_turn = torch.tensor([sample_metadata['agent_turn'] for sample_metadata in metadata]).to(passage['tokens']).unsqueeze(1)
             # TODO: Use boolean variable passed in to determine if A/B should use Frozen Judge BERT or their own updating BERT
             if self._text_field_embedder._token_embedders['tokens'].requires_grad:
-                token_type_ids[:, 0] = a_turn.squeeze(1)
-            a_turn = a_turn.float()
+                token_type_ids[:, 0] = agent_turn.squeeze(1)
+            agent_turn = agent_turn.float()
         # Shape: (batch_size, passage_length, modeling_dim)
         modeled_passage = self._text_field_embedder(passage)  # TODO: Use token_type_ids (May improve RACE, also SQUAD to SOTA). TODO: Output a BERT-input-level distribution
         batch_size, passage_length, modeling_dim = modeled_passage.size()
@@ -174,7 +174,7 @@ class BertQA(Model):
 
         # Debate: Post-BERT agent-based conditioning
         if not self.is_judge:
-            turn_film_params = self._turn_film_gen(a_turn)
+            turn_film_params = self._turn_film_gen(agent_turn)
             turn_gammas, turn_betas = torch.split(turn_film_params, modeling_dim, dim=-1)
             # NB: Check you need to apply passage_mask here
             modeled_passage = self._film(modeled_passage, 1. + turn_gammas, turn_betas) * passage_mask.unsqueeze(-1)
@@ -242,7 +242,7 @@ class BertQA(Model):
                 self._span_end_accuracy(span_end_logits, span_end.squeeze(-1))
                 self._span_accuracy(best_span, torch.stack([span_start, span_end], -1))
             output_dict["loss"] = loss
-        elif (span_start is not None) and (not self.is_judge):  # Debate SL
+        elif not self.is_judge:  # Debate SL
             if self.reward_method == 'sl':  # sent_targets should be a vector of target indices
                 output_dict["loss"] = nll_loss(util.masked_log_softmax(span_start_logits, valid_output_mask), sent_targets.squeeze(-1))
                 if store_metrics:
