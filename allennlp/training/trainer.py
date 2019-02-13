@@ -648,10 +648,10 @@ class Trainer(TrainerBase):
         sent_choice_input_mask = (sent_idxs['input'] == sent_choice_idx)
         masked_sent_choice_probs = (prob_dist.to(sent_choice_input_mask.device) * sent_choice_input_mask.float())
         assert masked_sent_choice_probs.nonzero().size(0) == batch['passage']['tokens'].size(0), \
-            'Sentence choice masking did not mask exactly one non-zero probability value for each sample in batch:' + batch['metadata']
+            'Sentence choice masking did not mask exactly one non-zero probability value for each sample in batch:' + str(batch['metadata'])
         sent_choice_prob = masked_sent_choice_probs.sum(1)
         if nn_util.tensors_equal(sent_choice_prob, torch.zeros_like(sent_choice_prob)):
-            logger.warning('Likely masked out possible answer on accident: sent_choice_prob is exactly zero. Problem batch:' + batch['metadata'])
+            logger.warning('Likely masked out possible answer on accident: sent_choice_prob is exactly zero. Problem batch:', batch['metadata'])
         return sent_choice_prob
 
     def _get_sent_choice_prob_value(self, batch: TensorDict, sent_idxs: TensorDict, judge_mask: TensorDict, debate_choice_mask: TensorDict, required_text_mask: TensorDict,
