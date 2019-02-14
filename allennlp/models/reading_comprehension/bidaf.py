@@ -159,7 +159,8 @@ class BidirectionalAttentionFlow(Model):
                 metadata: List[Dict[str, Any]] = None,
                 store_metrics: bool = True,
                 valid_output_mask: torch.LongTensor = None,
-                sent_targets: torch.Tensor = None) -> Dict[str, torch.Tensor]:
+                sent_targets: torch.Tensor = None,
+                stance: torch.LongTensor = None) -> Dict[str, torch.Tensor]:
         # pylint: disable=arguments-differ
         """
         Parameters
@@ -260,9 +261,7 @@ class BidirectionalAttentionFlow(Model):
 
         # Debate: Conditioning on whose turn it is (A/B)
         if not self.is_judge:
-            assert(metadata is not None and 'agent_turn' in metadata[0])
-            agent_turn = torch.tensor([sample_metadata['agent_turn'] for sample_metadata in metadata]).to(final_merged_passage).unsqueeze(1)
-            turn_film_params = self._turn_film_gen(agent_turn)
+            turn_film_params = self._turn_film_gen(stance.to(final_merged_passage).unsqueeze(1))
             turn_gammas, turn_betas = torch.split(turn_film_params, self._modeling_layer.get_input_dim(), dim=-1)
             final_merged_passage_mask = (final_merged_passage != 0).float()  # NOTE: Using heuristic to get mask
             final_merged_passage = self._film(final_merged_passage, 1. + turn_gammas, turn_betas) * final_merged_passage_mask

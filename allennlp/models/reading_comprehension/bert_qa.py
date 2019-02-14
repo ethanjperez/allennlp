@@ -99,7 +99,8 @@ class BertQA(Model):
                 metadata: List[Dict[str, Any]] = None,
                 store_metrics: bool = True,
                 valid_output_mask: torch.LongTensor = None,
-                sent_targets: torch.Tensor = None) -> Dict[str, torch.Tensor]:
+                sent_targets: torch.Tensor = None,
+                stance: torch.LongTensor = None) -> Dict[str, torch.Tensor]:
         # pylint: disable=arguments-differ
         """
         Parameters
@@ -159,12 +160,10 @@ class BertQA(Model):
         sep_token_mask = (passage['tokens'] == sep_token).long()
         token_type_ids = (sep_token_mask.cumsum(-1) - sep_token_mask).clamp(max=1)
         if not self.is_judge:
-            assert(metadata is not None and 'agent_turn' in metadata[0])
-            agent_turn = torch.tensor([sample_metadata['agent_turn'] for sample_metadata in metadata]).to(passage['tokens']).unsqueeze(1)
+            assert stance is not None
             # TODO: Use boolean variable passed in to determine if A/B should use Frozen Judge BERT or their own updating BERT
             if self._text_field_embedder._token_embedders['tokens'].requires_grad:
-                token_type_ids[:, 0] = agent_turn.squeeze(1)
-            agent_turn = agent_turn.float()
+                token_type_ids[:, 0] = stance
         # Shape: (batch_size, passage_length, modeling_dim)
         modeled_passage = self._text_field_embedder(passage)  # TODO: Use token_type_ids (May improve RACE, also SQUAD to SOTA). TODO: Output a BERT-input-level distribution
         batch_size, passage_length, modeling_dim = modeled_passage.size()
@@ -174,7 +173,7 @@ class BertQA(Model):
 
         # Debate: Post-BERT agent-based conditioning
         if not self.is_judge:
-            turn_film_params = self._turn_film_gen(agent_turn)
+            turn_film_params = self._turn_film_gen(stance.float())
             turn_gammas, turn_betas = torch.split(turn_film_params, modeling_dim, dim=-1)
             # NB: Check you need to apply passage_mask here
             modeled_passage = self._film(modeled_passage, 1. + turn_gammas, turn_betas) * passage_mask.unsqueeze(-1)

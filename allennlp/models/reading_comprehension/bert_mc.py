@@ -128,9 +128,8 @@ class BertMC(Model):
         # Precomputation
         options_to_support = None
         if not self.is_judge:
-            assert(metadata is not None and 'agent_turn' in metadata[0])
             options_to_support = torch.zeros_like(options['tokens'][:, :, 0]).float()
-            if stance.dim() == options_to_support.dim():  # TODO: Verify. TODO: Add to bidaf.py, bert_qa.py
+            if stance.dim() == options_to_support.dim():  # TODO: Add to bidaf.py, bert_qa.py
                 options_to_support = stance.float()
             else:
                 for i in range(options['tokens'].size(0)):
@@ -286,6 +285,8 @@ class BertMCGPT(BertMC):
         """
         Architecture-specific forward pass
         """
+        # TODO: Implement Stance-conditioned Model!
+
         # BERT-formatting input
         batch_size, num_options, _ = options['tokens'].size()
         pqo_tokens_list = []
