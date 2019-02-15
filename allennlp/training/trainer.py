@@ -997,7 +997,7 @@ class Trainer(TrainerBase):
                         elif method == 'b':
                             rewards = (1. - j_score)
                         elif method == 'l':
-                            rewards = (j_output_dict['prob_dist'] * stances[turn_no].float()).sum(dim=1)
+                            rewards = (j_output_dict['prob_dist'].to(loss_device) * stances[turn_no].to(loss_device).float()).sum(dim=1)
                         baselines = values[turn_no].to(loss_device)
                         policy_losses = -(torch.log(sent_choice_probs[turn_no]) * (rewards.detach() - baselines.detach()))
                         output_dict['loss'] += policy_losses.mean()
@@ -1008,7 +1008,7 @@ class Trainer(TrainerBase):
                         self._update_trainer_metrics('value_loss' + turn_str[turn_no], value_losses.mean())  # Upper bound ~= .125
                         self._update_trainer_metrics('reward' + turn_str[turn_no], rewards.mean())
                         if method == 'l':  # Log statistics based on if l-agent was given correct answer or not
-                            stance_was_correct = stances[turn_no].gather(1, batch['answer_index']).squeeze(1).float().tolist()
+                            stance_was_correct = stances[turn_no].to(loss_device).gather(1, batch['answer_index'].to(loss_device)).squeeze(1).float().tolist()
                             correctness_str = {0: '_incorrect_stance', 1: '_correct_stance'}
                             for i in range(bsz):
                                 self._update_trainer_metrics('policy_loss' + turn_str[turn_no] + correctness_str[stance_was_correct[i]], policy_losses[i])
