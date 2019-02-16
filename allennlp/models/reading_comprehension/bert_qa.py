@@ -53,7 +53,8 @@ class BertQA(Model):
                  update_judge: bool = False,
                  reward_method: str = None,
                  detach_value_head: bool = False,
-                 qa_loss_weight: float = 0.) -> None:
+                 qa_loss_weight: float = 0.,
+                 influence_reward: bool = False) -> None:
         super(BertQA, self).__init__(vocab, regularizer)
         raise NotImplementedError('This model is no longer verified/debugged to work.')
 
@@ -63,6 +64,7 @@ class BertQA(Model):
         self.update_judge = update_judge and (self.judge is not None)
         self._detach_value_head = detach_value_head
         self._qa_loss_weight = qa_loss_weight
+        self.influence_reward = influence_reward
         self._text_field_embedder = text_field_embedder
         self.answer_type = 'span' if (span_end_encoder is not None) else 'mc'
         self.output_type = 'span'  # The actual way the output is given (here it's as a pointer to input)

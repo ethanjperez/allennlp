@@ -28,6 +28,9 @@ allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.b.m=
 allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.a.m=sl-sents-delta.bsz=32.lr=1e-5.c=concat.q=1 -j tmp/race.best.f/model.tar.gz -b 1 -d a -m sl-sents-delta -p tmp/race.best.f/oracle_outputs.c=concat.all.pkl -a 32 -c concat -q 1 -f
 allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.b.m=sl-sents-delta.bsz=32.lr=1e-5.c=concat.q=1 -j tmp/race.best.f/model.tar.gz -b 1 -d b -m sl-sents-delta -p tmp/race.best.f/oracle_outputs.c=concat.all.pkl -a 32 -c concat -q 1 -f
 
+tb race.a.m=sl.bsz=32.lr=1e-5.c=concat.q=1:race.a.m=sl.bsz=32.lr=1e-5.c=concat.q=1,race.a.m=sl-sents.bsz=32.lr=1e-5.c=concat.q=1:race.a.m=sl-sents.bsz=32.lr=1e-5.c=concat.q=1,race.a.m=sl-sents-delta.bsz=32.lr=1e-5.c=concat.q=1:race.a.m=sl-sents-delta.bsz=32.lr=1e-5.c=concat.q=1 --port 6042
+tb race.b.m=sl.bsz=32.lr=1e-5.c=concat.q=1:race.b.m=sl.bsz=32.lr=1e-5.c=concat.q=1,race.b.m=sl-sents.bsz=32.lr=1e-5.c=concat.q=1:race.b.m=sl-sents.bsz=32.lr=1e-5.c=concat.q=1,race.b.m=sl-sents-delta.bsz=32.lr=1e-5.c=concat.q=1:race.b.m=sl-sents-delta.bsz=32.lr=1e-5.c=concat.q=1 --port 6043
+
 # BERT RACE SL Concat
 allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.a.m=sl.bsz=32.lr=1e-5.2.c=concat -j tmp/race.best.f/model.tar.gz -b 1 -d a -m sl -p tmp/race.best.f/oracle_outputs.c=concat.all.pkl -a 32 -c concat -f
 allennlp train training_config/race.best.debate.lr=5e-6.jsonnet -s tmp/race.a.m=sl.bsz=32.lr=5e-6.2.c=concat -j tmp/race.best.f/model.tar.gz -b 1 -d a -m sl -p tmp/race.best.f/oracle_outputs.c=concat.all.pkl -a 32 -c concat -f

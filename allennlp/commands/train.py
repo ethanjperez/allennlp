@@ -40,10 +40,14 @@ which to write the results.
      -m, --reward_method   Choice of Debate Reward function - [em (exact match), f1, ssp (start span prob), sl, sl-ssp]
      -v, --detach_val...   Boolean whether or not to detach value function from policy network to isolate gradients
      -b, --breakpoint...   Debugging option to set sensitivity of breakpoints
-     -i, --id_to_oracle... Path to file with oracle predictions for supervised learning
+     -p, --oracle_outputs_path... Path to file with oracle predictions for supervised learning
      -a, --accumulation... Number of steps to accumulate gradient for before taking an optimizer step
      -e, --eval_mode       Boolean whether or not to run in eval-only mode, on test data
      -g, --multi-gpu       Boolean whether or not to load in model-parallel multi-gpu mode (allocation in config file)
+     -c, --choice_mode     String type of action debating agents take
+     -q, --qa_loss_weight  Float weight of auxiliary QA supervised loss to give RL agents
+     -i, --influence       Boolean whether or not to use delta in judge opinion (vs. raw reward)
+
 """
 from typing import List
 import argparse
@@ -170,6 +174,10 @@ class Train(Subcommand):
                                default=0.,
                                help='Weight of auxiliary QA supervised loss to give RL agents.')
 
+        subparser.add_argument('-i', '--influence_reward',
+                               action='store_true',
+                               default=False,
+                               help='Whether or not to use delta in judge opinion (vs. raw reward)')
 
         subparser.set_defaults(func=train_model_from_args)
 
@@ -197,7 +205,8 @@ def train_model_from_args(args: argparse.Namespace):
                           args.accumulation_steps,
                           args.multi_gpu,
                           args.choice_mode,
-                          args.qa_loss_weight)
+                          args.qa_loss_weight,
+                          args.influence_reward)
 
 
 def train_model_from_file(parameter_filename: str,
@@ -217,7 +226,8 @@ def train_model_from_file(parameter_filename: str,
                           accumulation_steps: int = 1,
                           multi_gpu: bool = False,
                           choice_mode: str = None,
-                          qa_loss_weight: float = 0.) -> Model:
+                          qa_loss_weight: float = 0.,
+                          influence_reward: bool = False) -> Model:
     """
     A wrapper around :func:`train_model` which loads the params from a file.
 
@@ -270,7 +280,7 @@ def train_model_from_file(parameter_filename: str,
     params = Params.from_file(parameter_filename, overrides)
     return train_model(params, serialization_dir, file_friendly_logging, recover, force, debate_mode, judge_filename,
                        update_judge, eval_mode, reward_method, detach_value_head, breakpoint_level,
-                       oracle_outputs_path, accumulation_steps, multi_gpu, choice_mode, qa_loss_weight)
+                       oracle_outputs_path, accumulation_steps, multi_gpu, choice_mode, qa_loss_weight, influence_reward)
 
 
 def train_model(params: Params,
@@ -289,7 +299,8 @@ def train_model(params: Params,
                 accumulation_steps: int = 1,
                 multi_gpu: bool = False,
                 choice_mode: str = None,
-                qa_loss_weight: float = 0.) -> Model:
+                qa_loss_weight: float = 0.,
+                influence_reward: bool = False) -> Model:
     """
     Trains the model specified in the given :class:`Params` object, using the data and training
     parameters also specified in that object, and saves the results in ``serialization_dir``.
@@ -387,7 +398,8 @@ def train_model(params: Params,
                                            reward_method=reward_method,
                                            detach_value_head=detach_value_head,
                                            allocation_dict=allocation_dict,
-                                           qa_loss_weight=qa_loss_weight)  # pylint: disable=no-member
+                                           qa_loss_weight=qa_loss_weight,
+                                           influence_reward=influence_reward)  # pylint: disable=no-member
         trainer = Trainer.from_params(
                 model=pieces.model,
                 serialization_dir=serialization_dir,

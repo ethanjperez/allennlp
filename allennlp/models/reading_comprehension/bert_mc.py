@@ -53,7 +53,8 @@ class BertMC(Model):
                  update_judge: bool = False,
                  reward_method: str = None,
                  detach_value_head: bool = False,
-                 qa_loss_weight: float = 0.) -> None:
+                 qa_loss_weight: float = 0.,
+                 influence_reward: bool = False) -> None:
         super(BertMC, self).__init__(vocab, regularizer)
 
         self.judge = judge
@@ -62,6 +63,7 @@ class BertMC(Model):
         self.update_judge = update_judge and (self.judge is not None)
         self._detach_value_head = detach_value_head
         self._qa_loss_weight = qa_loss_weight
+        self.influence_reward = influence_reward
         self._text_field_embedder = text_field_embedder
         self._hidden_dim = text_field_embedder.get_output_dim()
         self.answer_type = 'mc'
@@ -280,7 +282,8 @@ class BertMCGPT(BertMC):
                  update_judge: bool = False,
                  reward_method: str = None,
                  detach_value_head: bool = False,
-                 qa_loss_weight: float = 0.) -> None:
+                 qa_loss_weight: float = 0.,
+                 influence_reward: bool = False) -> None:
         super().__init__(vocab=vocab,
                          text_field_embedder=text_field_embedder,
                          initializer=initializer,
@@ -289,7 +292,8 @@ class BertMCGPT(BertMC):
                          update_judge=update_judge,
                          reward_method=reward_method,
                          detach_value_head=detach_value_head,
-                         qa_loss_weight=qa_loss_weight)
+                         qa_loss_weight=qa_loss_weight,
+                         influence_reward=influence_reward)
         self._logit_predictor = torch.nn.Linear(self._hidden_dim, 1)
         self._initializer(self)
 
@@ -353,7 +357,8 @@ class BertMCDCMN(BertMC):
                  update_judge: bool = False,
                  reward_method: str = None,
                  detach_value_head: bool = False,
-                 qa_loss_weight: float = 0.) -> None:
+                 qa_loss_weight: float = 0.,
+                 influence_reward: bool = False) -> None:
         super().__init__(vocab=vocab,
                          text_field_embedder=text_field_embedder,
                          initializer=initializer,
@@ -362,7 +367,8 @@ class BertMCDCMN(BertMC):
                          update_judge=update_judge,
                          reward_method=reward_method,
                          detach_value_head=detach_value_head,
-                         qa_loss_weight=qa_loss_weight)
+                         qa_loss_weight=qa_loss_weight,
+                         influence_reward=influence_reward)
         self._passage_question_attention = BilinearMatrixAttention(self._hidden_dim, self._hidden_dim, use_input_biases=True)
         self._passage_option_attention = BilinearMatrixAttention(self._hidden_dim, self._hidden_dim, use_input_biases=True)
         self._final_passage_question_encoder = TimeDistributed(torch.nn.Linear(2 * self._hidden_dim, self._hidden_dim))
@@ -477,7 +483,8 @@ class BertMCPQ2A(BertMC):
                  update_judge: bool = False,
                  reward_method: str = None,
                  detach_value_head: bool = False,
-                 qa_loss_weight: float = 0.) -> None:
+                 qa_loss_weight: float = 0.,
+                 influence_reward: bool = False) -> None:
         super().__init__(vocab=vocab,
                          text_field_embedder=text_field_embedder,
                          initializer=initializer,
@@ -486,7 +493,8 @@ class BertMCPQ2A(BertMC):
                          update_judge=update_judge,
                          reward_method=reward_method,
                          detach_value_head=detach_value_head,
-                         qa_loss_weight=qa_loss_weight)
+                         qa_loss_weight=qa_loss_weight,
+                         influence_reward=influence_reward)
         self._initializer(self)
 
     def compute_logits_and_value(self,  # type: ignore
@@ -541,7 +549,8 @@ class BertMCQ2A(BertMC):
                  update_judge: bool = False,
                  reward_method: str = None,
                  detach_value_head: bool = False,
-                 qa_loss_weight: float = 0.) -> None:
+                 qa_loss_weight: float = 0.,
+                 influence_reward: bool = False) -> None:
         super().__init__(vocab=vocab,
                          text_field_embedder=text_field_embedder,
                          initializer=initializer,
@@ -550,7 +559,8 @@ class BertMCQ2A(BertMC):
                          update_judge=update_judge,
                          reward_method=reward_method,
                          detach_value_head=detach_value_head,
-                         qa_loss_weight=qa_loss_weight)
+                         qa_loss_weight=qa_loss_weight,
+                         influence_reward=influence_reward)
         self._initializer(self)
 
     def compute_logits_and_value(self,  # type: ignore
@@ -593,7 +603,8 @@ class BertMCP2A(BertMC):
                  update_judge: bool = False,
                  reward_method: str = None,
                  detach_value_head: bool = False,
-                 qa_loss_weight: float = 0.) -> None:
+                 qa_loss_weight: float = 0.,
+                 influence_reward: bool = False) -> None:
         super().__init__(vocab=vocab,
                          text_field_embedder=text_field_embedder,
                          initializer=initializer,
@@ -602,7 +613,8 @@ class BertMCP2A(BertMC):
                          update_judge=update_judge,
                          reward_method=reward_method,
                          detach_value_head=detach_value_head,
-                         qa_loss_weight=qa_loss_weight)
+                         qa_loss_weight=qa_loss_weight,
+                         influence_reward=influence_reward)
         self._initializer(self)
 
     def compute_logits_and_value(self,  # type: ignore
@@ -645,7 +657,8 @@ class BertMCA(BertMC):
                  update_judge: bool = False,
                  reward_method: str = None,
                  detach_value_head: bool = False,
-                 qa_loss_weight: float = 0.) -> None:
+                 qa_loss_weight: float = 0.,
+                 influence_reward: bool = False) -> None:
         super().__init__(vocab=vocab,
                          text_field_embedder=text_field_embedder,
                          initializer=initializer,
@@ -654,7 +667,8 @@ class BertMCA(BertMC):
                          update_judge=update_judge,
                          reward_method=reward_method,
                          detach_value_head=detach_value_head,
-                         qa_loss_weight=qa_loss_weight)
+                         qa_loss_weight=qa_loss_weight,
+                         influence_reward=influence_reward)
         self._logit_predictor = torch.nn.Linear(self._hidden_dim, 1)
         self._initializer(self)
 
