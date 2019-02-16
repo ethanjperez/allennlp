@@ -52,7 +52,8 @@ class BertMC(Model):
                  judge: Model = None,
                  update_judge: bool = False,
                  reward_method: str = None,
-                 detach_value_head: bool = False) -> None:
+                 detach_value_head: bool = False,
+                 qa_loss_weight: float = 0.) -> None:
         super(BertMC, self).__init__(vocab, regularizer)
 
         self.judge = judge
@@ -60,6 +61,7 @@ class BertMC(Model):
         self.reward_method = None if self.is_judge else reward_method
         self.update_judge = update_judge and (self.judge is not None)
         self._detach_value_head = detach_value_head
+        self._qa_loss_weight = qa_loss_weight
         self._text_field_embedder = text_field_embedder
         self._hidden_dim = text_field_embedder.get_output_dim()
         self.answer_type = 'mc'
@@ -144,48 +146,60 @@ class BertMC(Model):
         except:
             sep_token = 102
 
-        # Calculate answer
-        option_logits, value = self.compute_logits_and_value(question, passage, options, sep_token, options_to_support)
-        if self.is_judge:
+        # Predict answer (judge or debate+auxiliary loss)
+        option_logits, policy_logits, value = self.compute_logits_and_value(question, passage, options, sep_token, options_to_support)
+        if option_logits is not None:
             option_probs = softmax(option_logits, dim=1)
+            best_answer_index = option_probs.max(dim=1)[1]
         else:
+            option_probs = None
+            best_answer_index = None
+
+        # Predict sentence to choose (debaters only)
+        if policy_logits is not None:
             # Truncate option_logits, since valid_output_mask may only be defined on the passage
             # NOTE: Assumes passage always comes first.
-            option_logits = util.replace_masked_values(option_logits[:, :valid_output_mask.size(1)], valid_output_mask, -1e7)
-            option_probs = util.masked_softmax(option_logits, valid_output_mask)
-        best_answer_index = option_probs.max(dim=1)[1]
+            policy_logits = util.replace_masked_values(policy_logits[:, :valid_output_mask.size(1)], valid_output_mask, -1e7)
+            policy_probs = util.masked_softmax(policy_logits, valid_output_mask)
+        else:
+            policy_probs = None
 
         # Store results
         output_dict = {
                 "option_logits": option_logits,
                 "option_probs": option_probs,
                 "best_answer_index": best_answer_index,
+                "policy_logits": policy_logits,
+                "policy_probs": policy_probs,
                 "value": value if (not self.is_judge) and (not self.reward_method.startswith('sl')) else None,
                 "f1": None,
-                "em": best_answer_index == answer_index.squeeze(-1) if self.is_judge else None,
-                "prob": torch.tensor([option_probs[i, answer_index[i]] for i in range(option_probs.size(0))]) if self.is_judge else None,  # prob(true ans)
-                "prob_dist": option_probs,
+                "em": best_answer_index == answer_index.squeeze(-1) if best_answer_index is not None else None,
+                "prob": option_probs.gather(1, answer_index).squeeze(1) if self.is_judge else None,  # prob(true ans)
+                "prob_dist": option_probs if self.is_judge else policy_probs,
                 }
 
         # Compute the loss for training.
-        if (answer_index is not None) and self.is_judge:  # Judge SL
-            output_dict["loss"] = nll_loss(log_softmax(option_logits, dim=1), answer_index.squeeze(-1))
+        if (answer_index is not None) and (option_logits is not None):  # Judge SL / Debate Auxiliary SL Loss
+            qa_loss = nll_loss(log_softmax(option_logits, dim=1), answer_index.squeeze(-1))
+            if (not self.is_judge) and (self._qa_loss_weight > 0):
+                qa_loss = qa_loss * self._qa_loss_weight
+            output_dict["loss"] = output_dict.get('loss', 0) + qa_loss
             if store_metrics:
                 self._span_start_accuracy(option_logits, answer_index.squeeze(-1))
-        elif not self.is_judge:  # Debate SL
+        if policy_logits is not None:  # Debate SL
             if self.reward_method == 'sl':  # sent_targets should be a vector of target indices
-                output_dict["loss"] = nll_loss(util.masked_log_softmax(option_logits, valid_output_mask), sent_targets.squeeze(-1))
+                output_dict["loss"] = output_dict.get('loss', 0) + nll_loss(util.masked_log_softmax(policy_logits, valid_output_mask), sent_targets.squeeze(-1))
                 if store_metrics:
-                    self._span_start_accuracy(option_logits, sent_targets.squeeze(-1))
+                    self._span_start_accuracy(policy_logits, sent_targets.squeeze(-1))
             elif self.reward_method.startswith('sl-sents'):  # sent_targets should be a matrix of target values (non-zero only in EOS indices)
                 sent_targets = util.replace_masked_values(sent_targets, valid_output_mask, -1e7)
-                output_dict["loss"] = ((option_logits - sent_targets) ** 2).sum(dim=1)  # or: util.masked_mean(((option_logits - sent_targets) ** 2), valid_output_mask, 1)
+                output_dict["loss"] = output_dict.get('loss', 0) + ((policy_logits - sent_targets) ** 2).sum(dim=1)  # or: util.masked_mean(((policy_logits - sent_targets) ** 2), valid_output_mask, 1)
                 if store_metrics:
-                    self._span_start_accuracy(option_logits, sent_targets.max(-1)[1])
+                    self._span_start_accuracy(policy_logits, sent_targets.max(-1)[1])
 
         return output_dict
 
-    def get_metrics(self, reset: bool = False,) -> Dict[str, float]:
+    def get_metrics(self, reset: bool = False) -> Dict[str, float]:
         return {'start_acc': self._span_start_accuracy.get_metric(reset)}
 
     @staticmethod
@@ -243,7 +257,8 @@ class BertMC(Model):
                                  passage: Dict[str, torch.LongTensor],
                                  options: Dict[str, torch.LongTensor],
                                  sep_token: int,
-                                 options_to_support: torch.FloatTensor = None) -> Tuple[torch.FloatTensor, torch.FloatTensor]:
+                                 options_to_support: torch.FloatTensor = None
+                                 ) -> Tuple[torch.FloatTensor, torch.FloatTensor, torch.FloatTensor]:
         """
         Architecture-specific forward pass. Must be implemented by subclass.
         """
@@ -264,7 +279,8 @@ class BertMCGPT(BertMC):
                  judge: Model = None,
                  update_judge: bool = False,
                  reward_method: str = None,
-                 detach_value_head: bool = False) -> None:
+                 detach_value_head: bool = False,
+                 qa_loss_weight: float = 0.) -> None:
         super().__init__(vocab=vocab,
                          text_field_embedder=text_field_embedder,
                          initializer=initializer,
@@ -272,7 +288,8 @@ class BertMCGPT(BertMC):
                          judge=judge,
                          update_judge=update_judge,
                          reward_method=reward_method,
-                         detach_value_head=detach_value_head)
+                         detach_value_head=detach_value_head,
+                         qa_loss_weight=qa_loss_weight)
         self._logit_predictor = torch.nn.Linear(self._hidden_dim, 1)
         self._initializer(self)
 
@@ -281,12 +298,11 @@ class BertMCGPT(BertMC):
                                  passage: Dict[str, torch.LongTensor],
                                  options: Dict[str, torch.LongTensor],
                                  sep_token: int,
-                                 options_to_support: torch.FloatTensor = None) -> Tuple[torch.FloatTensor, torch.FloatTensor]:
+                                 options_to_support: torch.FloatTensor = None
+                                 ) -> Tuple[torch.FloatTensor, torch.FloatTensor, torch.FloatTensor]:
         """
         Architecture-specific forward pass
         """
-        # TODO: Implement Stance-conditioned Model!
-
         # BERT-formatting input
         batch_size, num_options, _ = options['tokens'].size()
         pqo_tokens_list = []
@@ -308,16 +324,19 @@ class BertMCGPT(BertMC):
         if self.is_judge:
             pred_hidden_a = hidden_pqo[:, :, 0]
             option_logits = self._logit_predictor(pred_hidden_a).squeeze(-1)
-            return option_logits, None
+            return option_logits, None, None
         else:
+            option_logits = None
+            if self._qa_loss_weight > 0:
+                pred_hidden_a = hidden_pqo[:, :, 0]
+                option_logits = self._logit_predictor(pred_hidden_a).squeeze(-1)
             agent_film_params = self._turn_film_gen(options_to_support.unsqueeze(-1))
             agent_gammas, agent_betas = torch.split(agent_film_params, self._hidden_dim, dim=-1)
             agent_hidden_pqo = self._film(hidden_pqo, 1. + agent_gammas, agent_betas) * pqo['mask'].float().unsqueeze(-1)
             tokenwise_values = self._value_head(agent_hidden_pqo.detach() if self._detach_value_head else agent_hidden_pqo).squeeze(-1)
             value, value_option = util.replace_masked_values(tokenwise_values, pqo['mask'], -1e7).max(-1)[0].max(-1)
-            policy_logits = self._policy_head(agent_hidden_pqo).squeeze(-1)
-            option_logits = policy_logits.sum(1)
-            return option_logits, value
+            policy_logits = self._policy_head(agent_hidden_pqo).squeeze(-1).sum(1)
+            return option_logits, policy_logits, value
 
 
 @Model.register("bert-mc")
@@ -333,7 +352,8 @@ class BertMCDCMN(BertMC):
                  judge: Model = None,
                  update_judge: bool = False,
                  reward_method: str = None,
-                 detach_value_head: bool = False) -> None:
+                 detach_value_head: bool = False,
+                 qa_loss_weight: float = 0.) -> None:
         super().__init__(vocab=vocab,
                          text_field_embedder=text_field_embedder,
                          initializer=initializer,
@@ -341,7 +361,8 @@ class BertMCDCMN(BertMC):
                          judge=judge,
                          update_judge=update_judge,
                          reward_method=reward_method,
-                         detach_value_head=detach_value_head)
+                         detach_value_head=detach_value_head,
+                         qa_loss_weight=qa_loss_weight)
         self._passage_question_attention = BilinearMatrixAttention(self._hidden_dim, self._hidden_dim, use_input_biases=True)
         self._passage_option_attention = BilinearMatrixAttention(self._hidden_dim, self._hidden_dim, use_input_biases=True)
         self._final_passage_question_encoder = TimeDistributed(torch.nn.Linear(2 * self._hidden_dim, self._hidden_dim))
@@ -355,7 +376,8 @@ class BertMCDCMN(BertMC):
                                  passage: Dict[str, torch.LongTensor],
                                  options: Dict[str, torch.LongTensor],
                                  sep_token: int,
-                                 options_to_support: torch.FloatTensor = None) -> Tuple[torch.FloatTensor, torch.FloatTensor]:
+                                 options_to_support: torch.FloatTensor = None
+                                 ) -> Tuple[torch.FloatTensor, torch.FloatTensor, torch.FloatTensor]:
         """
         Architecture-specific forward pass
         """
@@ -438,7 +460,7 @@ class BertMCDCMN(BertMC):
             # Shape: (batch_size)
             value = (self._value_head(value_head_input).squeeze(-1) * passage_mask).mean(1)  # TODO: Don't count masked areas in mean!!
 
-        return option_logits, value
+        return option_logits, None, value
 
 
 @Model.register("bert-mc-pq2a")
@@ -454,7 +476,8 @@ class BertMCPQ2A(BertMC):
                  judge: Model = None,
                  update_judge: bool = False,
                  reward_method: str = None,
-                 detach_value_head: bool = False) -> None:
+                 detach_value_head: bool = False,
+                 qa_loss_weight: float = 0.) -> None:
         super().__init__(vocab=vocab,
                          text_field_embedder=text_field_embedder,
                          initializer=initializer,
@@ -462,7 +485,8 @@ class BertMCPQ2A(BertMC):
                          judge=judge,
                          update_judge=update_judge,
                          reward_method=reward_method,
-                         detach_value_head=detach_value_head)
+                         detach_value_head=detach_value_head,
+                         qa_loss_weight=qa_loss_weight)
         self._initializer(self)
 
     def compute_logits_and_value(self,  # type: ignore
@@ -470,7 +494,8 @@ class BertMCPQ2A(BertMC):
                                  passage: Dict[str, torch.LongTensor],
                                  options: Dict[str, torch.LongTensor],
                                  sep_token: int,
-                                 options_to_support: torch.FloatTensor = None) -> Tuple[torch.FloatTensor, torch.FloatTensor]:
+                                 options_to_support: torch.FloatTensor = None
+                                 ) -> Tuple[torch.FloatTensor, torch.FloatTensor, torch.FloatTensor]:
         """
         Architecture-specific forward pass
         """
@@ -499,7 +524,7 @@ class BertMCPQ2A(BertMC):
         hidden_options = self._text_field_embedder(options)
         encoded_hidden_options = hidden_options[:, :, 0]
         option_logits = (encoded_hidden_options * predicted_hidden_answer.unsqueeze(1)).mean(-1)
-        return option_logits, value
+        return option_logits, None, value
 
 
 @Model.register("bert-mc-q2a")
@@ -515,7 +540,8 @@ class BertMCQ2A(BertMC):
                  judge: Model = None,
                  update_judge: bool = False,
                  reward_method: str = None,
-                 detach_value_head: bool = False) -> None:
+                 detach_value_head: bool = False,
+                 qa_loss_weight: float = 0.) -> None:
         super().__init__(vocab=vocab,
                          text_field_embedder=text_field_embedder,
                          initializer=initializer,
@@ -523,7 +549,8 @@ class BertMCQ2A(BertMC):
                          judge=judge,
                          update_judge=update_judge,
                          reward_method=reward_method,
-                         detach_value_head=detach_value_head)
+                         detach_value_head=detach_value_head,
+                         qa_loss_weight=qa_loss_weight)
         self._initializer(self)
 
     def compute_logits_and_value(self,  # type: ignore
@@ -531,7 +558,8 @@ class BertMCQ2A(BertMC):
                                  passage: Dict[str, torch.LongTensor],
                                  options: Dict[str, torch.LongTensor],
                                  sep_token: int,
-                                 options_to_support: torch.FloatTensor = None) -> Tuple[torch.FloatTensor, torch.FloatTensor]:
+                                 options_to_support: torch.FloatTensor = None
+                                 ) -> Tuple[torch.FloatTensor, torch.FloatTensor, torch.FloatTensor]:
         """
         Architecture-specific forward pass
         """
@@ -548,7 +576,7 @@ class BertMCQ2A(BertMC):
         hidden_options = self._text_field_embedder(options)
         encoded_hidden_options = hidden_options[:, :, 0]
         option_logits = (encoded_hidden_options * encoded_hidden_question.unsqueeze(1)).mean(-1)
-        return option_logits, None
+        return option_logits, None, None
 
 
 @Model.register("bert-mc-p2a")
@@ -564,7 +592,8 @@ class BertMCP2A(BertMC):
                  judge: Model = None,
                  update_judge: bool = False,
                  reward_method: str = None,
-                 detach_value_head: bool = False) -> None:
+                 detach_value_head: bool = False,
+                 qa_loss_weight: float = 0.) -> None:
         super().__init__(vocab=vocab,
                          text_field_embedder=text_field_embedder,
                          initializer=initializer,
@@ -572,7 +601,8 @@ class BertMCP2A(BertMC):
                          judge=judge,
                          update_judge=update_judge,
                          reward_method=reward_method,
-                         detach_value_head=detach_value_head)
+                         detach_value_head=detach_value_head,
+                         qa_loss_weight=qa_loss_weight)
         self._initializer(self)
 
     def compute_logits_and_value(self,  # type: ignore
@@ -580,7 +610,8 @@ class BertMCP2A(BertMC):
                                  passage: Dict[str, torch.LongTensor],
                                  options: Dict[str, torch.LongTensor],
                                  sep_token: int,
-                                 options_to_support: torch.FloatTensor = None) -> Tuple[torch.FloatTensor, torch.FloatTensor]:
+                                 options_to_support: torch.FloatTensor = None
+                                 ) -> Tuple[torch.FloatTensor, torch.FloatTensor, torch.FloatTensor]:
         """
         Architecture-specific forward pass
         """
@@ -597,7 +628,7 @@ class BertMCP2A(BertMC):
         hidden_options = self._text_field_embedder(options)
         encoded_hidden_options = hidden_options[:, :, 0]
         option_logits = (encoded_hidden_options * encoded_hidden_passage.unsqueeze(1)).mean(-1)
-        return option_logits, None
+        return option_logits, None, None
 
 
 @Model.register("bert-mc-a")
@@ -613,7 +644,8 @@ class BertMCA(BertMC):
                  judge: Model = None,
                  update_judge: bool = False,
                  reward_method: str = None,
-                 detach_value_head: bool = False) -> None:
+                 detach_value_head: bool = False,
+                 qa_loss_weight: float = 0.) -> None:
         super().__init__(vocab=vocab,
                          text_field_embedder=text_field_embedder,
                          initializer=initializer,
@@ -621,7 +653,8 @@ class BertMCA(BertMC):
                          judge=judge,
                          update_judge=update_judge,
                          reward_method=reward_method,
-                         detach_value_head=detach_value_head)
+                         detach_value_head=detach_value_head,
+                         qa_loss_weight=qa_loss_weight)
         self._logit_predictor = torch.nn.Linear(self._hidden_dim, 1)
         self._initializer(self)
 
@@ -630,7 +663,8 @@ class BertMCA(BertMC):
                                  passage: Dict[str, torch.LongTensor],
                                  options: Dict[str, torch.LongTensor],
                                  sep_token: int,
-                                 options_to_support: torch.FloatTensor = None) -> Tuple[torch.FloatTensor, torch.FloatTensor]:
+                                 options_to_support: torch.FloatTensor = None
+                                 ) -> Tuple[torch.FloatTensor, torch.FloatTensor, torch.FloatTensor]:
         """
         Architecture-specific forward pass
         """
@@ -642,4 +676,4 @@ class BertMCA(BertMC):
         hidden_options = self._text_field_embedder(options)
         encoded_hidden_options = hidden_options[:, :, 0]
         option_logits = self._logit_predictor(encoded_hidden_options).squeeze(-1)
-        return option_logits, None
+        return option_logits, None, None

@@ -165,6 +165,12 @@ class Train(Subcommand):
                                default=None,  # if None, set automatically in Trainer by dataset type
                                help='type of action debating agents take')
 
+        subparser.add_argument('-q', '--qa_loss_weight',
+                               type=float,
+                               default=0.,
+                               help='Weight of auxiliary QA supervised loss to give RL agents.')
+
+
         subparser.set_defaults(func=train_model_from_args)
 
         return subparser
@@ -190,7 +196,8 @@ def train_model_from_args(args: argparse.Namespace):
                           args.oracle_outputs_path,
                           args.accumulation_steps,
                           args.multi_gpu,
-                          args.choice_mode)
+                          args.choice_mode,
+                          args.qa_loss_weight)
 
 
 def train_model_from_file(parameter_filename: str,
@@ -209,7 +216,8 @@ def train_model_from_file(parameter_filename: str,
                           oracle_outputs_path: str = None,
                           accumulation_steps: int = 1,
                           multi_gpu: bool = False,
-                          choice_mode: str = None) -> Model:
+                          choice_mode: str = None,
+                          qa_loss_weight: float = 0.) -> Model:
     """
     A wrapper around :func:`train_model` which loads the params from a file.
 
@@ -262,7 +270,7 @@ def train_model_from_file(parameter_filename: str,
     params = Params.from_file(parameter_filename, overrides)
     return train_model(params, serialization_dir, file_friendly_logging, recover, force, debate_mode, judge_filename,
                        update_judge, eval_mode, reward_method, detach_value_head, breakpoint_level,
-                       oracle_outputs_path, accumulation_steps, multi_gpu, choice_mode)
+                       oracle_outputs_path, accumulation_steps, multi_gpu, choice_mode, qa_loss_weight)
 
 
 def train_model(params: Params,
@@ -280,7 +288,8 @@ def train_model(params: Params,
                 oracle_outputs_path: str = None,
                 accumulation_steps: int = 1,
                 multi_gpu: bool = False,
-                choice_mode: str = None) -> Model:
+                choice_mode: str = None,
+                qa_loss_weight: float = 0.) -> Model:
     """
     Trains the model specified in the given :class:`Params` object, using the data and training
     parameters also specified in that object, and saves the results in ``serialization_dir``.
@@ -333,7 +342,11 @@ def train_model(params: Params,
         The model with the best epoch weights.
     """
     # Get number of debate turns, and assert that not performing judge-only training
-    num_trained_debater_turns = sum([(('a' in debate_turn) or ('b' in debate_turn)) for debate_turn in debate_mode])
+    num_l_turns = sum([('l' in debate_turn) for debate_turn in debate_mode])
+    if (qa_loss_weight > 0) and (num_l_turns == 0):
+        warnings.warn('Unused argument qa_loss_weight in debate mode ' + str(debate_mode) +
+                      '. If this was unintentional, please remove the -q flag.', UserWarning)
+    num_trained_debater_turns = sum([(('a' in debate_turn) or ('b' in debate_turn) or ('l' in debate_turn)) for debate_turn in debate_mode])
     if (judge_filename is not None) and (num_trained_debater_turns == 0):
         warnings.warn('Unnecessary to have debaters in debate mode ' + str(debate_mode) +
                       '. If this was unintentional, please remove the -j flag.', UserWarning)
@@ -373,7 +386,8 @@ def train_model(params: Params,
                                            eval_mode=eval_mode,
                                            reward_method=reward_method,
                                            detach_value_head=detach_value_head,
-                                           allocation_dict=allocation_dict)  # pylint: disable=no-member
+                                           allocation_dict=allocation_dict,
+                                           qa_loss_weight=qa_loss_weight)  # pylint: disable=no-member
         trainer = Trainer.from_params(
                 model=pieces.model,
                 serialization_dir=serialization_dir,

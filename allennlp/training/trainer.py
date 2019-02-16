@@ -754,6 +754,13 @@ class Trainer(TrainerBase):
             # Debate forward pass
             debater_output_dict = self._forward([batch], debater)
 
+            # Set SL / debate-auxiliary losses for SGD
+            loss = debater_output_dict.get('loss')
+            if loss is not None:
+                self._update_trainer_metrics('sl_loss' + cur_turn_str, loss)
+            if debater_output_dict['em'] is not None:
+                self._update_trainer_metrics('debater_answer_acc' + cur_turn_str, debater_output_dict['em'])
+
             # Remove debater-specific batch info.
             batch['stance'] = None
             batch['valid_output_mask'] = None
@@ -782,9 +789,6 @@ class Trainer(TrainerBase):
                     self._update_trainer_metrics('sl_num_per_batch_MaxScoreDrop_in_' + str(thres_end) + '_' + str(thres_start) + cur_turn_str, torch.tensor(float(len(oracle_sc_diff_in_thres_idxs))))
                     for idx in oracle_sc_diff_in_thres_idxs:
                         self._update_trainer_metrics('sl_acc_where_MaxScoreDrop_in_' + str(thres_end) + '_' + str(thres_start) + cur_turn_str, sl_acc[idx])
-                # Store and log loss
-                loss = debater_output_dict['loss']
-                self._update_trainer_metrics('sl_loss' + cur_turn_str, loss)
             else:  # RL: Add predictions and value (no loss calculated yet)
                 if for_training:  # Use probability of sampled sentence to calculate loss
                     word_choice_idx = torch.multinomial(debater_output_dict['prob_dist'], 1)
@@ -1566,7 +1570,8 @@ class TrainerPieces(NamedTuple):
                     eval_mode: bool = False,
                     reward_method: str = None,
                     detach_value_head: bool = False,
-                    allocation_dict: Dict[str, int] = None) -> 'TrainerPieces':
+                    allocation_dict: Dict[str, int] = None,
+                    qa_loss_weight: float = 0.) -> 'TrainerPieces':
 
         all_datasets = training_util.datasets_from_params(params)
         if eval_mode:  # NB: --eval_mode does not expand vocab based on test data
@@ -1625,7 +1630,7 @@ class TrainerPieces(NamedTuple):
 
         model = Model.from_params(vocab=vocab, params=params.pop('model'),
                                   judge=judge, update_judge=update_judge, reward_method=reward_method,
-                                  detach_value_head=detach_value_head)
+                                  detach_value_head=detach_value_head, qa_loss_weight=qa_loss_weight)
 
         # Initializing the model can have side effect of expanding the vocabulary
         vocab.save_to_files(os.path.join(serialization_dir, "vocabulary"))

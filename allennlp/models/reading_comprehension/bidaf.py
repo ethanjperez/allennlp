@@ -89,6 +89,7 @@ class BidirectionalAttentionFlow(Model):
                  update_judge: bool = False,
                  reward_method: str = None,
                  detach_value_head: bool = False,
+                 qa_loss_weight: float = 0.,
                  dataset_name: str = 'squad') -> None:
         super(BidirectionalAttentionFlow, self).__init__(vocab, regularizer)
 
@@ -97,6 +98,7 @@ class BidirectionalAttentionFlow(Model):
         self.reward_method = None if self.is_judge else reward_method
         self.update_judge = update_judge and (self.judge is not None)
         self._detach_value_head = detach_value_head
+        self._qa_loss_weight = qa_loss_weight
         self.answer_type = 'mc' if dataset_name == 'race' else 'span'  # NB: Field will be incorrect for previously trained RACE bidaf models, but we're not using those anyways
         self.output_type = 'span'  # The actual way the output is given (here it's as a pointer to input)
         self._text_field_embedder = text_field_embedder
