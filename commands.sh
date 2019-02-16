@@ -14,9 +14,19 @@ allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.l.m=
 allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.l.m=prob.bsz=32.lr=1e-5.c=concat.q=1e-1 -j tmp/race.best.f/model.tar.gz -b 1 -d l -m prob -a 32 -c concat -q .1 -f
 allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.l.m=prob.bsz=32.lr=1e-5.c=concat.q=1 -j tmp/race.best.f/model.tar.gz -b 1 -d l -m prob -a 32 -c concat -q 1 -f
 
-allennlp train training_config/race.best.debate.lr=5e-6.jsonnet -s tmp/race.l.m=prob.bsz=64.lr=5e-6.c=concat.q=1e-1 -j tmp/race.best.f/model.tar.gz -b 1 -d l -m prob -a 64 -c concat -q .1 -f
-allennlp train training_config/race.best.debate.lr=5e-6.jsonnet -s tmp/race.l.m=prob.bsz=64.lr=5e-6.c=concat.q=1 -j tmp/race.best.f/model.tar.gz -b 1 -d l -m prob -a 64 -c concat -q 1 -f
-allennlp train training_config/race.best.debate.lr=5e-6.jsonnet -s tmp/race.l.m=prob.bsz=64.lr=5e-6.c=concat.q=2 -j tmp/race.best.f/model.tar.gz -b 1 -d l -m prob -a 64 -c concat -q 2 -f
+allennlp train training_config/race.best.debate.lr=5e-6.jsonnet -s tmp/race.l.m=prob.bsz=64.lr=5e-6.c=concat.q=1e-1 -j tmp/race.best.f/model.tar.gz -b 1 -d l -m prob -a 64 -c concat -q .1 -f #p
+allennlp train training_config/race.best.debate.lr=5e-6.jsonnet -s tmp/race.l.m=prob.bsz=64.lr=5e-6.c=concat.q=1 -j tmp/race.best.f/model.tar.gz -b 1 -d l -m prob -a 64 -c concat -q 1 -f #p
+allennlp train training_config/race.best.debate.lr=5e-6.jsonnet -s tmp/race.l.m=prob.bsz=64.lr=5e-6.c=concat.q=2 -j tmp/race.best.f/model.tar.gz -b 1 -d l -m prob -a 64 -c concat -q 2 -f #p
+
+# BERT RACE SL+QA Concat
+allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.a.m=sl.bsz=32.lr=1e-5.c=concat.q=1 -j tmp/race.best.f/model.tar.gz -b 1 -d a -m sl -p tmp/race.best.f/oracle_outputs.c=concat.all.pkl -a 32 -c concat -q 1 -f
+allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.b.m=sl.bsz=32.lr=1e-5.c=concat.q=1 -j tmp/race.best.f/model.tar.gz -b 1 -d b -m sl -p tmp/race.best.f/oracle_outputs.c=concat.all.pkl -a 32 -c concat -q 1 -f
+
+allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.a.m=sl-sents.bsz=32.lr=1e-5.c=concat.q=1 -j tmp/race.best.f/model.tar.gz -b 1 -d a -m sl-sents -p tmp/race.best.f/oracle_outputs.c=concat.all.pkl -a 32 -c concat -q 1 -f
+allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.b.m=sl-sents.bsz=32.lr=1e-5.c=concat.q=1 -j tmp/race.best.f/model.tar.gz -b 1 -d b -m sl-sents -p tmp/race.best.f/oracle_outputs.c=concat.all.pkl -a 32 -c concat -q 1 -f
+
+allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.a.m=sl-sents-delta.bsz=32.lr=1e-5.c=concat.q=1 -j tmp/race.best.f/model.tar.gz -b 1 -d a -m sl-sents-delta -p tmp/race.best.f/oracle_outputs.c=concat.all.pkl -a 32 -c concat -q 1 -f
+allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.b.m=sl-sents-delta.bsz=32.lr=1e-5.c=concat.q=1 -j tmp/race.best.f/model.tar.gz -b 1 -d b -m sl-sents-delta -p tmp/race.best.f/oracle_outputs.c=concat.all.pkl -a 32 -c concat -q 1 -f
 
 # BERT RACE SL Concat
 allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.a.m=sl.bsz=32.lr=1e-5.2.c=concat -j tmp/race.best.f/model.tar.gz -b 1 -d a -m sl -p tmp/race.best.f/oracle_outputs.c=concat.all.pkl -a 32 -c concat -f
@@ -417,7 +427,7 @@ srun --pty --mem=20000 -t 6-23:58 --gres=gpu:p40 bash
 srun --pty --mem=20000 -t 6-23:58 --gres=gpu:k80 bash
 
 # SBATCH: NB: Cut memory usage based on plots
-export COMMAND="allennlp train training_config/race.best.debate.lr=5e-6.jsonnet -s tmp/race.l.m=prob.bsz=512.lr=5e-6.c=concat -j tmp/race.best.f/model.tar.gz -b 1 -d l -m prob -a 512 -c concat -f"
+export COMMAND="allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.b.m=sl-sents-delta.bsz=32.lr=1e-5.c=concat.q=1 -j tmp/race.best.f/model.tar.gz -b 1 -d b -m sl-sents-delta -p tmp/race.best.f/oracle_outputs.c=concat.all.pkl -a 32 -c concat -q 1 -f"
 export COMMAND_ARRAY=($COMMAND)
 export SERIALIZATION_DIR="${COMMAND_ARRAY[4]}"
 if test -e $SERIALIZATION_DIR; then echo -e "\n${PURPLE}NOTICE: Directory already exists.\n"; else mkdir -p $SERIALIZATION_DIR; fi

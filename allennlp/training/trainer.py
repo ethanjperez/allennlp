@@ -757,9 +757,9 @@ class Trainer(TrainerBase):
             # Set SL / debate-auxiliary losses for SGD
             loss = debater_output_dict.get('loss')
             if loss is not None:
-                self._update_trainer_metrics('sl_loss' + cur_turn_str, loss)
+                self._update_trainer_metrics('sl_loss' + cur_turn_str, loss.float().mean())
             if debater_output_dict['em'] is not None:
-                self._update_trainer_metrics('debater_answer_acc' + cur_turn_str, debater_output_dict['em'])
+                self._update_trainer_metrics('debater_answer_acc' + cur_turn_str, debater_output_dict['em'].float().mean())
 
             # Remove debater-specific batch info.
             batch['stance'] = None
