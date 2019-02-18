@@ -661,6 +661,7 @@ class Trainer(TrainerBase):
         """
         Returns the sentence chosen by a particular policy.
         """
+        choice_start_time = time.time()
         debater = None if self.model.is_judge else self.model
         judge = self.model if self.model.is_judge else self.model.judge
         bsz = batch['passage']['tokens'].size(0)
@@ -805,6 +806,7 @@ class Trainer(TrainerBase):
             answer_sent_chosen = (sent_choice_idx == sent_answer_idx).float()
             self._update_trainer_metrics('answer_sent_chosen' + cur_turn_str, answer_sent_chosen.mean())
 
+        self._update_trainer_metrics('time' + cur_turn_str, torch.Tensor([choice_start_time - time.time()]))
         return sent_choice_idx, sent_choice_prob, value, loss, stance, sc_diffs, all_values
 
     def _judge_text_masks(self, batch: TensorDict) -> Tuple[TensorDict, TensorDict]:
@@ -948,7 +950,7 @@ class Trainer(TrainerBase):
 
         # Execute turns and accumulate loss across rounds.
         # Decisions/turns within a single round are sequential for Oracles, simultaneous otherwise.
-        prev_round_j_output_dict = None
+        prev_round_j_output_dict = None  # TODO: Reset every round for multi-turn
         for round_no in range(len(debate_mode)):
             turn_str = {turn_no: "_turn_" + str(turn_no) + "_agent_" + debate_mode[round_no][turn_no] for turn_no in range(len(debate_mode[round_no]))}
 
@@ -965,6 +967,23 @@ class Trainer(TrainerBase):
                 sent_answer_idx = sent_idxs['output'].gather(1, span_start.clamp(max=(output_dim-1)))  # TODO: Verify  # TODO: Check sent_idxs[[SEP] token loc] = -1
                 sent_answer_idx[span_start >= output_dim] = -100  # Dummy negative value, can't be -1 (used for padding)
 
+            # Get Judge baseline opinion
+            if (prev_round_j_output_dict is None) and (debater is not None) and (debater.influence_reward or debater.theory_of_mind):
+                # Copy and modify Judge's input
+                no_rounds_batch = self._slice_batch(batch, slice(None), copy=True)
+                no_sent_choice_input_mask = torch.zeros_like(required_text_mask['input'])
+                no_rounds_batch = self._modify_input_passage(no_rounds_batch, required_text_mask, no_sent_choice_input_mask)
+
+                # Judge forward pass
+                if self._span_model:
+                    no_rounds_batch['valid_output_mask'] = judge_mask['output']
+                choice_start_time = time.time()
+                prev_round_j_output_dict = self._forward([no_rounds_batch], judge)
+                self._update_trainer_metrics('time_j_baseline', torch.Tensor([choice_start_time - time.time()]))
+                # NOTE: Optional: Add prev_round_j_output_dict['loss'] to loss if updating judge
+                if self._span_model:
+                    no_rounds_batch['valid_output_mask'] = None
+
             # Execute player turns to determine decisions.
             sent_choice_idxs, sent_choice_probs, values, losses, stances, sc_diffs = [], [], [], [], [], None
             for turn_no, method in enumerate(debate_mode[round_no]):
@@ -977,20 +996,6 @@ class Trainer(TrainerBase):
                 losses.append(loss)
                 stances.append(stance)  # TODO: Multi-round: Stance should be sampled once every debate (not every round)
 
-            if (prev_round_j_output_dict is None) and (debater is not None) and debater.influence_reward:
-                # Copy and modify Judge's input
-                no_rounds_batch = self._slice_batch(batch, slice(None), copy=True)
-                no_sent_choice_input_mask = torch.zeros_like(required_text_mask['input'])
-                no_rounds_batch = self._modify_input_passage(no_rounds_batch, required_text_mask, no_sent_choice_input_mask)
-
-                # Judge forward pass
-                if self._span_model:
-                    no_rounds_batch['valid_output_mask'] = judge_mask['output']
-                prev_round_j_output_dict = self._forward([no_rounds_batch], judge)
-                # NOTE: Optional: Add prev_round_j_output_dict['loss'] to loss if updating judge
-                if self._span_model:
-                    no_rounds_batch['valid_output_mask'] = None
-
             # Modify Judge's input
             sent_choice_input_masks = [(sent_idxs['input'] == sent_choice_idx) for sent_choice_idx in sent_choice_idxs]
             all_sent_choice_input_mask = torch.stack(sent_choice_input_masks).sum(0).clamp(max=1)
@@ -999,7 +1004,9 @@ class Trainer(TrainerBase):
             # Judge forward pass
             if self._span_model:
                 batch['valid_output_mask'] = judge_mask['output']  # TODO: Verify value
+            choice_start_time = time.time()
             j_output_dict = self._forward([batch], judge)
+            self._update_trainer_metrics('time_j', torch.Tensor([choice_start_time - time.time()]))
             if self._span_model:
                 batch['valid_output_mask'] = None
 
@@ -1035,6 +1042,9 @@ class Trainer(TrainerBase):
                         self._update_trainer_metrics('baseline' + turn_str[turn_no], baselines.mean())
                         self._update_trainer_metrics('value_loss' + turn_str[turn_no], value_losses.mean())  # Upper bound ~= .125
                         self._update_trainer_metrics('reward' + turn_str[turn_no], rewards.mean())
+                        self._update_trainer_metrics('reward_variance' + turn_str[turn_no], (rewards ** 2).mean())
+                        self._update_trainer_metrics('advantage_variance' + turn_str[turn_no], ((rewards - baselines) ** 2).mean())
+                        self._update_trainer_metrics('sent_choice_prob' + turn_str[turn_no], sent_choice_probs[turn_no].mean())
                         if method == 'l':  # Log statistics based on if l-agent was given correct answer or not
                             stance_was_correct = stances[turn_no].to(loss_device).gather(1, batch['answer_index'].to(loss_device)).squeeze(1).float().tolist()
                             correctness_str = {0: '_incorrect_stance', 1: '_correct_stance'}
@@ -1598,7 +1608,8 @@ class TrainerPieces(NamedTuple):
                     detach_value_head: bool = False,
                     allocation_dict: Dict[str, int] = None,
                     qa_loss_weight: float = 0.,
-                    influence_reward: bool = False) -> 'TrainerPieces':
+                    influence_reward: bool = False,
+                    theory_of_mind: bool = False) -> 'TrainerPieces':
 
         all_datasets = training_util.datasets_from_params(params)
         if eval_mode:  # NB: --eval_mode does not expand vocab based on test data
@@ -1658,7 +1669,7 @@ class TrainerPieces(NamedTuple):
         model = Model.from_params(vocab=vocab, params=params.pop('model'),
                                   judge=judge, update_judge=update_judge, reward_method=reward_method,
                                   detach_value_head=detach_value_head, qa_loss_weight=qa_loss_weight,
-                                  influence_reward=influence_reward)
+                                  influence_reward=influence_reward, theory_of_mind=theory_of_mind)
 
         # Initializing the model can have side effect of expanding the vocabulary
         vocab.save_to_files(os.path.join(serialization_dir, "vocabulary"))

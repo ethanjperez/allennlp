@@ -177,7 +177,12 @@ class Train(Subcommand):
         subparser.add_argument('-i', '--influence_reward',
                                action='store_true',
                                default=False,
-                               help='Whether or not to use delta in judge opinion (vs. raw reward)')
+                               help='Whether or not to use delta in judge opinion (vs. raw reward).')
+
+        subparser.add_argument('-t', '--theory_of_mind',
+                               action='store_true',
+                               default=False,
+                               help='Whether or not debaters use judge activations.')
 
         subparser.set_defaults(func=train_model_from_args)
 
@@ -206,7 +211,8 @@ def train_model_from_args(args: argparse.Namespace):
                           args.multi_gpu,
                           args.choice_mode,
                           args.qa_loss_weight,
-                          args.influence_reward)
+                          args.influence_reward,
+                          args.theory_of_mind)
 
 
 def train_model_from_file(parameter_filename: str,
@@ -227,7 +233,8 @@ def train_model_from_file(parameter_filename: str,
                           multi_gpu: bool = False,
                           choice_mode: str = None,
                           qa_loss_weight: float = 0.,
-                          influence_reward: bool = False) -> Model:
+                          influence_reward: bool = False,
+                          theory_of_mind: bool = False) -> Model:
     """
     A wrapper around :func:`train_model` which loads the params from a file.
 
@@ -280,7 +287,8 @@ def train_model_from_file(parameter_filename: str,
     params = Params.from_file(parameter_filename, overrides)
     return train_model(params, serialization_dir, file_friendly_logging, recover, force, debate_mode, judge_filename,
                        update_judge, eval_mode, reward_method, detach_value_head, breakpoint_level,
-                       oracle_outputs_path, accumulation_steps, multi_gpu, choice_mode, qa_loss_weight, influence_reward)
+                       oracle_outputs_path, accumulation_steps, multi_gpu, choice_mode, qa_loss_weight,
+                       influence_reward, theory_of_mind)
 
 
 def train_model(params: Params,
@@ -300,7 +308,8 @@ def train_model(params: Params,
                 multi_gpu: bool = False,
                 choice_mode: str = None,
                 qa_loss_weight: float = 0.,
-                influence_reward: bool = False) -> Model:
+                influence_reward: bool = False,
+                theory_of_mind: bool = False) -> Model:
     """
     Trains the model specified in the given :class:`Params` object, using the data and training
     parameters also specified in that object, and saves the results in ``serialization_dir``.
@@ -399,7 +408,8 @@ def train_model(params: Params,
                                            detach_value_head=detach_value_head,
                                            allocation_dict=allocation_dict,
                                            qa_loss_weight=qa_loss_weight,
-                                           influence_reward=influence_reward)  # pylint: disable=no-member
+                                           influence_reward=influence_reward,
+                                           theory_of_mind=theory_of_mind)  # pylint: disable=no-member
         trainer = Trainer.from_params(
                 model=pieces.model,
                 serialization_dir=serialization_dir,

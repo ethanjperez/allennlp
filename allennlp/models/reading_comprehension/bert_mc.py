@@ -1,4 +1,5 @@
 import logging
+from copy import deepcopy
 from typing import Any, Dict, List, Optional, Tuple
 
 import torch
@@ -8,8 +9,10 @@ from allennlp.data import Vocabulary
 from allennlp.models.model import Model
 from allennlp.modules import TimeDistributed, TextFieldEmbedder
 from allennlp.modules.matrix_attention import BilinearMatrixAttention
+from allennlp.modules.seq2seq_encoders import StackedSelfAttentionEncoder
 from allennlp.nn import util, InitializerApplicator, RegularizerApplicator
 from allennlp.training.metrics import CategoricalAccuracy
+from pytorch_pretrained_bert.modeling import BertEncoder
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 
@@ -54,7 +57,8 @@ class BertMC(Model):
                  reward_method: str = None,
                  detach_value_head: bool = False,
                  qa_loss_weight: float = 0.,
-                 influence_reward: bool = False) -> None:
+                 influence_reward: bool = False,
+                 theory_of_mind: bool = False) -> None:
         super(BertMC, self).__init__(vocab, regularizer)
 
         self.judge = judge
@@ -64,16 +68,23 @@ class BertMC(Model):
         self._detach_value_head = detach_value_head
         self._qa_loss_weight = qa_loss_weight
         self.influence_reward = influence_reward
+        self.theory_of_mind = theory_of_mind
         self._text_field_embedder = text_field_embedder
         self._hidden_dim = text_field_embedder.get_output_dim()
         self.answer_type = 'mc'
         self.output_type = 'mc'
+        self._config = self._text_field_embedder.token_embedder_tokens._modules['bert_model'].config
 
         if not self.is_judge:
             self._policy_head = TimeDistributed(torch.nn.Linear(self._hidden_dim, 1))  # NB: Can make MLP
             self._value_head = TimeDistributed(torch.nn.Linear(self._hidden_dim, 1))  # NB: Can make MLP
             self._turn_film_gen = torch.nn.Linear(1, 2 * self._hidden_dim)
             self._film = FiLM()
+            if self.theory_of_mind:
+                final_blocks_config = deepcopy(self._config)
+                final_blocks_config.num_hidden_layers = 1
+                self.final_blocks_input_proj = TimeDistributed(torch.nn.Linear(self._hidden_dim * 2, self._hidden_dim))
+                self.final_blocks = BertEncoder(final_blocks_config)
 
         # NB: Rename to self._accuracy (may break model loading)
         self._span_start_accuracy = CategoricalAccuracy()
@@ -283,7 +294,8 @@ class BertMCGPT(BertMC):
                  reward_method: str = None,
                  detach_value_head: bool = False,
                  qa_loss_weight: float = 0.,
-                 influence_reward: bool = False) -> None:
+                 influence_reward: bool = False,
+                 theory_of_mind: bool = False) -> None:
         super().__init__(vocab=vocab,
                          text_field_embedder=text_field_embedder,
                          initializer=initializer,
@@ -293,7 +305,8 @@ class BertMCGPT(BertMC):
                          reward_method=reward_method,
                          detach_value_head=detach_value_head,
                          qa_loss_weight=qa_loss_weight,
-                         influence_reward=influence_reward)
+                         influence_reward=influence_reward,
+                         theory_of_mind=theory_of_mind)
         self._logit_predictor = torch.nn.Linear(self._hidden_dim, 1)
         self._initializer(self)
 
@@ -328,15 +341,48 @@ class BertMCGPT(BertMC):
         if self.is_judge:
             pred_hidden_a = hidden_pqo[:, :, 0]
             option_logits = self._logit_predictor(pred_hidden_a).squeeze(-1)
+            # Expose detached hidden states for theory-of-mind debaters
+            self.pqo = pqo
+            self.hidden_pqo = hidden_pqo.detach()
+            self.pred_hidden_a = pred_hidden_a.detach()
+            self.option_logits = option_logits.detach()
             return option_logits, None, None
         else:
+            # Predict answer (auxiliary SL loss)
             option_logits = None
             if self._qa_loss_weight > 0:
                 pred_hidden_a = hidden_pqo[:, :, 0]
                 option_logits = self._logit_predictor(pred_hidden_a).squeeze(-1)
+
+            # Condition on option to support (again)
             agent_film_params = self._turn_film_gen(options_to_support.unsqueeze(-1))
             agent_gammas, agent_betas = torch.split(agent_film_params, self._hidden_dim, dim=-1)
             agent_hidden_pqo = self._film(hidden_pqo, 1. + agent_gammas, agent_betas) * pqo['mask'].float().unsqueeze(-1)
+
+            # Process Judge hidden states
+            if self.theory_of_mind:
+                # Condition Judge states on Debater opinion (to highlight strong candidate sentences)
+                cond_judge_hidden_pqo = self._film(self.judge.hidden_pqo, 1. + agent_gammas, agent_betas
+                                                   ) * self.judge.pqo['mask'].float().unsqueeze(-1)
+                # Align Judge states to Debater's full passage states
+                shifted_judge_hidden_pqo = torch.zeros_like(agent_hidden_pqo)
+                seq_lengths = util.get_lengths_from_binary_sequence_mask(pqo['mask'])
+                judge_seq_lengths = util.get_lengths_from_binary_sequence_mask(self.judge.pqo['mask'])
+                for i in range(batch_size):
+                    for j in range(num_options):
+                        shifted_judge_hidden_pqo[i, j, seq_lengths[i, j] - judge_seq_lengths[i, j]: seq_lengths[i, j]] = \
+                            cond_judge_hidden_pqo[i, j, :judge_seq_lengths[i, j]]
+                agent_hidden_pqo = self.final_blocks_input_proj(torch.cat([agent_hidden_pqo, shifted_judge_hidden_pqo], dim=-1))
+                # Joint processing with transformer block
+                extended_attention_mask = util.combine_initial_dims(pqo['mask']).unsqueeze(1).unsqueeze(2)
+                extended_attention_mask = extended_attention_mask.to(dtype=next(self.final_blocks.parameters()).dtype)
+                extended_attention_mask = (1.0 - extended_attention_mask) * -10000.0
+                agent_hidden_pqo = self.final_blocks(agent_hidden_pqo.view(batch_size * num_options, -1, self._hidden_dim),
+                                                     extended_attention_mask, output_all_encoded_layers=False)[-1]
+                # Reshape and remask
+                agent_hidden_pqo = agent_hidden_pqo.view(batch_size, num_options, -1, self._hidden_dim) * pqo['mask'].float().unsqueeze(-1)
+
+            # Predict distribution over sentence actions
             tokenwise_values = self._value_head(agent_hidden_pqo.detach() if self._detach_value_head else agent_hidden_pqo).squeeze(-1)
             value, value_option = util.replace_masked_values(tokenwise_values, pqo['mask'], -1e7).max(-1)[0].max(-1)
             policy_logits = self._policy_head(agent_hidden_pqo).squeeze(-1).sum(1)
@@ -358,7 +404,8 @@ class BertMCDCMN(BertMC):
                  reward_method: str = None,
                  detach_value_head: bool = False,
                  qa_loss_weight: float = 0.,
-                 influence_reward: bool = False) -> None:
+                 influence_reward: bool = False,
+                 theory_of_mind: bool = False) -> None:
         super().__init__(vocab=vocab,
                          text_field_embedder=text_field_embedder,
                          initializer=initializer,
@@ -368,7 +415,8 @@ class BertMCDCMN(BertMC):
                          reward_method=reward_method,
                          detach_value_head=detach_value_head,
                          qa_loss_weight=qa_loss_weight,
-                         influence_reward=influence_reward)
+                         influence_reward=influence_reward,
+                         theory_of_mind=theory_of_mind)
         self._passage_question_attention = BilinearMatrixAttention(self._hidden_dim, self._hidden_dim, use_input_biases=True)
         self._passage_option_attention = BilinearMatrixAttention(self._hidden_dim, self._hidden_dim, use_input_biases=True)
         self._final_passage_question_encoder = TimeDistributed(torch.nn.Linear(2 * self._hidden_dim, self._hidden_dim))
@@ -484,7 +532,8 @@ class BertMCPQ2A(BertMC):
                  reward_method: str = None,
                  detach_value_head: bool = False,
                  qa_loss_weight: float = 0.,
-                 influence_reward: bool = False) -> None:
+                 influence_reward: bool = False,
+                 theory_of_mind: bool = False) -> None:
         super().__init__(vocab=vocab,
                          text_field_embedder=text_field_embedder,
                          initializer=initializer,
@@ -494,7 +543,8 @@ class BertMCPQ2A(BertMC):
                          reward_method=reward_method,
                          detach_value_head=detach_value_head,
                          qa_loss_weight=qa_loss_weight,
-                         influence_reward=influence_reward)
+                         influence_reward=influence_reward,
+                         theory_of_mind=theory_of_mind)
         self._initializer(self)
 
     def compute_logits_and_value(self,  # type: ignore
@@ -550,7 +600,8 @@ class BertMCQ2A(BertMC):
                  reward_method: str = None,
                  detach_value_head: bool = False,
                  qa_loss_weight: float = 0.,
-                 influence_reward: bool = False) -> None:
+                 influence_reward: bool = False,
+                 theory_of_mind: bool = False) -> None:
         super().__init__(vocab=vocab,
                          text_field_embedder=text_field_embedder,
                          initializer=initializer,
@@ -560,7 +611,8 @@ class BertMCQ2A(BertMC):
                          reward_method=reward_method,
                          detach_value_head=detach_value_head,
                          qa_loss_weight=qa_loss_weight,
-                         influence_reward=influence_reward)
+                         influence_reward=influence_reward,
+                         theory_of_mind=theory_of_mind)
         self._initializer(self)
 
     def compute_logits_and_value(self,  # type: ignore
@@ -604,7 +656,8 @@ class BertMCP2A(BertMC):
                  reward_method: str = None,
                  detach_value_head: bool = False,
                  qa_loss_weight: float = 0.,
-                 influence_reward: bool = False) -> None:
+                 influence_reward: bool = False,
+                 theory_of_mind: bool = False) -> None:
         super().__init__(vocab=vocab,
                          text_field_embedder=text_field_embedder,
                          initializer=initializer,
@@ -614,7 +667,8 @@ class BertMCP2A(BertMC):
                          reward_method=reward_method,
                          detach_value_head=detach_value_head,
                          qa_loss_weight=qa_loss_weight,
-                         influence_reward=influence_reward)
+                         influence_reward=influence_reward,
+                         theory_of_mind=theory_of_mind)
         self._initializer(self)
 
     def compute_logits_and_value(self,  # type: ignore
@@ -658,7 +712,8 @@ class BertMCA(BertMC):
                  reward_method: str = None,
                  detach_value_head: bool = False,
                  qa_loss_weight: float = 0.,
-                 influence_reward: bool = False) -> None:
+                 influence_reward: bool = False,
+                 theory_of_mind: bool = False) -> None:
         super().__init__(vocab=vocab,
                          text_field_embedder=text_field_embedder,
                          initializer=initializer,
@@ -668,7 +723,8 @@ class BertMCA(BertMC):
                          reward_method=reward_method,
                          detach_value_head=detach_value_head,
                          qa_loss_weight=qa_loss_weight,
-                         influence_reward=influence_reward)
+                         influence_reward=influence_reward,
+                         theory_of_mind=theory_of_mind)
         self._logit_predictor = torch.nn.Linear(self._hidden_dim, 1)
         self._initializer(self)
 
