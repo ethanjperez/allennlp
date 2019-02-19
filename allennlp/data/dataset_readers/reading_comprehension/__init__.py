@@ -10,5 +10,6 @@ from allennlp.data.dataset_readers.reading_comprehension.babi_copy import BabiCo
 from allennlp.data.dataset_readers.reading_comprehension.squad import SquadReader
 from allennlp.data.dataset_readers.reading_comprehension.quac import QuACReader
 from allennlp.data.dataset_readers.reading_comprehension.race import RaceReader
+from allennlp.data.dataset_readers.reading_comprehension.race_mc import RaceMCReader
 from allennlp.data.dataset_readers.reading_comprehension.triviaqa import TriviaQaReader
 from allennlp.data.dataset_readers.reading_comprehension.qangaroo import QangarooReader

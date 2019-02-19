@@ -214,6 +214,13 @@ def create_serialization_dir(
             fail = False
             flat_params = params.as_flat_dict()
             flat_loaded = loaded_params.as_flat_dict()
+
+            # Exclude some keys from being checked as matching config
+            no_check_keys = ['trainer.cuda_device', 'train_data_path', 'validation_data_path', 'test_data_path']  # Make this the overrides
+            for key in no_check_keys:
+                flat_params.pop(key, None)
+                flat_loaded.pop(key, None)
+
             for key in flat_params.keys() - flat_loaded.keys():
                 logger.error(f"Key '{key}' found in training configuration but not in the serialization "
                              f"directory we're recovering from.")
