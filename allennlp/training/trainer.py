@@ -383,6 +383,7 @@ class Trainer(TrainerBase):
                     print('\n---', method.upper(), '--- Sentence', int(sent_choice_idxs[turn][sample_no]), '\n', sent_str)
                 print('\n--- J --- EM / F1 / SSP / SC_DIFF',
                       float(j_em[sample_no]), '/', float(j_f1[sample_no]), '/', float(j_ssp[sample_no]), '/', float(sc_diffs[sample_no]))
+                print('Best Span - Start IDX: %d' % output_dict['best_span'][sample_no][0])
                 print(' '.join(toks[output_dict['best_span'][sample_no][0]:output_dict['best_span'][sample_no][1] + 1]))
         return
 
@@ -497,6 +498,7 @@ class Trainer(TrainerBase):
         sent_choice_idxs = []
         sent_choice_probs = []
         values = []  # Add -1 * torch.ones(bsz) if no value prediction made
+        sc_diffs = None  # Optional to fill in each turns, resets every turn
         for debate_mode_with_eval_only_turns_idx, method in enumerate(debate_mode_with_eval_only_turns):
             # NB: Refactor a player turn into one function
             turn = len(sent_choice_idxs)  # Excludes eval only turns
@@ -509,7 +511,7 @@ class Trainer(TrainerBase):
             sent_choice_idx = None
             sent_choice_prob = None
             value = None
-            sc_diffs = None  # Optional to fill in each turns, resets every turn
+
             if method == 'r':  # Random selection
                 sent_choice_idx = (torch.rand_like(num_sents.float()) * (num_sents.float() - num_first_sents_excluded)).trunc().long().unsqueeze(1) + num_first_sents_excluded
                 sent_choice_prob = torch.ones(bsz) / (num_sents.float() - num_first_sents_excluded)
