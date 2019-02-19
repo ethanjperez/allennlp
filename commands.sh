@@ -5,6 +5,43 @@
 # NB: Span-based debates: Do NOT use span_end_encoder in debater config (only SQUAD judge config)
 
 ### RACE
+# B Pretrained
+allennlp train training_config/race.best.debate.lr=5e-6.jsonnet -s tmp/race.b.init=a.rl.m=prob.bsz=32.lr=5e-6.c=concat -j tmp/race.best.f/model.tar.gz -b 1 -d b -m prob -a 32 -c concat -r
+allennlp train training_config/race.best.debate.lr=5e-6.jsonnet -s tmp/race.l.init=a.rl.m=prob.bsz=32.lr=5e-6.c=concat -j tmp/race.best.f/model.tar.gz -b 1 -d l -m prob -a 32 -c concat -r
+
+tb race.b.init=a.rl.m=prob.bsz=32.lr=5e-6.c=concat,race.l.init=a.rl.m=prob.bsz=32.lr=5e-6.c=concat:race.l.init=a.rl.m=prob.bsz=32.lr=5e-6.c=concat --port 6090
+
+# A/B Influence (Vary LR)
+allennlp train training_config/race.best.debate.lr=2e-6.jsonnet -s tmp/race.b.i.bsz=32.lr=2e-6.m=prob.c=concat -j tmp/race.best.f/model.tar.gz -b 1 -d b -m prob -a 32 -c concat -i -f
+allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.b.i.bsz=32.lr=1e-5.m=prob.c=concat -j tmp/race.best.f/model.tar.gz -b 1 -d b -m prob -a 32 -c concat -i -f
+allennlp train training_config/race.best.debate.lr=2e-5.jsonnet -s tmp/race.b.i.bsz=32.lr=2e-5.m=prob.c=concat -j tmp/race.best.f/model.tar.gz -b 1 -d b -m prob -a 32 -c concat -i -f
+
+tb race.b.i.bsz=32.lr=2e-6.m=prob.c=concat:race.b.i.bsz=32.lr=2e-6.m=prob.c=concat,race.b.i.bsz=32.lr=1e-5.m=prob.c=concat:race.b.i.bsz=32.lr=1e-5.m=prob.c=concat,race.b.i.bsz=32.lr=2e-5.m=prob.c=concat:race.b.i.bsz=32.lr=2e-5.m=prob.c=concat --port 6091
+
+allennlp train training_config/race.best.debate.lr=2e-6.jsonnet -s tmp/race.a.i.bsz=32.lr=2e-6.m=prob.c=concat -j tmp/race.best.f/model.tar.gz -b 1 -d a -m prob -a 32 -c concat -i -f
+allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.a.i.bsz=32.lr=1e-5.m=prob.c=concat -j tmp/race.best.f/model.tar.gz -b 1 -d a -m prob -a 32 -c concat -i -f
+allennlp train training_config/race.best.debate.lr=2e-5.jsonnet -s tmp/race.a.i.bsz=32.lr=2e-5.m=prob.c=concat -j tmp/race.best.f/model.tar.gz -b 1 -d a -m prob -a 32 -c concat -i -f
+
+tb race.a.i.bsz=32.lr=2e-6.m=prob.c=concat:race.a.i.bsz=32.lr=2e-6.m=prob.c=concat,race.a.i.bsz=32.lr=1e-5.m=prob.c=concat:race.a.i.bsz=32.lr=1e-5.m=prob.c=concat,race.a.i.bsz=32.lr=2e-5.m=prob.c=concat:race.a.i.bsz=32.lr=2e-5.m=prob.c=concat --port 6092
+
+# A/B+Theory-of-Mind
+allennlp train training_config/race.best.debate.lr=5e-6.jsonnet -s tmp/race.b.m=prob.bsz=32.lr=5e-6.c=concat.t -j tmp/race.best.f/model.tar.gz -b 1 -d b -m prob -a 32 -c concat -t -f
+allennlp train training_config/race.best.debate.lr=5e-6.jsonnet -s tmp/race.b.m=prob.bsz=64.lr=5e-6.c=concat.t -j tmp/race.best.f/model.tar.gz -b 1 -d b -m prob -a 64 -c concat -t -f
+
+tb race.b.m=prob.bsz=32.lr=5e-6.c=concat.t:race.b.m=prob.bsz=32.lr=5e-6.c=concat.t,race.b.m=prob.bsz=64.lr=5e-6.c=concat.t:race.b.m=prob.bsz=64.lr=5e-6.c=concat.t --port 6093
+
+allennlp train training_config/race.best.debate.lr=5e-6.jsonnet -s tmp/race.a.m=prob.bsz=32.lr=5e-6.c=concat.t -j tmp/race.best.f/model.tar.gz -b 1 -d a -m prob -a 32 -c concat -t -f
+allennlp train training_config/race.best.debate.lr=5e-6.jsonnet -s tmp/race.a.m=prob.bsz=64.lr=5e-6.c=concat.t -j tmp/race.best.f/model.tar.gz -b 1 -d a -m prob -a 64 -c concat -t -f
+
+tb race.a.m=prob.bsz=32.lr=5e-6.c=concat.t:race.a.m=prob.bsz=32.lr=5e-6.c=concat.t,race.a.m=prob.bsz=64.lr=5e-6.c=concat.t:race.a.m=prob.bsz=64.lr=5e-6.c=concat.t --port 6094
+
+# L+QA_loss+Theory-of-Mind
+allennlp train training_config/race.best.debate.lr=5e-6.jsonnet -s tmp/race.l.t.q=2.bsz=32.lr=5e-6.m=prob.c=concat -j tmp/race.best.f/model.tar.gz -b 1 -d l -m prob -a 32 -c concat -q 2 -t -f
+allennlp train training_config/race.best.debate.lr=5e-6.jsonnet -s tmp/race.l.t.q=1.bsz=32.lr=5e-6.m=prob.c=concat -j tmp/race.best.f/model.tar.gz -b 1 -d l -m prob -a 32 -c concat -q 1 -t -f
+allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.l.t.q=2.bsz=32.lr=1e-5.m=prob.c=concat -j tmp/race.best.f/model.tar.gz -b 1 -d l -m prob -a 32 -c concat -q 2 -t -f
+
+tb race.l.t.q=2.bsz=32.lr=5e-6.m=prob.c=concat:race.l.t.q=2.bsz=32.lr=5e-6.m=prob.c=concat,race.l.t.q=1.bsz=32.lr=5e-6.m=prob.c=concat:race.l.t.q=1.bsz=32.lr=5e-6.m=prob.c=concat,race.l.t.q=2.bsz=32.lr=1e-5.m=prob.c=concat:race.l.t.q=2.bsz=32.lr=1e-5.m=prob.c=concat --port 6095
+
 # L+Influence
 allennlp train training_config/race.best.debate.lr=5e-6.jsonnet -s tmp/race.l.m=prob.bsz=32.lr=5e-6.c=concat.i -j tmp/race.best.f/model.tar.gz -b 1 -d l -m prob -a 32 -c concat -i -f
 allennlp train training_config/race.best.debate.lr=2e-6.jsonnet -s tmp/race.l.m=prob.bsz=32.lr=2e-6.c=concat.i -j tmp/race.best.f/model.tar.gz -b 1 -d l -m prob -a 32 -c concat -i -f
@@ -60,7 +97,7 @@ allennlp train training_config/race.best.debate.lr=5e-6.jsonnet -s tmp/race.l.m=
 
 tb race.l.m=prob.bsz=32.lr=5e-6.c=concat.q=1e-2:race.l.m=prob.bsz=32.lr=5e-6.c=concat.q=1e-2,race.l.m=prob.bsz=32.lr=5e-6.c=concat.q=1e-1:race.l.m=prob.bsz=32.lr=5e-6.c=concat.q=1e-1,race.l.m=prob.bsz=32.lr=5e-6.c=concat.q=1:race.l.m=prob.bsz=32.lr=5e-6.c=concat.q=1,race.l.m=prob.bsz=32.lr=5e-6.c=concat.q=2:race.l.m=prob.bsz=32.lr=5e-6.c=concat.q=2,race.l.m=prob.bsz=32.lr=1e-5.c=concat.q=1e-2:race.l.m=prob.bsz=32.lr=1e-5.c=concat.q=1e-2,race.l.m=prob.bsz=32.lr=1e-5.c=concat.q=1e-1:race.l.m=prob.bsz=32.lr=1e-5.c=concat.q=1e-1,race.l.m=prob.bsz=32.lr=1e-5.c=concat.q=1:race.l.m=prob.bsz=32.lr=1e-5.c=concat.q=1,race.l.m=prob.bsz=64.lr=5e-6.c=concat.q=1e-1:race.l.m=prob.bsz=64.lr=5e-6.c=concat.q=1e-1,race.l.m=prob.bsz=64.lr=5e-6.c=concat.q=1:race.l.m=prob.bsz=64.lr=5e-6.c=concat.q=1,race.l.m=prob.bsz=64.lr=5e-6.c=concat.q=2:race.l.m=prob.bsz=64.lr=5e-6.c=concat.q=2 --port 6050
 
-# SL+QA Loss Concat
+# SL+QA Loss Concat (Broken: A/B given answer as input)
 allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.a.m=sl.bsz=32.lr=1e-5.c=concat.q=1 -j tmp/race.best.f/model.tar.gz -b 1 -d a -m sl -p tmp/race.best.f/oracle_outputs.c=concat.all.pkl -a 32 -c concat -q 1 -f
 allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.b.m=sl.bsz=32.lr=1e-5.c=concat.q=1 -j tmp/race.best.f/model.tar.gz -b 1 -d b -m sl -p tmp/race.best.f/oracle_outputs.c=concat.all.pkl -a 32 -c concat -q 1 -f
 
@@ -90,13 +127,13 @@ allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.b.m=
 allennlp train training_config/race.best.debate.lr=5e-6.jsonnet -s tmp/race.b.m=sl-sents-delta.bsz=32.lr=5e-6.c=concat -j tmp/race.best.f/model.tar.gz -b 1 -d b -m sl-sents-delta -p tmp/race.best.f/oracle_outputs.c=concat.all.pkl -a 32 -c concat -f
 
 # RL Concat
-allennlp train training_config/race.best.debate.lr=5e-6.jsonnet -s tmp/race.a.m=prob.bsz=32.lr=5e-6.c=concat -j tmp/race.best.f/model.tar.gz -b 1 -d a -m prob -a 32 -c concat -f
+allennlp train training_config/race.best.debate.lr=5e-6.jsonnet -s tmp/race.a.m=prob.bsz=32.lr=5e-6.c=concat -j tmp/race.best.f/model.tar.gz -b 1 -d a -m prob -a 32 -c concat # Best A RL
 allennlp train training_config/race.best.debate.lr=2e-6.jsonnet -s tmp/race.a.m=prob.bsz=32.lr=2e-6.c=concat -j tmp/race.best.f/model.tar.gz -b 1 -d a -m prob -a 32 -c concat -f
 allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.a.m=prob.bsz=64.lr=1e-5.c=concat -j tmp/race.best.f/model.tar.gz -b 1 -d a -m prob -a 64 -c concat -f
 allennlp train training_config/race.best.debate.lr=5e-6.jsonnet -s tmp/race.a.m=prob.bsz=64.lr=5e-6.c=concat -j tmp/race.best.f/model.tar.gz -b 1 -d a -m prob -a 64 -c concat -f
-allennlp train training_config/race.best.debate.lr=5e-6.jsonnet -s tmp/race.a.m=prob.bsz=128.lr=5e-6.c=concat -j tmp/race.best.f/model.tar.gz -b 1 -d a -m prob -a 128 -c concat -f #p
-allennlp train training_config/race.best.debate.lr=5e-6.jsonnet -s tmp/race.a.m=prob.bsz=256.lr=5e-6.c=concat -j tmp/race.best.f/model.tar.gz -b 1 -d a -m prob -a 256 -c concat -f #p
-allennlp train training_config/race.best.debate.lr=5e-6.jsonnet -s tmp/race.a.m=prob.bsz=512.lr=5e-6.c=concat -j tmp/race.best.f/model.tar.gz -b 1 -d a -m prob -a 512 -c concat -f #p
+allennlp train training_config/race.best.debate.lr=5e-6.jsonnet -s tmp/race.a.m=prob.bsz=128.lr=5e-6.c=concat -j tmp/race.best.f/model.tar.gz -b 1 -d a -m prob -a 128 -c concat -f
+allennlp train training_config/race.best.debate.lr=5e-6.jsonnet -s tmp/race.a.m=prob.bsz=256.lr=5e-6.c=concat -j tmp/race.best.f/model.tar.gz -b 1 -d a -m prob -a 256 -c concat -f
+allennlp train training_config/race.best.debate.lr=5e-6.jsonnet -s tmp/race.a.m=prob.bsz=512.lr=5e-6.c=concat -j tmp/race.best.f/model.tar.gz -b 1 -d a -m prob -a 512 -c concat -f
 
 allennlp train training_config/race.best.debate.lr=5e-6.jsonnet -s tmp/race.b.m=prob.bsz=32.lr=5e-6.c=concat -j tmp/race.best.f/model.tar.gz -b 1 -d b -m prob -a 32 -c concat -f
 allennlp train training_config/race.best.debate.lr=2e-6.jsonnet -s tmp/race.b.m=prob.bsz=32.lr=2e-6.c=concat -j tmp/race.best.f/model.tar.gz -b 1 -d b -m prob -a 32 -c concat -f
@@ -473,9 +510,9 @@ srun --pty --mem=20000 -t 6-23:58 --gres=gpu:p40 bash
 srun --pty --mem=20000 -t 6-23:58 --gres=gpu:k80 bash
 
 # SBATCH: NB: Cut memory usage based on plots
-export COMMAND="allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.l.m=prob.bsz=32.lr=1e-5.c=concat.q=5e-1.i -j tmp/race.best.f/model.tar.gz -b 1 -d l -m prob -a 32 -c concat -q .5 -i -f"
+export COMMAND="allennlp train training_config/race.best.debate.lr=5e-6.jsonnet -s tmp/race.l.init=a.rl.m=prob.bsz=32.lr=5e-6.c=concat -j tmp/race.best.f/model.tar.gz -b 1 -d l -m prob -a 32 -c concat -r"
 export COMMAND_ARRAY=($COMMAND)
 export SERIALIZATION_DIR="${COMMAND_ARRAY[4]}"
 if test -e $SERIALIZATION_DIR; then echo -e "\n${PURPLE}NOTICE: Directory already exists.\n"; else mkdir -p $SERIALIZATION_DIR; fi
-sbatch --job-name $SERIALIZATION_DIR --mem=20000 -t 1-23:58 --gres=gpu:1080ti:1 --open-mode append --requeue --wrap "$COMMAND"
+sbatch --job-name $SERIALIZATION_DIR --mem=20000 -t 1-23:58 --gres=gpu:titanxp --open-mode append --requeue --wrap "$COMMAND"
 echo -e "\n${CYAN}${SERIALIZATION_DIR}/train.log\n"

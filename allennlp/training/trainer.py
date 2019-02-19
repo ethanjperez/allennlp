@@ -806,7 +806,7 @@ class Trainer(TrainerBase):
             answer_sent_chosen = (sent_choice_idx == sent_answer_idx).float()
             self._update_trainer_metrics('answer_sent_chosen' + cur_turn_str, answer_sent_chosen.mean())
 
-        self._update_trainer_metrics('time' + cur_turn_str, torch.Tensor([choice_start_time - time.time()]))
+        self._update_trainer_metrics('time' + cur_turn_str, torch.Tensor([time.time() - choice_start_time]))
         return sent_choice_idx, sent_choice_prob, value, loss, stance, sc_diffs, all_values
 
     def _judge_text_masks(self, batch: TensorDict) -> Tuple[TensorDict, TensorDict]:
@@ -979,7 +979,7 @@ class Trainer(TrainerBase):
                     no_rounds_batch['valid_output_mask'] = judge_mask['output']
                 choice_start_time = time.time()
                 prev_round_j_output_dict = self._forward([no_rounds_batch], judge)
-                self._update_trainer_metrics('time_j_baseline', torch.Tensor([choice_start_time - time.time()]))
+                self._update_trainer_metrics('time_j_baseline', torch.Tensor([time.time() - choice_start_time]))
                 # NOTE: Optional: Add prev_round_j_output_dict['loss'] to loss if updating judge
                 if self._span_model:
                     no_rounds_batch['valid_output_mask'] = None
@@ -1006,7 +1006,7 @@ class Trainer(TrainerBase):
                 batch['valid_output_mask'] = judge_mask['output']  # TODO: Verify value
             choice_start_time = time.time()
             j_output_dict = self._forward([batch], judge)
-            self._update_trainer_metrics('time_j', torch.Tensor([choice_start_time - time.time()]))
+            self._update_trainer_metrics('time_j', torch.Tensor([time.time() - choice_start_time]))
             if self._span_model:
                 batch['valid_output_mask'] = None
 
@@ -1049,6 +1049,8 @@ class Trainer(TrainerBase):
                             stance_was_correct = stances[turn_no].to(loss_device).gather(1, batch['answer_index'].to(loss_device)).squeeze(1).float().tolist()
                             correctness_str = {0: '_incorrect_stance', 1: '_correct_stance'}
                             for i in range(bsz):
+                                if 'em' in j_output_dict:
+                                    self._update_trainer_metrics('em' + turn_str[turn_no] + correctness_str[stance_was_correct[i]], j_output_dict['em'][i])
                                 self._update_trainer_metrics('policy_loss' + turn_str[turn_no] + correctness_str[stance_was_correct[i]], policy_losses[i])
                                 self._update_trainer_metrics('baseline' + turn_str[turn_no] + correctness_str[stance_was_correct[i]], baselines[i])
                                 self._update_trainer_metrics('value_loss' + turn_str[turn_no] + correctness_str[stance_was_correct[i]], value_losses[i])  # Upper bound ~= .125
