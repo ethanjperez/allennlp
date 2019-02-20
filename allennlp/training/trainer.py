@@ -1049,6 +1049,7 @@ class Trainer(TrainerBase):
                         self._update_trainer_metrics('reward' + turn_str[turn_no], rewards.mean())
                         self._update_trainer_metrics('reward_variance' + turn_str[turn_no], (rewards ** 2).mean())
                         self._update_trainer_metrics('advantage_variance' + turn_str[turn_no], ((rewards - baselines) ** 2).mean())
+                        self._update_trainer_metrics('baseline_variance' + turn_str[turn_no], (baselines ** 2).mean())
                         self._update_trainer_metrics('sent_choice_prob' + turn_str[turn_no], sent_choice_probs[turn_no].mean())
                         if method in {'l', 'w'}:  # Log statistics based on if l-agent was given correct answer or not
                             stance_was_correct = stances[turn_no].to(loss_device).gather(1, batch['answer_index'].to(loss_device)).squeeze(1).float().tolist()

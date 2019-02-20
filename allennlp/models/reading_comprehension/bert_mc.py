@@ -186,7 +186,7 @@ class BertMC(Model):
                 "policy_probs": policy_probs,
                 "value": value if (not self.is_judge) and (not self.reward_method.startswith('sl')) else None,
                 "f1": None,
-                "em": best_answer_index == answer_index.squeeze(-1) if best_answer_index is not None else None,
+                "em": (best_answer_index == answer_index.squeeze(-1)).float() if best_answer_index is not None else None,
                 "prob": option_probs.gather(1, answer_index).squeeze(1) if self.is_judge else None,  # prob(true ans)
                 "prob_dist": option_probs if self.is_judge else policy_probs,
                 }
