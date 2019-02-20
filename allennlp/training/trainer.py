@@ -1017,7 +1017,9 @@ class Trainer(TrainerBase):
                 self._print_debate(batch, sent_idxs, j_output_dict, sent_choice_idxs, num_sents, debate_mode, sc_diffs)
 
             # Debate losses
-            if debater is not None:
+            if debater is None:
+                return j_output_dict
+            else:
                 self._add_debate_metrics(j_output_dict, sent_idxs, sent_choice_idxs, turn_str)
                 loss_device = sent_choice_probs[0].device  # NB: Correct? Should this be CPU or GPU?
                 # Initialize loss (including J's supervised loss if necessary)
@@ -1061,7 +1063,7 @@ class Trainer(TrainerBase):
                                 if debater.influence_reward:
                                     self._update_trainer_metrics('raw_reward' + turn_str[turn_no] + correctness_str[stance_was_correct[i]], raw_rewards[i])
 
-            return output_dict  # NB: Can just instead return output_dict['loss']. For multi-turn, maintain loss across rounds.
+                return output_dict  # NB: Can just instead return output_dict['loss']. For multi-turn, maintain loss across rounds.
 
     def batch_loss(self, batch_group: List[TensorDict], for_training: bool, debate_mode: List[str] = None) -> torch.Tensor:
         """

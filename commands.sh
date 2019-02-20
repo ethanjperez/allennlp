@@ -5,6 +5,10 @@
 # NB: Span-based debates: Do NOT use span_end_encoder in debater config (only SQUAD judge config)
 
 ### RACE
+# RL A Eval with Wrong Answer Conditioning
+allennlp train training_config/race.best.debate.lr=5e-6.jsonnet -s tmp/race.a.rl.e -j tmp/race.best.f/model.tar.gz -b 1 -d w -m prob -a 32 -c concat -r -e
+allennlp train training_config/race.best.debate.lr=5e-6.jsonnet -s tmp/race.a.rl.e -j tmp/race.best.f/model.tar.gz -b 1 -d l -m prob -a 32 -c concat -r -e
+
 # Multi-turn
 allennlp train training_config/race.best.debate.lr=5e-6.jsonnet -s tmp/race.bb.m=prob.bsz=32.lr=5e-6.c=concat -j tmp/race.best.f/model.tar.gz -b 1 -d bb -m prob -a 32 -c concat
 allennlp train training_config/race.best.debate.lr=5e-6.jsonnet -s tmp/race.bb.m=prob.bsz=64.lr=5e-6.c=concat -j tmp/race.best.f/model.tar.gz -b 1 -d bb -m prob -a 64 -c concat
