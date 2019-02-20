@@ -6,8 +6,10 @@
 
 ### RACE
 # RL A Eval with Wrong Answer Conditioning
-allennlp train training_config/race.best.debate.lr=5e-6.jsonnet -s tmp/race.a.rl.e -j tmp/race.best.f/model.tar.gz -b 1 -d w -m prob -a 32 -c concat -r -e -o "{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train'}"
+allennlp train training_config/race.best.debate.lr=5e-6.jsonnet -s tmp/race.a.rl.e -j tmp/race.best.f/model.tar.gz -b 1 -d a -m prob -a 32 -c concat -r -e -o "{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/dev'}"
 allennlp train training_config/race.best.debate.lr=5e-6.jsonnet -s tmp/race.a.rl.e -j tmp/race.best.f/model.tar.gz -b 1 -d l -m prob -a 32 -c concat -r -e -o "{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train'}"
+
+allennlp train training_config/race.best.debate.lr=5e-6.jsonnet -s tmp/race.a.m=prob.bsz=32.lr=5e-6.c=concat -j tmp/race.best.f/model.tar.gz -b 1 -d a -m prob -a 32 -c concat
 
 # Multi-turn
 allennlp train training_config/race.best.debate.lr=5e-6.jsonnet -s tmp/race.bb.m=prob.bsz=32.lr=5e-6.c=concat -j tmp/race.best.f/model.tar.gz -b 1 -d bb -m prob -a 32 -c concat
@@ -287,13 +289,17 @@ allennlp train training_config/bert.race.lr=1e-5.jsonnet -s tmp/race.bert.bsz=64
 
 ## Oracle eval of best method
 # Concat Oracle (Dev set only)
-allennlp train training_config/race.best.jsonnet -s tmp/race.best.f -e -r -d ABAB -c concat -p tmp/race.best.f/oracle_outputs.c=concat.dev.ABAB.pkl -o "{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/dev'}" 2>&1 | tee tmp/race.best.f/d=ABAB.c=concat.dev.txt
-allennlp train training_config/race.best.jsonnet -s tmp/race.best.f -e -r -d BABA -c concat -p tmp/race.best.f/oracle_outputs.c=concat.dev.BABA.pkl -o "{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/dev'}" 2>&1 | tee tmp/race.best.f/d=BABA.c=concat.dev.txt
+allennlp train training_config/race.best.jsonnet -s tmp/race.best.f -e -r -d ABAB -c concat -p tmp/race.best.f/oracle_outputs.c=concat.dev.ABAB.2.pkl -o "{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/dev'}" 2>&1 | tee tmp/race.best.f/d=ABAB.c=concat.dev.2.txt #p
+allennlp train training_config/race.best.jsonnet -s tmp/race.best.f -e -r -d BABA -c concat -p tmp/race.best.f/oracle_outputs.c=concat.dev.BABA.2.pkl -o "{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/dev'}" 2>&1 | tee tmp/race.best.f/d=BABA.c=concat.dev.2.txt #p
 
-allennlp train training_config/race.best.jsonnet -s tmp/race.best.f -e -r -d ABA -c concat -p tmp/race.best.f/oracle_outputs.c=concat.dev.ABA.pkl -o "{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/dev'}" 2>&1 | tee tmp/race.best.f/d=ABA.c=concat.dev.txt
-allennlp train training_config/race.best.jsonnet -s tmp/race.best.f -e -r -d ABB -c concat -p tmp/race.best.f/oracle_outputs.c=concat.dev.ABB.pkl -o "{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/dev'}" 2>&1 | tee tmp/race.best.f/d=ABB.c=concat.dev.txt
-allennlp train training_config/race.best.jsonnet -s tmp/race.best.f -e -r -d BAA -c concat -p tmp/race.best.f/oracle_outputs.c=concat.dev.BAA.pkl -o "{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/dev'}" 2>&1 | tee tmp/race.best.f/d=BAA.c=concat.dev.txt
-allennlp train training_config/race.best.jsonnet -s tmp/race.best.f -e -r -d BAB -c concat -p tmp/race.best.f/oracle_outputs.c=concat.dev.BAB.pkl -o "{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/dev'}" 2>&1 | tee tmp/race.best.f/d=BAB.c=concat.dev.txt
+allennlp train training_config/race.best.jsonnet -s tmp/race.best.f -e -r -d AAA -c concat -p tmp/race.best.f/oracle_outputs.c=concat.dev.AAA.2.pkl -o "{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/dev'}" 2>&1 | tee tmp/race.best.f/d=AAA.c=concat.dev.2.txt #p
+allennlp train training_config/race.best.jsonnet -s tmp/race.best.f -e -r -d AAB -c concat -p tmp/race.best.f/oracle_outputs.c=concat.dev.AAB.2.pkl -o "{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/dev'}" 2>&1 | tee tmp/race.best.f/d=AAB.c=concat.dev.2.txt #p
+allennlp train training_config/race.best.jsonnet -s tmp/race.best.f -e -r -d ABA -c concat -p tmp/race.best.f/oracle_outputs.c=concat.dev.ABA.2.pkl -o "{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/dev'}" 2>&1 | tee tmp/race.best.f/d=ABA.c=concat.dev.2.txt
+allennlp train training_config/race.best.jsonnet -s tmp/race.best.f -e -r -d ABB -c concat -p tmp/race.best.f/oracle_outputs.c=concat.dev.ABB.2.pkl -o "{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/dev'}" 2>&1 | tee tmp/race.best.f/d=ABB.c=concat.dev.2.txt #p
+allennlp train training_config/race.best.jsonnet -s tmp/race.best.f -e -r -d BAA -c concat -p tmp/race.best.f/oracle_outputs.c=concat.dev.BAA.2.pkl -o "{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/dev'}" 2>&1 | tee tmp/race.best.f/d=BAA.c=concat.dev.2.txt #p
+allennlp train training_config/race.best.jsonnet -s tmp/race.best.f -e -r -d BAB -c concat -p tmp/race.best.f/oracle_outputs.c=concat.dev.BAB.2.pkl -o "{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/dev'}" 2>&1 | tee tmp/race.best.f/d=BAB.c=concat.dev.2.txt
+allennlp train training_config/race.best.jsonnet -s tmp/race.best.f -e -r -d BBA -c concat -p tmp/race.best.f/oracle_outputs.c=concat.dev.BBA.2.pkl -o "{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/dev'}" 2>&1 | tee tmp/race.best.f/d=BBA.c=concat.dev.2.txt #p
+allennlp train training_config/race.best.jsonnet -s tmp/race.best.f -e -r -d BBB -c concat -p tmp/race.best.f/oracle_outputs.c=concat.dev.BBB.2.pkl -o "{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/dev'}" 2>&1 | tee tmp/race.best.f/d=BBB.c=concat.dev.2.txt #p
 
 allennlp train training_config/race.best.jsonnet -s tmp/race.best.f -e -r -d A -p tmp/race.best.f/oracle_outputs.dev.d=A.pkl -c concat -o "{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/dev'}" 2>&1 | tee tmp/race.best.f/eval-A-concat.txt
 allennlp train training_config/race.best.jsonnet -s tmp/race.best.f -e -r -d B -p tmp/race.best.f/oracle_outputs.dev.d=B.pkl -c concat -o "{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/dev'}" 2>&1 | tee tmp/race.best.f/eval-B-concat.txt

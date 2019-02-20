@@ -1050,12 +1050,13 @@ class Trainer(TrainerBase):
                         value_losses = 0.5 * ((baselines - rewards) ** 2)
                         output_dict['loss'] += value_losses.mean()
                         self._update_trainer_metrics('policy_loss' + turn_str[turn_no], policy_losses.mean())
-                        self._update_trainer_metrics('baseline' + turn_str[turn_no], baselines.mean())
                         self._update_trainer_metrics('value_loss' + turn_str[turn_no], value_losses.mean())  # Upper bound ~= .125
+                        self._update_trainer_metrics('baseline' + turn_str[turn_no], baselines.mean())
+                        self._update_trainer_metrics('baseline_std' + turn_str[turn_no], (baselines - self._trainer_metrics['baseline' + turn_str[turn_no]].get_metric()).abs().mean())
                         self._update_trainer_metrics('reward' + turn_str[turn_no], rewards.mean())
-                        self._update_trainer_metrics('reward_std' + turn_str[turn_no], rewards.std())
-                        self._update_trainer_metrics('advantage_std' + turn_str[turn_no], (rewards - baselines).std())
-                        self._update_trainer_metrics('baseline_std' + turn_str[turn_no], baselines.std())
+                        self._update_trainer_metrics('reward_std' + turn_str[turn_no], (rewards - self._trainer_metrics['reward' + turn_str[turn_no]].get_metric()).abs().mean())
+                        self._update_trainer_metrics('advantage' + turn_str[turn_no], (rewards - baselines).mean())
+                        self._update_trainer_metrics('advantage_abs' + turn_str[turn_no], (rewards - baselines).abs().mean())
                         self._update_trainer_metrics('sent_choice_prob' + turn_str[turn_no], sent_choice_probs[turn_no].mean())
                         if method in {'l', 'w'}:  # Log statistics based on if l-agent was given correct answer or not
                             stance_was_correct = stances[turn_no].to(loss_device).gather(1, batch['answer_index'].to(loss_device)).squeeze(1).float().tolist()
