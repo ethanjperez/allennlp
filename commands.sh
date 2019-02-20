@@ -5,6 +5,15 @@
 # NB: Span-based debates: Do NOT use span_end_encoder in debater config (only SQUAD judge config)
 
 ### RACE
+# Multi-turn
+allennlp train training_config/race.best.debate.lr=5e-6.jsonnet -s tmp/race.bb.m=prob.bsz=32.lr=5e-6.c=concat -j tmp/race.best.f/model.tar.gz -b 1 -d bb -m prob -a 32 -c concat
+allennlp train training_config/race.best.debate.lr=5e-6.jsonnet -s tmp/race.bb.m=prob.bsz=64.lr=5e-6.c=concat -j tmp/race.best.f/model.tar.gz -b 1 -d bb -m prob -a 64 -c concat
+allennlp train training_config/race.best.debate.lr=2e-6.jsonnet -s tmp/race.bb.m=prob.bsz=32.lr=2e-6.c=concat -j tmp/race.best.f/model.tar.gz -b 1 -d bb -m prob -a 32 -c concat
+
+allennlp train training_config/race.best.debate.lr=5e-6.jsonnet -s tmp/race.aa.m=prob.bsz=32.lr=5e-6.c=concat -j tmp/race.best.f/model.tar.gz -b 1 -d aa -m prob -a 32 -c concat
+allennlp train training_config/race.best.debate.lr=5e-6.jsonnet -s tmp/race.aa.m=prob.bsz=64.lr=5e-6.c=concat -j tmp/race.best.f/model.tar.gz -b 1 -d aa -m prob -a 64 -c concat
+allennlp train training_config/race.best.debate.lr=2e-6.jsonnet -s tmp/race.aa.m=prob.bsz=32.lr=2e-6.c=concat -j tmp/race.best.f/model.tar.gz -b 1 -d aa -m prob -a 32 -c concat
+
 # B Pretrained
 allennlp train training_config/race.best.debate.lr=5e-6.jsonnet -s tmp/race.b.init=a.rl.m=prob.bsz=32.lr=5e-6.c=concat -j tmp/race.best.f/model.tar.gz -b 1 -d b -m prob -a 32 -c concat -r
 allennlp train training_config/race.best.debate.lr=5e-6.jsonnet -s tmp/race.l.init=a.rl.m=prob.bsz=32.lr=5e-6.c=concat -j tmp/race.best.f/model.tar.gz -b 1 -d l -m prob -a 32 -c concat -r
@@ -295,6 +304,11 @@ allennlp train training_config/race.best.jsonnet -s tmp/race.best.f -e -r -d B -
 allennlp train training_config/race.best.jsonnet -s tmp/race.best.f -e -r -d B -c concat -p tmp/race.best.f/oracle_outputs.c=concat.dev.pkl -o "{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/dev'}" 2>&1 | tee tmp/race.best.f/d=B.c=concat.dev.txt
 allennlp train training_config/race.best.jsonnet -s tmp/race.best.f -e -r -d B -c concat -p tmp/race.best.f/oracle_outputs.c=concat.test.pkl -o "{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/test'}" 2>&1 | tee tmp/race.best.f/d=B.c=concat.test.txt
 
+allennlp train training_config/race.best.jsonnet -s tmp/race.best.f -e -r -d ABA -c concat -p tmp/race.best.f/oracle_outputs.c=concat.dev.ABA.pkl -o "{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/dev'}" 2>&1 | tee tmp/race.best.f/d=ABA.c=concat.dev.txt
+allennlp train training_config/race.best.jsonnet -s tmp/race.best.f -e -r -d ABB -c concat -p tmp/race.best.f/oracle_outputs.c=concat.dev.ABB.pkl -o "{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/dev'}" 2>&1 | tee tmp/race.best.f/d=ABA.c=concat.dev.txt
+allennlp train training_config/race.best.jsonnet -s tmp/race.best.f -e -r -d BAA -c concat -p tmp/race.best.f/oracle_outputs.c=concat.dev.BAA.pkl -o "{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/dev'}" 2>&1 | tee tmp/race.best.f/d=ABA.c=concat.dev.txt
+allennlp train training_config/race.best.jsonnet -s tmp/race.best.f -e -r -d BAB -c concat -p tmp/race.best.f/oracle_outputs.c=concat.dev.BAB.pkl -o "{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/dev'}" 2>&1 | tee tmp/race.best.f/d=ABA.c=concat.dev.txt
+
 0.03577571379428965
 0.03460285361195371
 0.0341372480484679
@@ -510,9 +524,9 @@ srun --pty --mem=20000 -t 6-23:58 --gres=gpu:p40 bash
 srun --pty --mem=20000 -t 6-23:58 --gres=gpu:k80 bash
 
 # SBATCH: NB: Cut memory usage based on plots
-export COMMAND="allennlp train training_config/race.best.debate.lr=5e-6.jsonnet -s tmp/race.l.init=a.rl.m=prob.bsz=32.lr=5e-6.c=concat -j tmp/race.best.f/model.tar.gz -b 1 -d l -m prob -a 32 -c concat -r"
+export COMMAND="allennlp train training_config/race.best.debate.lr=2e-6.jsonnet -s tmp/race.aa.m=prob.bsz=32.lr=2e-6.c=concat -j tmp/race.best.f/model.tar.gz -b 1 -d aa -m prob -a 32 -c concat"
 export COMMAND_ARRAY=($COMMAND)
 export SERIALIZATION_DIR="${COMMAND_ARRAY[4]}"
 if test -e $SERIALIZATION_DIR; then echo -e "\n${PURPLE}NOTICE: Directory already exists.\n"; else mkdir -p $SERIALIZATION_DIR; fi
-sbatch --job-name $SERIALIZATION_DIR --mem=20000 -t 1-23:58 --gres=gpu:titanxp --open-mode append --requeue --wrap "$COMMAND"
+sbatch --job-name $SERIALIZATION_DIR --mem=20000 -t 1-23:58 --gres=gpu:1080ti:1 --open-mode append --requeue --wrap "$COMMAND"
 echo -e "\n${CYAN}${SERIALIZATION_DIR}/train.log\n"

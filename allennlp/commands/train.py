@@ -362,11 +362,11 @@ def train_model(params: Params,
         The model with the best epoch weights.
     """
     # Get number of debate turns, and assert that not performing judge-only training
-    num_l_turns = sum([('l' in debate_turn) for debate_turn in debate_mode])
-    if (qa_loss_weight > 0) and (num_l_turns == 0):
+    num_no_qa_turns = sum([(('l' in debate_turn) or ('w' in debate_turn)) for debate_turn in debate_mode])
+    if (qa_loss_weight > 0) and (num_no_qa_turns == 0):
         warnings.warn('Unused argument qa_loss_weight in debate mode ' + str(debate_mode) +
                       '. If this was unintentional, please remove the -q flag.', UserWarning)
-    num_trained_debater_turns = sum([(('a' in debate_turn) or ('b' in debate_turn) or ('l' in debate_turn)) for debate_turn in debate_mode])
+    num_trained_debater_turns = sum([(('a' in debate_turn) or ('b' in debate_turn) or ('l' in debate_turn) or ('w' in debate_turn)) for debate_turn in debate_mode])
     if (judge_filename is not None) and (num_trained_debater_turns == 0):
         warnings.warn('Unnecessary to have debaters in debate mode ' + str(debate_mode) +
                       '. If this was unintentional, please remove the -j flag.', UserWarning)

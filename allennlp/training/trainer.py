@@ -710,15 +710,18 @@ class Trainer(TrainerBase):
             sent_choice_prob = torch.ones(bsz)
             value = torch.FloatTensor(value)
             sc_diffs = torch.Tensor(sc_diffs)
-        elif method in {'a', 'b', 'l'}:  # Trained agent selection
+        elif method in {'a', 'b', 'l', 'w'}:  # Trained agent selection
             assert debater is not None, 'Cannot use debate method ' + method + ' without debate agents!'
 
             # Add some debater-specific batch info.
             if method in {'a', 'b'}:
                 batch['stance'] = torch.tensor([method == 'a'] * bsz).to(batch['passage']['tokens'])
-            elif method == 'l':
+            elif method in {'l', 'w'}:
                 assert self._mc, 'Only Multiple Choice datasets support debate_mode ' + method
                 possible_stances = torch.ones_like(batch['options']['tokens'][:, :, 0])
+                if method == 'w':  # Don't support correct option
+                    for i in range(bsz):
+                        possible_stances[i, batch['answer_index'][i]] = 0
                 stance_idx = torch.multinomial(possible_stances.float(), 1)
                 stance = torch.zeros_like(batch['options']['tokens'][:, :, 0])  # stance later returned for loss func
                 for i in range(bsz):
@@ -729,8 +732,8 @@ class Trainer(TrainerBase):
             batch['sent_targets'] = None
 
             if debater.reward_method.startswith('sl'):
-                if method == 'l':
-                    raise NotImplementedError('Supervised learning for agent l not implemented.')
+                if method in {'l', 'w'}:
+                    raise NotImplementedError('Supervised learning for agent ' + method + ' not implemented.')
                 # Get Oracle results
                 oracle_sent_choice_idx, _, _, _, _, oracle_sc_diffs, all_values = self._get_sent_choice_prob_value(
                     batch, sent_idxs, judge_mask, debate_choice_mask, required_text_mask, past_sent_choice_idxs,
@@ -926,7 +929,7 @@ class Trainer(TrainerBase):
             rewards = j_score
         elif debate_method == 'b':
             rewards = (1. - j_score)
-        elif debate_method == 'l':
+        elif debate_method in {'l', 'w'}:
             rewards = (j_output_dict['prob_dist'] * stance.to(j_output_dict['prob_dist'])).sum(dim=1)
         return rewards.detach().to(loss_device)
 
@@ -1026,7 +1029,7 @@ class Trainer(TrainerBase):
                         output_dict['loss'] += loss.to(loss_device)
                 # Add new post-Judge losses, (e.g., from RL)
                 for turn_no, method in enumerate(debate_mode[round_no]):
-                    if (method in {'a', 'b', 'l'}) and (not debater.reward_method.startswith('sl')):
+                    if (method in {'a', 'b', 'l', 'w'}) and (not debater.reward_method.startswith('sl')):
                         rewards = self._get_reward(j_output_dict, stances[turn_no], method, debater.reward_method, loss_device)
                         if debater.influence_reward:
                             raw_rewards = rewards.clone().detach()
@@ -1045,7 +1048,7 @@ class Trainer(TrainerBase):
                         self._update_trainer_metrics('reward_variance' + turn_str[turn_no], (rewards ** 2).mean())
                         self._update_trainer_metrics('advantage_variance' + turn_str[turn_no], ((rewards - baselines) ** 2).mean())
                         self._update_trainer_metrics('sent_choice_prob' + turn_str[turn_no], sent_choice_probs[turn_no].mean())
-                        if method == 'l':  # Log statistics based on if l-agent was given correct answer or not
+                        if method in {'l', 'w'}:  # Log statistics based on if l-agent was given correct answer or not
                             stance_was_correct = stances[turn_no].to(loss_device).gather(1, batch['answer_index'].to(loss_device)).squeeze(1).float().tolist()
                             correctness_str = {0: '_incorrect_stance', 1: '_correct_stance'}
                             for i in range(bsz):
