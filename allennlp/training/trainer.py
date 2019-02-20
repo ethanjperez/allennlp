@@ -423,7 +423,8 @@ class Trainer(TrainerBase):
                     if len(turn_sent_idxs['output']) > 0:
                         sent_str = ' '.join(toks[turn_sent_idxs['output'].min(): turn_sent_idxs['output'].max() + 1])
                     print('\n---', method.upper(), '--- Sentence', int(sent_choice_idxs[turn][i]), '\n', sent_str)
-                j_score_values = {k: None if j_scores[k] is None else j_scores[k].item() for k in {'em', 'f1', 'prob'}}
+
+                j_score_values = {k: None if j_scores[k] is None else j_scores[k][i].item() for k in {'em', 'f1', 'prob'}}
                 print('\n--- J --- EM / F1 / PROB / SC_DIFF\n',
                       j_score_values['em'], '/',
                       j_score_values['f1'], '/',

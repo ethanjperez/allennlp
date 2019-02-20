@@ -6,6 +6,8 @@ These submodules contain readers for things that are predominantly reading compr
 """
 
 from allennlp.data.dataset_readers.reading_comprehension.babi import BabiSingleReader
+from allennlp.data.dataset_readers.reading_comprehension.babi_two import BabiDoubleReader
+from allennlp.data.dataset_readers.reading_comprehension.babi_three import BabiTripleReader
 from allennlp.data.dataset_readers.reading_comprehension.babi_copy import BabiCopyReader
 from allennlp.data.dataset_readers.reading_comprehension.squad import SquadReader
 from allennlp.data.dataset_readers.reading_comprehension.quac import QuACReader
