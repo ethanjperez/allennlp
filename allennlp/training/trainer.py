@@ -590,9 +590,13 @@ class Trainer(TrainerBase):
         Returns the output dict from running all possible decisions on the Judge. Used to get oracle decisions.
         Batches together all possible next outcomes for one sample.
         """
+        turn_no = 0 if past_sent_choice_idxs is None else past_sent_choice_idxs.size(1)
         sample_id = batch['metadata'][sample_no]['id']
         if sample_id in self._oracle_outputs:
-            return self._oracle_outputs[sample_id]
+            if 0 not in self._oracle_outputs[sample_id]:  # Old save format
+                return self._oracle_outputs[sample_id]
+            elif turn_no in self._oracle_outputs[sample_id]:  # New save format
+                return self._oracle_outputs[sample_id][turn_no]
         elif self._oracle_outputs_is_complete:
             logger.warning('Recalculating Oracle despite _oracle_outputs_is_complete = True !')
 
@@ -636,7 +640,9 @@ class Trainer(TrainerBase):
                             oracle_output_dict.pop(k)
         if self._span_model:
             oracle_batch.pop('valid_output_mask')
-        self._oracle_outputs[sample_id] = oracle_output_dict  # Cache for later use and saving to file
+        # Cache for later use and saving to file
+        self._oracle_outputs[sample_id] = self._oracle_outputs.get(sample_id, {})
+        self._oracle_outputs[sample_id][turn_no] = oracle_output_dict
 
         return oracle_output_dict
 
@@ -1047,9 +1053,9 @@ class Trainer(TrainerBase):
                         self._update_trainer_metrics('baseline' + turn_str[turn_no], baselines.mean())
                         self._update_trainer_metrics('value_loss' + turn_str[turn_no], value_losses.mean())  # Upper bound ~= .125
                         self._update_trainer_metrics('reward' + turn_str[turn_no], rewards.mean())
-                        self._update_trainer_metrics('reward_variance' + turn_str[turn_no], (rewards ** 2).mean())
-                        self._update_trainer_metrics('advantage_variance' + turn_str[turn_no], ((rewards - baselines) ** 2).mean())
-                        self._update_trainer_metrics('baseline_variance' + turn_str[turn_no], (baselines ** 2).mean())
+                        self._update_trainer_metrics('reward_std' + turn_str[turn_no], rewards.std())
+                        self._update_trainer_metrics('advantage_std' + turn_str[turn_no], (rewards - baselines).std())
+                        self._update_trainer_metrics('baseline_std' + turn_str[turn_no], baselines.std())
                         self._update_trainer_metrics('sent_choice_prob' + turn_str[turn_no], sent_choice_probs[turn_no].mean())
                         if method in {'l', 'w'}:  # Log statistics based on if l-agent was given correct answer or not
                             stance_was_correct = stances[turn_no].to(loss_device).gather(1, batch['answer_index'].to(loss_device)).squeeze(1).float().tolist()
@@ -1176,7 +1182,10 @@ class Trainer(TrainerBase):
                 raise ValueError("nan loss encountered")
 
             loss = loss / self._accumulation_steps
+            backward_start_time = time.time()
             loss.backward()
+            self._update_trainer_metrics('time_backward', torch.Tensor([time.time() - backward_start_time]))
+
 
             train_loss += loss.item()
 
