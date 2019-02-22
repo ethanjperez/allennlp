@@ -12,5 +12,6 @@ Commands to run bAbI Experiments:
 
 ### ORACLE Experiments
 
-- Single: allennlp train babi_experiments/single_babi.jsonnet -s tmp/babi-single.A -j tmp/babi-single.full -g -e -m ssp -d [A/AA/AAA/B/BB/BBB/AB/BA]
-- Double: allennlp train babi_experiments/double_babi.jsonnet -s tmp/babi-double.A -j tmp/babi-double.full -g -e -m ssp -d [A/AA/AAA/B/BB/BBB/AB/BA]
+- Single: allennlp train babi_experiments/single_babi.jsonnet -s tmp/babi-single.A -j tmp/babi-single.full -g -e -m em -d [A/AA/AAA/B/BB/BBB/AB/BA]
+
+- Double: allennlp train babi_experiments/double_babi.jsonnet -s tmp/babi-double.A -j tmp/babi-double.full -g -e -m em -d [A/AA/AAA/B/BB/BBB/AB/BA]
