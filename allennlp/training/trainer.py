@@ -540,19 +540,20 @@ class Trainer(TrainerBase):
         else:
             return self.model.vocab.get_token_index(token)
 
-    def _get_oracle_output_dict(self, batch: TensorDict, sent_idxs: TensorDict, judge_answer_mask: TensorDict, required_text_mask: TensorDict,
-                                past_sent_choice_idxs: List[torch.Tensor], num_sents: torch.Tensor, sample_no: int) -> TensorDict:
+    def _get_oracle_output_dict(self, batch: TensorDict, sent_idxs: TensorDict, judge_answer_mask: TensorDict,
+                                required_text_mask: TensorDict, past_sent_choice_idxs: List[torch.Tensor],
+                                num_sents: torch.Tensor, sample_no: int, debate_mode: List[str]) -> TensorDict:
         """
         Returns the output dict from running all possible decisions on the Judge. Used to get oracle decisions.
         Batches together all possible next outcomes for one sample.
         """
-        turn_no = 0 if past_sent_choice_idxs is None else past_sent_choice_idxs.size(1)
+        turn_no = 0 if past_sent_choice_idxs is None else past_sent_choice_idxs.size(1)  # TODO: Pass in turn_no directly! Accurate for even # players/round > 1
         sample_id = batch['metadata'][sample_no]['id']
         if sample_id in self._oracle_outputs:
-            if 0 not in self._oracle_outputs[sample_id]:  # Old save format
-                return self._oracle_outputs[sample_id]
-            elif turn_no in self._oracle_outputs[sample_id]:  # New save format
-                return self._oracle_outputs[sample_id][turn_no]
+            # if 0 not in self._oracle_outputs[sample_id]:  # Old save format
+            #     return self._oracle_outputs[sample_id]
+            if ''.join(debate_mode)[:turn_no+1] in self._oracle_outputs[sample_id]:  # New save format
+                return self._oracle_outputs[sample_id][''.join(debate_mode)[:turn_no+1]]
         elif self._oracle_outputs_is_complete:
             logger.warning('Recalculating Oracle despite _oracle_outputs_is_complete = True !')
 
@@ -598,7 +599,7 @@ class Trainer(TrainerBase):
             oracle_batch.pop('valid_output_mask')
         # Cache for later use and saving to file
         self._oracle_outputs[sample_id] = self._oracle_outputs.get(sample_id, {})
-        self._oracle_outputs[sample_id][turn_no] = oracle_output_dict
+        self._oracle_outputs[sample_id][''.join(debate_mode)[:turn_no+1]] = oracle_output_dict
 
         return oracle_output_dict
 
@@ -620,7 +621,7 @@ class Trainer(TrainerBase):
                                     debate_choice_mask: TensorDict, required_text_mask: TensorDict,
                                     past_sent_choice_idxs: List[torch.Tensor],
                                     stance: torch.Tensor, sent_answer_idx: torch.Tensor, num_sents: torch.Tensor,
-                                    cur_turn_str: str, for_training: bool, method: str
+                                    cur_turn_str: str, for_training: bool, method: str, debate_mode: List[str],
                                     )-> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, List[torch.Tensor]]:
         """
         Returns the sentence chosen by a particular policy.
@@ -657,8 +658,8 @@ class Trainer(TrainerBase):
             judge_was_training = judge.training
             judge.eval()
             for sample_no in range(bsz):
-                oracle_output_dict = self._get_oracle_output_dict(
-                    batch, sent_idxs, judge_answer_mask, required_text_mask, past_sent_choice_idxs, num_sents, sample_no)
+                oracle_output_dict = self._get_oracle_output_dict(batch, sent_idxs, judge_answer_mask,
+                    required_text_mask, past_sent_choice_idxs, num_sents, sample_no, debate_mode)
                 oracle_metrics = oracle_output_dict['prob'].tolist()
                 opt_sc = float(oracle_func(oracle_metrics))
                 all_values.append(oracle_metrics)
@@ -687,7 +688,7 @@ class Trainer(TrainerBase):
                 # Get Oracle results
                 oracle_sent_choice_idx, _, _, _, oracle_sc_diffs, all_values = self._get_sent_choice_prob_value(
                     batch, sent_idxs, judge_answer_mask, debate_choice_mask, required_text_mask, past_sent_choice_idxs,
-                    stance, sent_answer_idx, num_sents, cur_turn_str, for_training, method.upper())
+                    stance, sent_answer_idx, num_sents, cur_turn_str, for_training, method.upper(), debate_mode)
                 if debater.reward_method == 'sl':
                     answer_token_mask_input = ((oracle_sent_choice_idx == sent_idxs['input']).long() * batch['valid_output_mask'])
                     batch['sent_targets'] = answer_token_mask_input.nonzero()[:, 1].unsqueeze(-1)
@@ -977,7 +978,8 @@ class Trainer(TrainerBase):
                 sent_choice_idx, sent_choice_prob, value, turn_loss, sc_diffs, all_values = \
                     self._get_sent_choice_prob_value(batch, sent_idxs, judge_answer_mask, debate_choice_mask,
                                                      required_text_mask, sent_choice_idxs, stances[method],
-                                                     sent_answer_idx, num_sents, cur_turn_str, for_training, method)
+                                                     sent_answer_idx, num_sents, cur_turn_str, for_training, method,
+                                                     debate_mode)
                 round_sent_choice_idxs.append(sent_choice_idx)
                 round_sent_choice_probs.append(sent_choice_prob)
                 round_values.append(value)
