@@ -17,7 +17,7 @@
     "text_field_embedder": {
       "allow_unmatched_keys": true,
       "embedder_to_indexer_map": {
-        "tokens": ["tokens", "tokens-offsets", "token-type-ids"]
+        "tokens": ["tokens", "tokens-offsets", "token-type-ids", "other-embeddings"]
       },
       "token_embedders": {
         "tokens": {

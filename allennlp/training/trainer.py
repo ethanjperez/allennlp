@@ -679,10 +679,11 @@ class Trainer(TrainerBase):
             assert debater is not None, 'Cannot use debate method ' + method + ' without debate agents!'
 
             # Add some debater-specific batch info.
-            batch['stance'] = stance
             batch['valid_output_mask'] = debate_choice_mask['input']  # NOTE: input-level mask, to predict a span over Judge's input tokens
             batch['sent_targets'] = None
-            # TODO: Add past_sent_choice_idxs to batch
+            batch['stance'] = stance
+            batch['all_past_sent_choice_mask'] = self._get_all_sent_choice_input_mask(sent_idxs, past_sent_choice_idxs)
+
             if debater.reward_method.startswith('sl'):
                 if method in {'l', 'w'}:
                     raise NotImplementedError('Supervised learning for agent ' + method + ' not implemented.')
@@ -721,7 +722,8 @@ class Trainer(TrainerBase):
             batch['stance'] = None
             batch['valid_output_mask'] = None
             batch['sent_targets'] = None
-            # TODO: Remove past_sent_choice_idxs from batch
+            batch['all_past_sent_choice_mask'] = None
+
             if debater.reward_method.startswith('sl'):  # SL: Add predictions and loss
                 # Get SL results
                 word_choice_idx = torch.argmax(debater_output_dict['prob_dist'], dim=1, keepdim=True)
@@ -874,6 +876,16 @@ class Trainer(TrainerBase):
         return sent_idxs
 
     @staticmethod
+    def _get_all_sent_choice_input_mask(sent_idxs: TensorDict, sent_choice_idxs: torch.Tensor) -> torch.Tensor:
+        """
+        Returns a mask over the input given all debater-chosen sentence indexes.
+        """
+        if len(sent_choice_idxs) == 0:
+            return None
+        sent_choice_input_masks = [(sent_idxs['input'] == sent_choice_idx) for sent_choice_idx in sent_choice_idxs]
+        return torch.stack(sent_choice_input_masks).sum(0).clamp(max=1)
+
+    @staticmethod
     def _get_reward(ver_dict, stance, debate_method, reward_method) -> torch.Tensor:
         """
         Returns the reward (without baseline) based on Judge score and debating method.
@@ -935,7 +947,7 @@ class Trainer(TrainerBase):
 
         # Execute turns and accumulate loss across rounds.
         # Decisions/turns within a single round are sequential for Oracles, simultaneous otherwise.
-        loss = torch.Tensor([0]).cuda()
+        loss = torch.Tensor([0]).cuda() if torch.cuda.is_available() else torch.Tensor([0])
         prev_round_ver_dict = None
         sent_choice_idxs, sent_choice_probs, values, sc_diffs = [], [], [], None
         turns_completed = 0
@@ -971,7 +983,7 @@ class Trainer(TrainerBase):
                 if self._span_model:
                     no_rounds_batch['valid_output_mask'] = None
 
-            # Execute player turns to determine decisions.  # TODO: Condition model on SL predictions
+            # Execute player turns to determine decisions
             round_sent_choice_idxs, round_sent_choice_probs, round_values = [], [], []
             for round_turn_no, method in enumerate(debate_mode[round_no]):
                 turn_no = turns_completed + round_turn_no
@@ -991,8 +1003,7 @@ class Trainer(TrainerBase):
             values += round_values
 
             # Modify Judge's input
-            sent_choice_input_masks = [(sent_idxs['input'] == sent_choice_idx) for sent_choice_idx in sent_choice_idxs]
-            all_sent_choice_input_mask = torch.stack(sent_choice_input_masks).sum(0).clamp(max=1)
+            all_sent_choice_input_mask = self._get_all_sent_choice_input_mask(sent_idxs, sent_choice_idxs)
             judge_batch = self._slice_or_copy_batch(batch, copy=True)
             judge_batch = self._modify_input_passage(judge_batch, required_text_mask, all_sent_choice_input_mask)
 

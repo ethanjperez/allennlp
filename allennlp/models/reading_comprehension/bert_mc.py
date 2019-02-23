@@ -9,7 +9,6 @@ from allennlp.data import Vocabulary
 from allennlp.models.model import Model
 from allennlp.modules import TimeDistributed, TextFieldEmbedder
 from allennlp.modules.matrix_attention import BilinearMatrixAttention
-from allennlp.modules.seq2seq_encoders import StackedSelfAttentionEncoder
 from allennlp.nn import util, InitializerApplicator, RegularizerApplicator
 from allennlp.training.metrics import CategoricalAccuracy
 from pytorch_pretrained_bert.modeling import BertEncoder
@@ -76,6 +75,8 @@ class BertMC(Model):
         self._config = self._text_field_embedder.token_embedder_tokens._modules['bert_model'].config
 
         if not self.is_judge:
+            self._sent_chosen_embeddings = torch.nn.Embedding(2, self._config.hidden_size)
+            self._sent_chosen_embeddings.weight.data *= 0  # Init to zero to minimally affect BERT
             self._policy_head = TimeDistributed(torch.nn.Linear(self._hidden_dim, 1))  # NB: Can make MLP
             self._value_head = TimeDistributed(torch.nn.Linear(self._hidden_dim, 1))  # NB: Can make MLP
             self._turn_film_gen = torch.nn.Linear(1, 2 * self._hidden_dim)
@@ -99,7 +100,8 @@ class BertMC(Model):
                 store_metrics: bool = True,
                 valid_output_mask: torch.LongTensor = None,
                 sent_targets: torch.Tensor = None,
-                stance: torch.LongTensor = None) -> Dict[str, torch.Tensor]:
+                stance: torch.LongTensor = None,
+                all_past_sent_choice_mask: torch.LongTensor = None) -> Dict[str, torch.Tensor]:
         # pylint: disable=arguments-differ
         """
         Parameters
@@ -144,7 +146,7 @@ class BertMC(Model):
         options_to_support = None
         if not self.is_judge:
             options_to_support = torch.zeros_like(options['tokens'][:, :, 0]).float()
-            if stance.dim() == options_to_support.dim():  # TODO: Add to bidaf.py, bert_qa.py
+            if stance.dim() == options_to_support.dim():
                 options_to_support = stance.float()
             else:
                 for i in range(options['tokens'].size(0)):
@@ -160,7 +162,8 @@ class BertMC(Model):
             sep_token = 102
 
         # Predict answer (judge or debate+auxiliary loss)
-        option_logits, policy_logits, value = self.compute_logits_and_value(question, passage, options, sep_token, options_to_support)
+        option_logits, policy_logits, value = self.compute_logits_and_value(
+            question, passage, options, sep_token, options_to_support, all_past_sent_choice_mask)
         if option_logits is not None:
             option_probs = softmax(option_logits, dim=1)
             best_answer_index = option_probs.max(dim=1)[1]
@@ -262,7 +265,8 @@ class BertMC(Model):
             'tokens': tokens,
             'token-type-ids': BertMC.get_token_type_ids(tokens, sep_token),
             'mask': (tokens != 0).long(),  # How BERT also gets the mask
-            'tokens-offsets': None
+            'tokens-offsets': None,
+            'other-embeddings': None,
         }
 
     def compute_logits_and_value(self,  # type: ignore
@@ -270,7 +274,8 @@ class BertMC(Model):
                                  passage: Dict[str, torch.LongTensor],
                                  options: Dict[str, torch.LongTensor],
                                  sep_token: int,
-                                 options_to_support: torch.FloatTensor = None
+                                 options_to_support: torch.FloatTensor = None,
+                                 all_past_sent_choice_mask: torch.LongTensor = None,
                                  ) -> Tuple[torch.FloatTensor, torch.FloatTensor, torch.FloatTensor]:
         """
         Architecture-specific forward pass. Must be implemented by subclass.
@@ -315,7 +320,8 @@ class BertMCGPT(BertMC):
                                  passage: Dict[str, torch.LongTensor],
                                  options: Dict[str, torch.LongTensor],
                                  sep_token: int,
-                                 options_to_support: torch.FloatTensor = None
+                                 options_to_support: torch.FloatTensor = None,
+                                 all_past_sent_choice_mask: torch.LongTensor = None,
                                  ) -> Tuple[torch.FloatTensor, torch.FloatTensor, torch.FloatTensor]:
         """
         Architecture-specific forward pass
@@ -336,6 +342,11 @@ class BertMCGPT(BertMC):
         # Condition debater on stance. Change segment embedding for [CLS] tokens only.
         if not self.is_judge:
             pqo['token-type-ids'][:, :, 0] = options_to_support
+            if all_past_sent_choice_mask is not None:
+                pqo_sent_chosen_mask = torch.zeros(batch_size, max(pqo_token_maxlens), dtype=torch.long, device=passage['tokens'].device)
+                pqo_sent_chosen_mask[:, :all_past_sent_choice_mask.size(1)] = all_past_sent_choice_mask
+                other_embeddings = self._sent_chosen_embeddings(pqo_sent_chosen_mask).unsqueeze(1).expand(-1, num_options, -1, -1)
+                pqo['other-embeddings'] = other_embeddings.view(-1, other_embeddings.size(-2), other_embeddings.size(-1))
 
         hidden_pqo = self._text_field_embedder(pqo)
         if self.is_judge:
@@ -430,7 +441,8 @@ class BertMCDCMN(BertMC):
                                  passage: Dict[str, torch.LongTensor],
                                  options: Dict[str, torch.LongTensor],
                                  sep_token: int,
-                                 options_to_support: torch.FloatTensor = None
+                                 options_to_support: torch.FloatTensor = None,
+                                 all_past_sent_choice_mask: torch.LongTensor = None,
                                  ) -> Tuple[torch.FloatTensor, torch.FloatTensor, torch.FloatTensor]:
         """
         Architecture-specific forward pass
@@ -552,7 +564,8 @@ class BertMCPQ2A(BertMC):
                                  passage: Dict[str, torch.LongTensor],
                                  options: Dict[str, torch.LongTensor],
                                  sep_token: int,
-                                 options_to_support: torch.FloatTensor = None
+                                 options_to_support: torch.FloatTensor = None,
+                                 all_past_sent_choice_mask: torch.LongTensor = None,
                                  ) -> Tuple[torch.FloatTensor, torch.FloatTensor, torch.FloatTensor]:
         """
         Architecture-specific forward pass
@@ -620,7 +633,8 @@ class BertMCQ2A(BertMC):
                                  passage: Dict[str, torch.LongTensor],
                                  options: Dict[str, torch.LongTensor],
                                  sep_token: int,
-                                 options_to_support: torch.FloatTensor = None
+                                 options_to_support: torch.FloatTensor = None,
+                                 all_past_sent_choice_mask: torch.LongTensor = None,
                                  ) -> Tuple[torch.FloatTensor, torch.FloatTensor, torch.FloatTensor]:
         """
         Architecture-specific forward pass
@@ -676,7 +690,8 @@ class BertMCP2A(BertMC):
                                  passage: Dict[str, torch.LongTensor],
                                  options: Dict[str, torch.LongTensor],
                                  sep_token: int,
-                                 options_to_support: torch.FloatTensor = None
+                                 options_to_support: torch.FloatTensor = None,
+                                 all_past_sent_choice_mask: torch.LongTensor = None,
                                  ) -> Tuple[torch.FloatTensor, torch.FloatTensor, torch.FloatTensor]:
         """
         Architecture-specific forward pass
@@ -733,7 +748,8 @@ class BertMCA(BertMC):
                                  passage: Dict[str, torch.LongTensor],
                                  options: Dict[str, torch.LongTensor],
                                  sep_token: int,
-                                 options_to_support: torch.FloatTensor = None
+                                 options_to_support: torch.FloatTensor = None,
+                                 all_past_sent_choice_mask: torch.LongTensor = None,
                                  ) -> Tuple[torch.FloatTensor, torch.FloatTensor, torch.FloatTensor]:
         """
         Architecture-specific forward pass
