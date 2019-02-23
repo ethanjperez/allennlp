@@ -874,7 +874,7 @@ class Trainer(TrainerBase):
         return sent_idxs
 
     @staticmethod
-    def _get_reward(ver_dict, stance, debate_method, reward_method, loss_device) -> torch.Tensor:
+    def _get_reward(ver_dict, stance, debate_method, reward_method) -> torch.Tensor:
         """
         Returns the reward (without baseline) based on Judge score and debating method.
         """
@@ -886,7 +886,7 @@ class Trainer(TrainerBase):
             rewards = (1. - j_score)
         elif debate_method in {'l', 'w'}:
             rewards = (ver_dict['prob_dist'] * stance.to(ver_dict['prob_dist'])).sum(dim=1)
-        return rewards.detach().to(loss_device)
+        return rewards.detach()
 
     def _get_stance(self, batch: TensorDict, method: str) -> torch.Tensor:
         """
@@ -935,7 +935,7 @@ class Trainer(TrainerBase):
 
         # Execute turns and accumulate loss across rounds.
         # Decisions/turns within a single round are sequential for Oracles, simultaneous otherwise.
-        loss = torch.Tensor([0], device=batch['passage']['tokens'].device)  # NB: Is this device same as later? Then simplify code / use loss.device
+        loss = torch.Tensor([0])
         prev_round_ver_dict = None
         sent_choice_idxs, sent_choice_probs, values, losses, sc_diffs = [], [], [], [], None
         turns_completed = 0
@@ -1005,16 +1005,11 @@ class Trainer(TrainerBase):
             self._update_trainer_metrics('time_j', torch.Tensor([time.time() - choice_start_time]))
             if self._span_model:
                 judge_batch['valid_output_mask'] = None
+            loss = loss.to(ver_dict['loss'])
 
-            # Return Judge training loss
-            if debater is None:
-                return ver_dict['loss']
-
-            # Return Debate training losses
-            loss = loss.to(sent_choice_probs[0].device)  # NB: Do everything on GPU by default (remove most .to() calls)
-            # Initialize loss (including J's supervised loss if necessary)
+            # Add training losses
             if self.model.update_judge:
-                loss += ver_dict['loss'].to(loss.device)
+                loss += ver_dict['loss']
 
             # Add new post-Judge RL losses
             for round_turn_no, method in enumerate(debate_mode[round_no]):
@@ -1023,13 +1018,13 @@ class Trainer(TrainerBase):
 
                 turn_no = turns_completed + round_turn_no
                 cur_turn_str = "_turn_" + str(turn_no) + "_agent_" + method  # NB: Rename throughout to turn_str (after merge)
-                rewards = self._get_reward(ver_dict, stances[method], method, debater.reward_method, loss.device)
+                rewards = self._get_reward(ver_dict, stances[method], method, debater.reward_method)
                 if debater.influence_reward:
                     raw_rewards = rewards.clone().detach()
                     self._update_trainer_metrics('raw_reward' + cur_turn_str, raw_rewards.mean())
-                    prev_round_rewards = self._get_reward(prev_round_ver_dict, stances[method], method, debater.reward_method, loss.device)
+                    prev_round_rewards = self._get_reward(prev_round_ver_dict, stances[method], method, debater.reward_method)
                     rewards = rewards - prev_round_rewards
-                baselines = values[turn_no].to(loss.device)
+                baselines = values[turn_no]
                 policy_losses = -(torch.log(sent_choice_probs[turn_no]) * (rewards - baselines.detach()))
                 loss += policy_losses.mean()
                 value_losses = 0.5 * ((baselines - rewards) ** 2)
@@ -1062,12 +1057,13 @@ class Trainer(TrainerBase):
         # Add additional/auxiliary/SL losses
         for turn_loss in losses:
             if turn_loss is not None:
-                loss += turn_loss.to(loss.device)  # NB: Can add these losses earlier when first calculated
+                loss += turn_loss  # NB: Can add these losses earlier when first calculated
 
         if self._eval_mode and ((self._batch_num_total % 1) == 0):
             self._print_debate(batch, sent_idxs, ver_dict, sent_choice_idxs, num_sents, debate_mode, sc_diffs)
 
         self._add_debate_metrics(ver_dict, sent_idxs, sent_choice_idxs, debate_mode)
+        loss = loss.cpu()  # NB: Necessary?
         return loss
 
     def batch_loss(self, batch_group: List[TensorDict], for_training: bool, debate_mode: List[str] = None
