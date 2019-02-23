@@ -549,11 +549,12 @@ class Trainer(TrainerBase):
         """
         turn_no = 0 if past_sent_choice_idxs is None else past_sent_choice_idxs.size(1)  # TODO: Pass in turn_no directly! Accurate for even # players/round > 1
         sample_id = batch['metadata'][sample_no]['id']
+        cum_turn_str = ''.join(debate_mode)[:turn_no+1]
         if sample_id in self._oracle_outputs:
             # if 0 not in self._oracle_outputs[sample_id]:  # Old save format
             #     return self._oracle_outputs[sample_id]
-            if ''.join(debate_mode)[:turn_no+1] in self._oracle_outputs[sample_id]:  # New save format
-                return self._oracle_outputs[sample_id][''.join(debate_mode)[:turn_no+1]]
+            if cum_turn_str in self._oracle_outputs[sample_id]:  # New save format
+                return self._oracle_outputs[sample_id][cum_turn_str]
         elif self._oracle_outputs_is_complete:
             logger.warning('Recalculating Oracle despite _oracle_outputs_is_complete = True !')
 
@@ -599,7 +600,7 @@ class Trainer(TrainerBase):
             oracle_batch.pop('valid_output_mask')
         # Cache for later use and saving to file
         self._oracle_outputs[sample_id] = self._oracle_outputs.get(sample_id, {})
-        self._oracle_outputs[sample_id][''.join(debate_mode)[:turn_no+1]] = oracle_output_dict
+        self._oracle_outputs[sample_id][cum_turn_str] = oracle_output_dict
 
         return oracle_output_dict
 
@@ -939,6 +940,7 @@ class Trainer(TrainerBase):
         sent_choice_idxs, sent_choice_probs, values, losses, sc_diffs = [], [], [], [], None
         turns_completed = 0
         stances = self._get_all_stances(batch, debate_mode)
+        import ipdb; ipdb.set_trace()
         for round_no in range(len(debate_mode)):
             required_text_mask, judge_answer_mask = self._judge_text_masks(batch)  # TODO: Verify for span-based, span-based with Q in P
             debate_choice_mask = self._debater_text_masks(batch, required_text_mask)  # TODO: Verify for span-based, span-based with Q in P
