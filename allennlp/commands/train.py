@@ -47,7 +47,6 @@ which to write the results.
      -c, --choice_mode     String type of action debating agents take
      -q, --qa_loss_weight  Float weight of auxiliary QA supervised loss to give RL agents
      -i, --influence       Boolean whether or not to use delta in judge opinion (vs. raw reward)
-
 """
 from typing import List
 import argparse
@@ -213,7 +212,6 @@ def train_model_from_args(args: argparse.Namespace):
                           args.qa_loss_weight,
                           args.influence_reward,
                           args.theory_of_mind)
-
 
 def train_model_from_file(parameter_filename: str,
                           serialization_dir: str,
