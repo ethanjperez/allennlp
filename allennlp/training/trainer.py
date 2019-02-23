@@ -494,6 +494,60 @@ class Trainer(TrainerBase):
         output_field = 'tokens-offsets' if 'tokens-offsets' in batch['passage'] else 'tokens'
         return batch['passage'][output_field].size(1)
 
+    def batch_loss(self,
+                   batch_group: List[TensorDict],
+                   for_training: bool,
+                   debate_mode: List[str] = None) -> torch.Tensor:
+        """
+        Does a forward pass on the given batches and returns the ``loss`` value in the result.
+        If ``for_training`` is `True` also applies regularization penalty.
+        """
+        # If overriding default passage choosing method
+        if debate_mode is None:
+            debate_mode = self._debate_mode
+
+        # Optional debugging sanity check
+        if self._breakpoint_level >= 1 and for_training:
+            for batch in batch_group:
+                for i in range(batch['passage']['tokens'].size(0)):
+                    char_span_start = batch['metadata'][i]['token_offsets'][batch['span_start'][i]][0]
+                    char_span_end = batch['metadata'][i]['token_offsets'][batch['span_end'][i]][1]
+                    answer_text = batch['metadata'][i]['answer_texts'][0]
+                    post_processing_answer_text = batch['metadata'][i]['original_passage'][char_span_start:
+                                                                                           char_span_end]
+                    answer_processing_error = not (answer_text in post_processing_answer_text)
+                    if self._dataset_name == 'race':  # TODO: Remove _dataset_name
+                        answer_processing_error = (answer_text != post_processing_answer_text) or \
+                                                  (answer_text not in ['1st', '2nd', '3rd', '4th'])
+                    if answer_processing_error:  # Print: unexpected mismatch with true answer
+                        self._print_tokens(batch['passage']['tokens'][i, :])
+                        print('answer_text =', answer_text)
+                        print('post_processing_answer_text =', post_processing_answer_text)
+
+        # Set output_dict['loss'] to do gradient descent on.
+        if debate_mode[0] == "f":  # Full passage training: Normal SL training
+            output_dict = self._forward(batch_group, self.model)
+
+        else:  # Training on subset of sentence (judge or debate training)
+            outputs = []
+            # TODO(Sidd): Distribute this loop across GPUs. See training_util.data_parallel
+            for batch in batch_group:
+                outputs.append(self.debate_batch_loss(batch, for_training, debate_mode))
+
+            # Taken from training_util.data_parallel
+            losses = torch.cat([output['loss'].unsqueeze(0) for output in outputs], 0)
+            output_dict = {'loss': losses.mean()}
+
+        try:
+            loss = output_dict["loss"]
+            if for_training:
+                loss += self.model.get_regularization_penalty()
+        except KeyError:
+            if for_training:
+                raise RuntimeError("The model you are trying to optimize does not contain a"
+                                   " 'loss' key in the output of model.forward(inputs).")
+            loss = None
+
     @staticmethod
     def _get_last_output_token_idx(batch: TensorDict, sample_no: int) -> int:
         """
