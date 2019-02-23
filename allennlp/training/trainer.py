@@ -935,9 +935,9 @@ class Trainer(TrainerBase):
 
         # Execute turns and accumulate loss across rounds.
         # Decisions/turns within a single round are sequential for Oracles, simultaneous otherwise.
-        loss = torch.Tensor([0])
+        loss = torch.Tensor([0]).cuda()
         prev_round_ver_dict = None
-        sent_choice_idxs, sent_choice_probs, values, losses, sc_diffs = [], [], [], [], None
+        sent_choice_idxs, sent_choice_probs, values, sc_diffs = [], [], [], None
         turns_completed = 0
         stances = self._get_all_stances(batch, debate_mode)
         import ipdb; ipdb.set_trace()
@@ -973,7 +973,7 @@ class Trainer(TrainerBase):
                     no_rounds_batch['valid_output_mask'] = None
 
             # Execute player turns to determine decisions.  # TODO: Condition model on SL predictions
-            round_sent_choice_idxs, round_sent_choice_probs, round_values, round_losses = [], [], [], []
+            round_sent_choice_idxs, round_sent_choice_probs, round_values = [], [], []
             for round_turn_no, method in enumerate(debate_mode[round_no]):
                 turn_no = turns_completed + round_turn_no
                 cur_turn_str = "_turn_" + str(turn_no) + "_agent_" + method
@@ -985,11 +985,11 @@ class Trainer(TrainerBase):
                 round_sent_choice_idxs.append(sent_choice_idx)
                 round_sent_choice_probs.append(sent_choice_prob)
                 round_values.append(value)
-                round_losses.append(turn_loss)
+                if turn_loss is not None:
+                    loss += turn_loss  # Add auxiliary/SL losses for debaters
             sent_choice_idxs += round_sent_choice_idxs
             sent_choice_probs += round_sent_choice_probs
             values += round_values
-            losses += round_losses
 
             # Modify Judge's input
             sent_choice_input_masks = [(sent_idxs['input'] == sent_choice_idx) for sent_choice_idx in sent_choice_idxs]
@@ -1005,7 +1005,6 @@ class Trainer(TrainerBase):
             self._update_trainer_metrics('time_j', torch.Tensor([time.time() - choice_start_time]))
             if self._span_model:
                 judge_batch['valid_output_mask'] = None
-            loss = loss.to(ver_dict['loss'])
 
             # Add training losses
             if self.model.update_judge:
@@ -1039,7 +1038,7 @@ class Trainer(TrainerBase):
                 self._update_trainer_metrics('advantage_abs' + cur_turn_str, (rewards - baselines).abs().mean())
                 self._update_trainer_metrics('sent_choice_prob' + cur_turn_str, sent_choice_probs[turn_no].mean())
                 if method in {'l', 'w'}:  # Log statistics based on if l-agent was given correct answer or not
-                    stance_was_correct = stances[method].to(loss.device).gather(1, judge_batch['answer_index'].to(loss.device)).squeeze(1).float().tolist()
+                    stance_was_correct = stances[method].gather(1, judge_batch['answer_index']).squeeze(1).float().tolist()
                     correctness_str = {0: '_incorrect_stance', 1: '_correct_stance'}
                     for i in range(bsz):
                         if 'em' in ver_dict:
@@ -1053,11 +1052,6 @@ class Trainer(TrainerBase):
 
             prev_round_ver_dict = ver_dict  # Update baseline Judge scores for next round
             turns_completed += len(debate_mode[round_no])
-
-        # Add additional/auxiliary/SL losses
-        for turn_loss in losses:
-            if turn_loss is not None:
-                loss += turn_loss  # NB: Can add these losses earlier when first calculated
 
         if self._eval_mode and ((self._batch_num_total % 1) == 0):
             self._print_debate(batch, sent_idxs, ver_dict, sent_choice_idxs, num_sents, debate_mode, sc_diffs)
@@ -1104,11 +1098,7 @@ class Trainer(TrainerBase):
         if debate_mode[0] == "f":  # Full passage training: Normal SL training
             output_dict = self._forward(batch_group, self.model)
         else:  # Training on subset of sentence (judge or debate training)
-            losses = []
-            # TODO(Sidd): Distribute this loop across GPUs. See training_util.data_parallel
-            for batch in batch_group:
-                losses.append(self.debate_batch_loss(batch, for_training, debate_mode))
-            # Taken from training_util.data_parallel
+            losses = [self.debate_batch_loss(batch, for_training, debate_mode) for batch in batch_group]
             losses = torch.cat([loss.unsqueeze(0) for loss in losses], 0)
             output_dict = {'loss': losses.mean()}  # NB(Sidd): Are all batches exactly same # of samples regardless of number of GPUs? Otherwise .mean() is incorrect
         try:
