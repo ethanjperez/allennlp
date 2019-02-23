@@ -940,7 +940,6 @@ class Trainer(TrainerBase):
         sent_choice_idxs, sent_choice_probs, values, sc_diffs = [], [], [], None
         turns_completed = 0
         stances = self._get_all_stances(batch, debate_mode)
-        import ipdb; ipdb.set_trace()
         for round_no in range(len(debate_mode)):
             required_text_mask, judge_answer_mask = self._judge_text_masks(batch)  # TODO: Verify for span-based, span-based with Q in P
             debate_choice_mask = self._debater_text_masks(batch, required_text_mask)  # TODO: Verify for span-based, span-based with Q in P
@@ -1057,8 +1056,7 @@ class Trainer(TrainerBase):
             self._print_debate(batch, sent_idxs, ver_dict, sent_choice_idxs, num_sents, debate_mode, sc_diffs)
 
         self._add_debate_metrics(ver_dict, sent_idxs, sent_choice_idxs, debate_mode)
-        loss = loss.cpu()  # NB: Necessary?
-        return loss
+        return loss.cpu()  # NB: Necessary to move loss to CPU?
 
     def batch_loss(self, batch_group: List[TensorDict], for_training: bool, debate_mode: List[str] = None
                    ) -> torch.Tensor:
