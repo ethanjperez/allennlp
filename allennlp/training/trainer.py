@@ -451,7 +451,7 @@ class Trainer(TrainerBase):
                         sent_str = 'None'
                         if len(turn_sent_idxs['output']) > 0:
                             sent_str = ' '.join(toks[turn_sent_idxs['output'].min(): turn_sent_idxs['output'].max() + 1])
-                        print('\n**' + method + '**', '*( Stance: ' + str(stances[method][i].nonzero().tolist()) + ')*' if method.lower() == 'l' else '',
+                        print('\n**' + method + '**', '*( Stance: ' + str(stances[method][i].nonzero().tolist()) + ')*' if method.lower() in {'l', 'w'} else '',
                               ': Sentence', int(sent_choice_idxs[turn_no][i]), '\n', sent_str)
                     turns_completed += len(round_methods)
                 print('\n**J**:')
@@ -957,6 +957,7 @@ class Trainer(TrainerBase):
         elif method.lower() in {'l', 'w'}:
             assert self._mc, 'Only Multiple Choice datasets support debate_mode ' + method
             possible_stances = torch.ones_like(batch['options']['tokens'][:, :, 0])
+            import ipdb; ipdb.set_trace()
             if method == 'w':  # Don't support correct option
                 for i in range(bsz):
                     possible_stances[i, batch['answer_index'][i]] = 0
