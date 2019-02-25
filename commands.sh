@@ -7,6 +7,11 @@
 # TODO: Check 6090-6095. And others right before / that may also have updated
 
 ### RACE
+# Concat Oracle L
+allennlp train training_config/race.best.jsonnet -s tmp/race.best.f -e -r -d L -c concat -p tmp/race.best.f/oracle_outputs.c=concat.all.pkl -o "{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/dev'}" 2>&1 | tee tmp/race.best.f/d=L.c=concat.dev.txt
+
+# Concat SL Multi-step: -p tmp/race.best.f/oracle_outputs.c=concat.d=A_B_A_B_A_B_A_B.all.pkl TODO
+
 # Concat Oracle Multi-step
 allennlp train training_config/race.best.jsonnet -s tmp/race.best.f -e -r -d B A B A B A B A -c concat -p tmp/race.best.f/oracle_outputs.c=concat.d=B_A_B_A_B_A_B_A.train.0.pkl -o "{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/train.0'}" 2>&1 | tee tmp/race.best.f/d=B_A_B_A_B_A_B_A.c=concat.train.0.txt
 allennlp train training_config/race.best.jsonnet -s tmp/race.best.f -e -r -d B A B A B A B A -c concat -p tmp/race.best.f/oracle_outputs.c=concat.d=B_A_B_A_B_A_B_A.train.1.pkl -o "{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/train.1'}" 2>&1 | tee tmp/race.best.f/d=B_A_B_A_B_A_B_A.c=concat.train.1.txt
