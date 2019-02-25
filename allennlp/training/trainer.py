@@ -1238,7 +1238,6 @@ class Trainer(TrainerBase):
             loss.backward()
             self._update_trainer_metrics('time_backward', torch.Tensor([time.time() - backward_start_time]))
 
-
             train_loss += loss.item()
 
             if batch_num_total % self._accumulation_steps != 0:
