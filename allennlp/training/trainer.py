@@ -951,13 +951,13 @@ class Trainer(TrainerBase):
         """
         Returns a new stance vector or matrix for a given agent method, if applicable.
         """
+        method = method.lower()  # To get Oracle stances too
         bsz = batch['passage']['tokens'].size(0)
-        if method.lower() in {'a', 'b'}:
+        if method in {'a', 'b'}:
             return torch.tensor([method == 'a'] * bsz).to(batch['passage']['tokens'])
-        elif method.lower() in {'l', 'w'}:
+        elif method in {'l', 'w'}:
             assert self._mc, 'Only Multiple Choice datasets support debate_mode ' + method
             possible_stances = torch.ones_like(batch['options']['tokens'][:, :, 0])
-            import ipdb; ipdb.set_trace()
             if method == 'w':  # Don't support correct option
                 for i in range(bsz):
                     possible_stances[i, batch['answer_index'][i]] = 0
