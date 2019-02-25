@@ -12,7 +12,9 @@ allennlp train training_config/race.best.jsonnet -s tmp/race.best.f -e -r -d L -
 
 # Concat SL Multi-step: -p tmp/race.best.f/oracle_outputs.c=concat.d=A_B_A_B_A_B_A_B.all.pkl TODO
 
+
 # Concat Oracle Multi-step
+~0.7250601995184038 (train)
 allennlp train training_config/race.best.jsonnet -s tmp/race.best.f -e -r -d B A B A B A B A -c concat -p tmp/race.best.f/oracle_outputs.c=concat.d=B_A_B_A_B_A_B_A.train.0.pkl -o "{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/train.0'}" 2>&1 | tee tmp/race.best.f/d=B_A_B_A_B_A_B_A.c=concat.train.0.txt
 allennlp train training_config/race.best.jsonnet -s tmp/race.best.f -e -r -d B A B A B A B A -c concat -p tmp/race.best.f/oracle_outputs.c=concat.d=B_A_B_A_B_A_B_A.train.1.pkl -o "{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/train.1'}" 2>&1 | tee tmp/race.best.f/d=B_A_B_A_B_A_B_A.c=concat.train.1.txt
 allennlp train training_config/race.best.jsonnet -s tmp/race.best.f -e -r -d B A B A B A B A -c concat -p tmp/race.best.f/oracle_outputs.c=concat.d=B_A_B_A_B_A_B_A.train.2.pkl -o "{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/train.2'}" 2>&1 | tee tmp/race.best.f/d=B_A_B_A_B_A_B_A.c=concat.train.2.txt
