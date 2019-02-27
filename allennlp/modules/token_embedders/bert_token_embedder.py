@@ -51,8 +51,7 @@ class BertEmbedder(TokenEmbedder):
     def forward(self,
                 input_ids: torch.LongTensor,
                 offsets: torch.LongTensor = None,
-                token_type_ids: torch.LongTensor = None,
-                other_embeddings: torch.FloatTensor = None) -> torch.Tensor:
+                token_type_ids: torch.LongTensor = None) -> torch.Tensor:
         """
         Parameters
         ----------
@@ -87,10 +86,11 @@ class BertEmbedder(TokenEmbedder):
 
         # input_ids may have extra dimensions, so we reshape down to 2-d
         # before calling the BERT model and then reshape back at the end.
+        # NB: Modify PyTorch BERT submodule for other_embeddings. Pass in current method, bert_model, and config
         all_encoder_layers, _ = self.bert_model(input_ids=util.combine_initial_dims(input_ids),
                                                 token_type_ids=util.combine_initial_dims(token_type_ids),
-                                                attention_mask=util.combine_initial_dims(input_mask),
-                                                other_embeddings=other_embeddings)
+                                                attention_mask=util.combine_initial_dims(input_mask))
+
         if self._scalar_mix is not None:
             mix = self._scalar_mix(all_encoder_layers, input_mask)
         else:

@@ -13,11 +13,11 @@
   "train_data_path": "datasets/race_raw/train",
   "validation_data_path": "datasets/race_raw/dev",
   "model": {
-    "type": "bert-mc-gpt",
+    "type": "bert-mc",
     "text_field_embedder": {
       "allow_unmatched_keys": true,
       "embedder_to_indexer_map": {
-        "tokens": ["tokens", "tokens-offsets", "token-type-ids", "other-embeddings"]
+        "tokens": ["tokens", "tokens-offsets"]
       },
       "token_embedders": {
         "tokens": {
@@ -32,7 +32,7 @@
   "iterator": {
     "type": "bucket",
     "sorting_keys": [["passage", "num_tokens"], ["question", "num_tokens"]],
-    "batch_size": 2
+    "batch_size": 8
   },
 
   "trainer": {
@@ -47,7 +47,7 @@
       "patience": 1
     },
     "optimizer": {
-      "lr": 0.00005,
+      "lr": 0.000005,
       "type": "bert_adam"
     }
   }

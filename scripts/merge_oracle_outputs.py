@@ -1,7 +1,7 @@
 import pickle
 import os
 
-prefix = 'tmp/race.best.f/oracle_outputs.c=concat'
+prefix = 'tmp/race.best.f/oracle_outputs.c=concat.d=B_A_B_A_B_A_B_A'
 postfixes = ['dev.pkl', 'test.pkl', 'train.0.pkl', 'train.1.pkl', 'train.2.pkl', 'train.3.pkl', 'train.4.pkl', 'train.5.pkl', 'train.6.pkl', 'train.7.pkl', 'train.8.pkl', 'train.9.pkl']
 
 files = [prefix + '.' + postfix for postfix in postfixes]

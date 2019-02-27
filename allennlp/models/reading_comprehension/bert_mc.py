@@ -76,7 +76,7 @@ class BertMC(Model):
 
         if not self.is_judge:
             self._sent_chosen_embeddings = torch.nn.Embedding(2, self._config.hidden_size)
-            self._sent_chosen_embeddings.weight.data *= 0  # Init to zero to minimally affect BERT
+            self._sent_chosen_embeddings.weight.data *= 0  # Init to zero to minimally affect BERT at start
             self._policy_head = TimeDistributed(torch.nn.Linear(self._hidden_dim, 1))  # NB: Can make MLP
             self._value_head = TimeDistributed(torch.nn.Linear(self._hidden_dim, 1))  # NB: Can make MLP
             self._turn_film_gen = torch.nn.Linear(1, 2 * self._hidden_dim)
@@ -266,7 +266,7 @@ class BertMC(Model):
             'token-type-ids': BertMC.get_token_type_ids(tokens, sep_token),
             'mask': (tokens != 0).long(),  # How BERT also gets the mask
             'tokens-offsets': None,
-            'other-embeddings': None,
+            # 'other-embeddings': None,
         }
 
     def compute_logits_and_value(self,  # type: ignore
@@ -339,14 +339,16 @@ class BertMCGPT(BertMC):
             pqo_tokens[:, i, :pqo_tokens_list[i].size(-1)] = pqo_tokens_list[i]
         pqo = self.tokens_to_bert_input(pqo_tokens, sep_token)
 
-        # Condition debater on stance. Change segment embedding for [CLS] tokens only.
+        # Condition debater on stance. Also add in past debater choices
         if not self.is_judge:
-            pqo['token-type-ids'][:, :, 0] = options_to_support
+            pqo['token-type-ids'][:, :, 0] = options_to_support  # Change segment embedding for [CLS] tokens only.
             if all_past_sent_choice_mask is not None:
                 pqo_sent_chosen_mask = torch.zeros(batch_size, max(pqo_token_maxlens), dtype=torch.long, device=passage['tokens'].device)
                 pqo_sent_chosen_mask[:, :all_past_sent_choice_mask.size(1)] = all_past_sent_choice_mask
-                other_embeddings = self._sent_chosen_embeddings(pqo_sent_chosen_mask).unsqueeze(1).expand(-1, num_options, -1, -1)
-                pqo['other-embeddings'] = other_embeddings.view(-1, other_embeddings.size(-2), other_embeddings.size(-1))
+                pqo_sent_chosen_mask = pqo_sent_chosen_mask.unsqueeze(1).expand(-1, num_options, -1)
+                pqo['token-type-ids'] = (pqo['token-type-ids'] + pqo_sent_chosen_mask).clamp(max=1)
+                # other_embeddings = self._sent_chosen_embeddings(pqo_sent_chosen_mask).unsqueeze(1).expand(-1, num_options, -1, -1)
+                # pqo['other-embeddings'] = other_embeddings.view(-1, other_embeddings.size(-2), other_embeddings.size(-1))
 
         hidden_pqo = self._text_field_embedder(pqo)
         if self.is_judge:

@@ -203,6 +203,7 @@ class Trainer(TrainerBase):
         if self._oracle_outputs_path is None:
             self._oracle_outputs_path = os.path.join(serialization_dir, 'model_oracle_outputs.pkl')
         try:
+            logger.info('Loading oracle_outputs from filepath: ' + self._oracle_outputs_path)
             with open(self._oracle_outputs_path, 'rb') as f:
                 self._oracle_outputs = pickle.load(f)
             self._oracle_outputs_is_complete = True
@@ -421,7 +422,7 @@ class Trainer(TrainerBase):
     @staticmethod
     def _print_debate(batch: TensorDict, sent_idxs: TensorDict, output_dict: TensorDict,
                       sent_choice_idxs: List[torch.Tensor], num_sents: torch.Tensor, debate_mode: List[str],
-                      sc_diffs: torch.Tensor = None) -> None:
+                      stances: List[torch.Tensor], advantage: torch.Tensor = None) -> None:
         """
         Neatly prints all debates from a batch.
         """
@@ -451,11 +452,12 @@ class Trainer(TrainerBase):
                         sent_str = 'None'
                         if len(turn_sent_idxs['output']) > 0:
                             sent_str = ' '.join(toks[turn_sent_idxs['output'].min(): turn_sent_idxs['output'].max() + 1])
-                        print('\n**' + method.upper() + '**: Sentence', int(sent_choice_idxs[turn_no][i]), '\n', sent_str)
+                        print('\n**' + method + '**', '*( Stance: ' + str(stances[method][i].nonzero().tolist()) + ')*' if method.lower() in {'l', 'w'} else '',
+                              ': Sentence', int(sent_choice_idxs[turn_no][i]), '\n', sent_str)
                     turns_completed += len(round_methods)
                 print('\n**J**:')
-                if sc_diffs is not None:
-                    print('*\u0394 SCORE*:', round(float(sc_diffs[i]), 4))
+                if advantage is not None:
+                    print('*ADVANTAGE*:', round(float(advantage[i]), 4))
                 for k in ['prob', 'em', 'f1']:
                     if output_dict.get(k) is not None:
                         print('*' + k.upper() + '*:', round(output_dict[k].item(), 4))
@@ -605,8 +607,7 @@ class Trainer(TrainerBase):
         sample_id = batch['metadata'][sample_no]['id']
         cum_turn_str = ''.join(debate_mode)[:turn_no+1]
         if sample_id in self._oracle_outputs:
-            # if 0 not in self._oracle_outputs[sample_id]:  # Old save format
-            #     return self._oracle_outputs[sample_id]
+            # return self._oracle_outputs[sample_id]  # Old save format
             if cum_turn_str in self._oracle_outputs[sample_id]:  # New save format
                 return self._oracle_outputs[sample_id][cum_turn_str]
         elif self._oracle_outputs_is_complete:
@@ -687,7 +688,7 @@ class Trainer(TrainerBase):
         bsz = batch['passage']['tokens'].size(0)
         value = torch.zeros(bsz)  # Default value (RL/Oracle agents only set this)
         turn_loss = None  # Optional variable to return (SL agents only)
-        sc_diffs = None  # Optional variable to return (Oracle only)
+        advantage = None  # Optional variable to return (Oracle only)
         all_values = None
         if method == 'r':  # Random selection
             sent_choice_idx = (torch.rand_like(num_sents.float()) * (num_sents.float())).trunc().long().unsqueeze(1)
@@ -696,18 +697,11 @@ class Trainer(TrainerBase):
             assert sent_answer_idx is not None, 'No "Ground Truth" answer-supporting sentences provided.'
             sent_choice_idx = sent_answer_idx
             sent_choice_prob = torch.ones(bsz)
-        elif method in {'A', 'B'}:  # Oracle selection
-            if method == 'A':
-                oracle_func = max
-            elif method == 'B':
-                oracle_func = min
-            else:
-                raise NotImplementedError('No Oracle method', method, 'implemented.')
-
+        elif method in {'A', 'B', 'L', 'W'}:  # Oracle selection
             # NOTE: Set below to None to make oracle selection simultaneous with other selections
             past_sent_choice_idxs = torch.cat(past_sent_choice_idxs, 1) if len(past_sent_choice_idxs) > 0 else None
             opt_sent_idxs = []
-            sc_diffs = []
+            advantage = []
             value = []
             all_values = []  # Will be returned for SL per-sentence targets (sl-sents)
             judge_was_training = judge.training
@@ -715,20 +709,20 @@ class Trainer(TrainerBase):
             for sample_no in range(bsz):
                 oracle_output_dict = self._get_oracle_output_dict(batch, sent_idxs, judge_answer_mask,
                     required_text_mask, past_sent_choice_idxs, num_sents, sample_no, debate_mode)
-                oracle_metrics = oracle_output_dict['prob'].tolist()
-                opt_sc = float(oracle_func(oracle_metrics))
+                oracle_metrics = self._get_reward(oracle_output_dict, stance[sample_no].unsqueeze(0), method, 'prob').tolist()
+                opt_reward = float(max(oracle_metrics))
+                baseline_reward = sum(oracle_metrics) / len(oracle_metrics)
+                opt_sent_idxs.append(oracle_metrics.index(opt_reward))
+                advantage.append(opt_reward - baseline_reward)
                 all_values.append(oracle_metrics)
-                value.append(opt_sc)
-                opt_sent_idxs.append(oracle_metrics.index(opt_sc))
-                baseline_sc = sum(oracle_metrics) / len(oracle_metrics)
-                sc_diffs.append(baseline_sc - opt_sc)
+                value.append(opt_reward)
             if judge_was_training:
                 judge.train()
 
             sent_choice_idx = torch.LongTensor(opt_sent_idxs).unsqueeze(1)
             sent_choice_prob = torch.ones(bsz)
-            value = torch.FloatTensor(value)
-            sc_diffs = torch.Tensor(sc_diffs)
+            value = torch.Tensor(value)
+            advantage = torch.Tensor(advantage)
         elif method in {'a', 'b', 'l', 'w'}:  # Trained agent selection
             assert debater is not None, 'Cannot use debate method ' + method + ' without debate agents!'
 
@@ -739,10 +733,10 @@ class Trainer(TrainerBase):
             batch['all_past_sent_choice_mask'] = self._get_all_sent_choice_input_mask(sent_idxs, past_sent_choice_idxs)
 
             if debater.reward_method.startswith('sl'):
-                if method in {'l', 'w'}:
-                    raise NotImplementedError('Supervised learning for agent ' + method + ' not implemented.')
+                # if method in {'l', 'w'}:
+                #     raise NotImplementedError('Supervised learning for agent ' + method + ' not implemented.')
                 # Get Oracle results
-                oracle_sent_choice_idx, _, _, _, oracle_sc_diffs, all_values = self._get_sent_choice_prob_value(
+                oracle_sent_choice_idx, _, _, _, oracle_advantage, all_values = self._get_sent_choice_prob_value(
                     batch, sent_idxs, judge_answer_mask, debate_choice_mask, required_text_mask, past_sent_choice_idxs,
                     stance, sent_answer_idx, num_sents, cur_turn_str, for_training, method.upper(), debate_mode)
                 if debater.reward_method == 'sl':
@@ -795,8 +789,8 @@ class Trainer(TrainerBase):
                 for i in range(-1, 10):
                     thres_start = i / 10.
                     thres_end = (i + 1) / 10.
-                    thres_start_mask = (oracle_sc_diffs.abs() > thres_start).float()
-                    thres_end_mask = (thres_end >= oracle_sc_diffs.abs()).float()
+                    thres_start_mask = (oracle_advantage.abs() > thres_start).float()
+                    thres_end_mask = (thres_end >= oracle_advantage.abs()).float()
                     oracle_sc_diff_in_thres_idxs = (thres_start_mask * thres_end_mask).nonzero()
                     self._update_trainer_metrics('sl_num_per_batch_MaxScoreDrop_in_' + str(thres_end) + '_' + str(thres_start) + cur_turn_str, torch.tensor(float(len(oracle_sc_diff_in_thres_idxs))))
                     for idx in oracle_sc_diff_in_thres_idxs:
@@ -818,7 +812,7 @@ class Trainer(TrainerBase):
             self._update_trainer_metrics('answer_sent_chosen' + cur_turn_str, answer_sent_chosen.mean())
 
         self._update_trainer_metrics('time' + cur_turn_str, torch.Tensor([time.time() - choice_start_time]))
-        return sent_choice_idx, sent_choice_prob, value, turn_loss, sc_diffs, all_values
+        return sent_choice_idx, sent_choice_prob, value, turn_loss, advantage, all_values
 
     def _judge_text_masks(self, batch: TensorDict) -> Tuple[TensorDict, TensorDict]:
         """
@@ -944,7 +938,7 @@ class Trainer(TrainerBase):
         """
         Returns the reward (without baseline) based on Judge score and debating method.
         """
-        # Judge shouldn't get gradients through j_score, used to reward A/B
+        debate_method = debate_method.lower()  # Evaluate Oracle rewards too
         j_score = ver_dict[reward_method]
         if debate_method == 'a':
             rewards = j_score
@@ -952,16 +946,17 @@ class Trainer(TrainerBase):
             rewards = (1. - j_score)
         elif debate_method in {'l', 'w'}:
             rewards = (ver_dict['prob_dist'] * stance.to(ver_dict['prob_dist'])).sum(dim=1)
-        return rewards.detach()
+        return rewards.detach()  # Judge shouldn't get gradients through j_score, used to reward A/B
 
     def _get_stance(self, batch: TensorDict, method: str) -> torch.Tensor:
         """
         Returns a new stance vector or matrix for a given agent method, if applicable.
         """
+        method = method.lower()  # To get Oracle stances too
         bsz = batch['passage']['tokens'].size(0)
-        if method.lower() in {'a', 'b'}:
+        if method in {'a', 'b'}:
             return torch.tensor([method == 'a'] * bsz).to(batch['passage']['tokens'])
-        elif method.lower() in {'l', 'w'}:
+        elif method in {'l', 'w'}:
             assert self._mc, 'Only Multiple Choice datasets support debate_mode ' + method
             possible_stances = torch.ones_like(batch['options']['tokens'][:, :, 0])
             if method == 'w':  # Don't support correct option
@@ -1003,7 +998,7 @@ class Trainer(TrainerBase):
         # Decisions/turns within a single round are sequential for Oracles, simultaneous otherwise.
         loss = torch.Tensor([0]).cuda() if torch.cuda.is_available() else torch.Tensor([0])
         prev_round_ver_dict = None
-        sent_choice_idxs, sent_choice_probs, values, sc_diffs = [], [], [], None
+        sent_choice_idxs, sent_choice_probs, values, advantage = [], [], [], None
         turns_completed = 0
         stances = self._get_all_stances(batch, debate_mode)
         for round_no in range(len(debate_mode)):
@@ -1042,7 +1037,7 @@ class Trainer(TrainerBase):
             for round_turn_no, method in enumerate(debate_mode[round_no]):
                 turn_no = turns_completed + round_turn_no
                 cur_turn_str = "_turn_" + str(turn_no) + "_agent_" + method
-                sent_choice_idx, sent_choice_prob, value, turn_loss, sc_diffs, all_values = \
+                sent_choice_idx, sent_choice_prob, value, turn_loss, advantage, all_values = \
                     self._get_sent_choice_prob_value(batch, sent_idxs, judge_answer_mask, debate_choice_mask,
                                                      required_text_mask, sent_choice_idxs, stances[method],
                                                      sent_answer_idx, num_sents, cur_turn_str, for_training, method,
@@ -1118,7 +1113,7 @@ class Trainer(TrainerBase):
             turns_completed += len(debate_mode[round_no])
 
         if self._eval_mode and ((self._batch_num_total % 1) == 0):
-            self._print_debate(batch, sent_idxs, ver_dict, sent_choice_idxs, num_sents, debate_mode, sc_diffs)
+            self._print_debate(batch, sent_idxs, ver_dict, sent_choice_idxs, num_sents, debate_mode, stances, advantage)
 
         self._add_debate_metrics(ver_dict, sent_idxs, sent_choice_idxs, debate_mode)
         return loss.cpu()  # NB: Necessary to move loss to CPU?
@@ -1237,7 +1232,6 @@ class Trainer(TrainerBase):
             backward_start_time = time.time()
             loss.backward()
             self._update_trainer_metrics('time_backward', torch.Tensor([time.time() - backward_start_time]))
-
 
             train_loss += loss.item()
 

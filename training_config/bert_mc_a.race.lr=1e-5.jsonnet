@@ -1,7 +1,6 @@
 {
   "dataset_reader": {
-    "type": "race",
-    "lazy": true,
+    "type": "race-mc",
     "token_indexers": {
       "tokens": {
           "type": "bert-pretrained",
@@ -11,14 +10,14 @@
       }
     }
   },
-  "train_data_path": "datasets/race_augmented/race-train-v1.0.json",
-  "validation_data_path": "datasets/race/race-dev-v1.0.json",
+  "train_data_path": "datasets/race_raw/train",
+  "validation_data_path": "datasets/race_raw/dev",
   "model": {
-    "type": "bert-qa",
+    "type": "bert-mc-a",
     "text_field_embedder": {
       "allow_unmatched_keys": true,
       "embedder_to_indexer_map": {
-        "tokens": ["tokens", "tokens-offsets"]
+        "tokens": ["tokens", "tokens-offsets", "token-type-ids"]
       },
       "token_embedders": {
         "tokens": {
@@ -28,8 +27,7 @@
           "top_layer_only": true
         }
       }
-    },
-    "dropout": 0.1
+    }
   },
   "iterator": {
     "type": "bucket",
@@ -40,7 +38,7 @@
   "trainer": {
     "num_epochs": 20,
     "patience": 3,
-    "validation_metric": "+em",
+    "validation_metric": "+start_acc",
     "cuda_device": 0,
     "learning_rate_scheduler": {
       "type": "reduce_on_plateau",
@@ -49,7 +47,7 @@
       "patience": 1
     },
     "optimizer": {
-      "lr": 0.00002,
+      "lr": 0.00001,
       "type": "bert_adam"
     }
   }
