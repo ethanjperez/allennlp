@@ -7,7 +7,7 @@
 # TODO: Check 6090-6095. And others right before / that may also have updated
 
 ### RACE
-# Concat SL Multi-step: AB, ABAB, BA, BABA. TODO: lr={5e-6}? m={sl-sents,sl-sents-delta}?
+# Concat SL Multi-step: AB, ABAB, BA, BABA. TODO: m={sl-sents,sl-sents-delta}? lr={5e-6}?
 allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.ab.m=sl.bsz=32.lr=1e-5.c=concat -j tmp/race.best.f/model.tar.gz -b 1 -d ab -m sl -p tmp/race.best.f/oracle_outputs.c=concat.d=A_B_A_B_A_B_A_B.all.pkl -a 32 -c concat -f
 allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.abab.m=sl.bsz=32.lr=1e-5.c=concat -j tmp/race.best.f/model.tar.gz -b 1 -d abab -m sl -p tmp/race.best.f/oracle_outputs.c=concat.d=A_B_A_B_A_B_A_B.all.pkl -a 32 -c concat -f
 allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.ababab.m=sl.bsz=32.lr=1e-5.c=concat -j tmp/race.best.f/model.tar.gz -b 1 -d ababab -m sl -p tmp/race.best.f/oracle_outputs.c=concat.d=A_B_A_B_A_B_A_B.all.pkl -a 32 -c concat -f
@@ -20,6 +20,8 @@ allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.baba
 
 # Concat SL L
 allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.l.m=sl.bsz=32.lr=1e-5.c=concat -j tmp/race.best.f/model.tar.gz -b 1 -d l -m sl -p tmp/race.best.f/oracle_outputs.c=concat.d=A_B_A_B_A_B_A_B.all.pkl -a 32 -c concat -f
+allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.l.m=sl-sents.bsz=32.lr=1e-5.c=concat -j tmp/race.best.f/model.tar.gz -b 1 -d l -m sl-sents -p tmp/race.best.f/oracle_outputs.c=concat.d=A_B_A_B_A_B_A_B.all.pkl -a 32 -c concat -f
+allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.l.m=sl-sents-delta.bsz=32.lr=1e-5.c=concat -j tmp/race.best.f/model.tar.gz -b 1 -d l -m sl-sents-delta -p tmp/race.best.f/oracle_outputs.c=concat.d=A_B_A_B_A_B_A_B.all.pkl -a 32 -c concat -f
 
 # Concat Oracle L
 allennlp train training_config/race.best.jsonnet -s tmp/race.best.f -e -r -d L -c concat -p tmp/race.best.f/oracle_outputs.c=concat.all.pkl -o "{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/dev'}" 2>&1 | tee tmp/race.best.f/d=L.c=concat.dev.txt
@@ -579,7 +581,7 @@ srun --pty --mem=20000 -t 6-23:58 --gres=gpu:p40 bash
 srun --pty --mem=20000 -t 6-23:58 --gres=gpu:k80 bash
 
 # SBATCH: NB: Cut memory usage based on plots
-export COMMAND="allennlp train training_config/race.best.jsonnet -s tmp/race.best.f -e -r -d L -c concat -p tmp/race.best.f/oracle_outputs.c=concat.all.pkl -o "{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/dev'}" 2>&1 | tee tmp/race.best.f/d=L.c=concat.dev.txt"
+export COMMAND="allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.babababa.m=sl.bsz=32.lr=1e-5.c=concat -j tmp/race.best.f/model.tar.gz -b 1 -d babababa -m sl -p tmp/race.best.f/oracle_outputs.c=concat.d=B_A_B_A_B_A_B_A.all.pkl -a 32 -c concat -f"
 export COMMAND_ARRAY=($COMMAND)
 export SERIALIZATION_DIR="${COMMAND_ARRAY[4]}"
 if test -e $SERIALIZATION_DIR; then echo -e "\n${PURPLE}NOTICE: Directory already exists.\n"; else mkdir -p $SERIALIZATION_DIR; fi

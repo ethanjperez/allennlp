@@ -732,8 +732,8 @@ class Trainer(TrainerBase):
             batch['all_past_sent_choice_mask'] = self._get_all_sent_choice_input_mask(sent_idxs, past_sent_choice_idxs)
 
             if debater.reward_method.startswith('sl'):
-                if method in {'l', 'w'}:
-                    raise NotImplementedError('Supervised learning for agent ' + method + ' not implemented.')
+                # if method in {'l', 'w'}:
+                #     raise NotImplementedError('Supervised learning for agent ' + method + ' not implemented.')
                 # Get Oracle results
                 oracle_sent_choice_idx, _, _, _, oracle_advantage, all_values = self._get_sent_choice_prob_value(
                     batch, sent_idxs, judge_answer_mask, debate_choice_mask, required_text_mask, past_sent_choice_idxs,
