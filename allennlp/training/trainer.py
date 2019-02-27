@@ -203,6 +203,7 @@ class Trainer(TrainerBase):
         if self._oracle_outputs_path is None:
             self._oracle_outputs_path = os.path.join(serialization_dir, 'model_oracle_outputs.pkl')
         try:
+            logger.info('Loading oracle_outputs from filepath: ' + self._oracle_outputs_path)
             with open(self._oracle_outputs_path, 'rb') as f:
                 self._oracle_outputs = pickle.load(f)
             self._oracle_outputs_is_complete = True
