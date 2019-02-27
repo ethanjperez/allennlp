@@ -32,7 +32,7 @@
   "iterator": {
     "type": "bucket",
     "sorting_keys": [["passage", "num_tokens"], ["question", "num_tokens"]],
-    "batch_size": 4
+    "batch_size": 8
   },
 
   "trainer": {
@@ -47,7 +47,7 @@
       "patience": 1
     },
     "optimizer": {
-      "lr": 0.00005,
+      "lr": 0.000005,
       "type": "bert_adam"
     }
   }
