@@ -606,9 +606,9 @@ class Trainer(TrainerBase):
         sample_id = batch['metadata'][sample_no]['id']
         cum_turn_str = ''.join(debate_mode)[:turn_no+1]
         if sample_id in self._oracle_outputs:
-            return self._oracle_outputs[sample_id]  # Old save format
-            # if cum_turn_str in self._oracle_outputs[sample_id]:  # New save format
-            #     return self._oracle_outputs[sample_id][cum_turn_str]
+            # return self._oracle_outputs[sample_id]  # Old save format
+            if cum_turn_str in self._oracle_outputs[sample_id]:  # New save format
+                return self._oracle_outputs[sample_id][cum_turn_str]
         elif self._oracle_outputs_is_complete:
             logger.warning('Recalculating Oracle despite _oracle_outputs_is_complete = True !')
 
