@@ -36,7 +36,7 @@ for file in files:
         oracle_outputs.append(pickle.load(f))
 
 print('Merging dictionaries...')
-all_oracle_outputs = merge_dicts_by_key_and_value(*oracle_outputs, max_turns)
+all_oracle_outputs = merge_dicts_by_key_and_value(*oracle_outputs, max_turns=max_turns)
 
 print('Correcting dictionary...')
 fixed_all_oracle_outputs = {}
