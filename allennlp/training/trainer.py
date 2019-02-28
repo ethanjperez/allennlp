@@ -606,6 +606,7 @@ class Trainer(TrainerBase):
         turn_no = 0 if past_sent_choice_idxs is None else past_sent_choice_idxs.size(1)  # TODO: Pass in turn_no directly! Accurate for even # players/round > 1
         sample_id = batch['metadata'][sample_no]['id']
         cum_turn_str = ''.join(debate_mode)[:turn_no+1]
+        cum_turn_str = cum_turn_str.replace('L', 'A')
         if sample_id in self._oracle_outputs:
             # return self._oracle_outputs[sample_id]  # Old save format
             if cum_turn_str in self._oracle_outputs[sample_id]:  # New save format
