@@ -5,7 +5,7 @@ prefix = 'tmp/race.best.f/oracle_outputs.c=concat.d='
 postfixes = ['B_A_B_A_B_A_B_A.all.pkl', 'A_B_A_B_A_B_A_B.all.pkl']
 
 files = [prefix + postfix for postfix in postfixes]
-save_file = prefix + '8AB_turns.all.pkl'
+save_file = prefix + '8_AB_turns.all.pkl'
 assert not os.path.exists(save_file), 'Save file already exists! Not overriding: ' + save_file
 
 
