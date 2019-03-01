@@ -1,5 +1,5 @@
-import pickle
 import os
+import pickle
 
 prefix = 'tmp/race.best.f/oracle_outputs.c=concat.d='
 postfixes = ['B_A_B_A_B_A_B_A.all.pkl', 'A_B_A_B_A_B_A_B.all.pkl']
