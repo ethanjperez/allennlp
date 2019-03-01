@@ -13,7 +13,7 @@ with open(file, 'rb') as f:
 
 print('Moving tensors to cpu...')
 for sample_id, sample_oracle_outputs in oracle_output.items():
-    for cum_turn_str, oracle_dict in oracle_output.items():
+    for cum_turn_str, oracle_dict in sample_oracle_outputs.items():
         for k, v in oracle_dict.items():
             oracle_output[sample_id][cum_turn_str][k] = v.cpu() if isinstance(v, torch.Tensor) else v
 
