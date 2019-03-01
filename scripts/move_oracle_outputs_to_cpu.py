@@ -2,7 +2,7 @@ import os
 import pickle
 import torch
 
-file = 'tmp/race.best.f/oracle_outputs.c=concat.d=B_A_B_A_B_A_B_A.all.pkl'
+file = 'tmp/race.best.f/oracle_outputs.c=concat.d=1_AB_turns.all.pkl'
 save_file = file[:-3] + 'cpu.pkl'
 assert os.path.exists(file), 'Read file does not exist! Please correct file path ' + save_file
 assert not os.path.exists(save_file), 'Save file already exists! Not overriding: ' + save_file
