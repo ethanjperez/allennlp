@@ -11,17 +11,17 @@
 allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.ab.m=sl.bsz=32.lr=1e-5.c=concat.2 -j tmp/race.best.f/model.tar.gz -b 1 -d ab -m sl -p tmp/race.best.f/oracle_outputs.c=concat.d=1_AB_turns.all.cpu.pkl -a 32 -c concat -f #p100
 allennlp train training_config/race.best.debate.lr=5e-6.jsonnet -s tmp/race.ab.m=sl.bsz=32.lr=5e-6.c=concat.2 -j tmp/race.best.f/model.tar.gz -b 1 -d ab -m sl -p tmp/race.best.f/oracle_outputs.c=concat.d=1_AB_turns.all.cpu.pkl -a 32 -c concat -f #p40
 
+tb race.ab.m=sl.bsz=32.lr=1e-5.c=concat.2:race.ab.m=sl.bsz=32.lr=1e-5.c=concat.2,race.ab.m=sl.bsz=32.lr=5e-6.c=concat.2:race.ab.m=sl.bsz=32.lr=5e-6.c=concat.2 --port 7032
+
 allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.a_b.m=sl.bsz=32.lr=1e-5.c=concat -j tmp/race.best.f/model.tar.gz -b 1 -d a b -m sl -p tmp/race.best.f/oracle_outputs.c=concat.d=8_AB_turns.all.cpu.pkl -a 32 -c concat -f #p40
 allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.a_b_a.m=sl.bsz=32.lr=1e-5.c=concat -j tmp/race.best.f/model.tar.gz -b 1 -d a b a -m sl -p tmp/race.best.f/oracle_outputs.c=concat.d=8_AB_turns.all.cpu.pkl -a 32 -c concat -f #p40
-allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.a_b_a_b.m=sl.bsz=32.lr=1e-5.c=concat -j tmp/race.best.f/model.tar.gz -b 1 -d a b a b -m sl -p tmp/race.best.f/oracle_outputs.c=concat.d=8_AB_turns.all.cpu.pkl -a 32 -c concat -f # OOM (p40)
-allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.a_b_a_b_a_b.m=sl.bsz=32.lr=1e-5.c=concat -j tmp/race.best.f/model.tar.gz -b 1 -d a b a b a b -m sl -p tmp/race.best.f/oracle_outputs.c=concat.d=8_AB_turns.all.cpu.pkl -a 32 -c concat -f
+
+tb race.a_b.m=sl.bsz=32.lr=1e-5.c=concat:race.a_b.m=sl.bsz=32.lr=1e-5.c=concat,race.a_b_a.m=sl.bsz=32.lr=1e-5.c=concat:race.a_b_a.m=sl.bsz=32.lr=1e-5.c=concat --port 7031
 
 allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.b_a.m=sl.bsz=32.lr=1e-5.c=concat -j tmp/race.best.f/model.tar.gz -b 1 -d b a -m sl -p tmp/race.best.f/oracle_outputs.c=concat.d=8_AB_turns.all.cpu.pkl -a 32 -c concat -f #p40
 allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.b_a_b.m=sl.bsz=32.lr=1e-5.c=concat -j tmp/race.best.f/model.tar.gz -b 1 -d b a b -m sl -p tmp/race.best.f/oracle_outputs.c=concat.d=8_AB_turns.all.cpu.pkl -a 32 -c concat -f #p40
-allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.b_a_b_a.m=sl.bsz=32.lr=1e-5.c=concat -j tmp/race.best.f/model.tar.gz -b 1 -d b a b a -m sl -p tmp/race.best.f/oracle_outputs.c=concat.d=8_AB_turns.all.cpu.pkl -a 32 -c concat -f # OOM? (p40)
-allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.b_a_b_a_b_a.m=sl.bsz=32.lr=1e-5.c=concat -j tmp/race.best.f/model.tar.gz -b 1 -d b a b a b a -m sl -p tmp/race.best.f/oracle_outputs.c=concat.d=8_AB_turns.all.cpu.pkl -a 32 -c concat -f
 
-tb race.ab.m=sl.bsz=32.lr=1e-5.c=concat:race.ab.m=sl.bsz=32.lr=1e-5.c=concat,race.ba.m=sl.bsz=32.lr=1e-5.c=concat:race.ba.m=sl.bsz=32.lr=1e-5.c=concat --port 7020
+tb race.b_a.m=sl.bsz=32.lr=1e-5.c=concat:race.b_a.m=sl.bsz=32.lr=1e-5.c=concat,race.b_a_b.m=sl.bsz=32.lr=1e-5.c=concat:race.b_a_b.m=sl.bsz=32.lr=1e-5.c=concat --port 7030
 
 # Concat SL L
 allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.l.m=sl.bsz=32.lr=1e-5.c=concat.2 -j tmp/race.best.f/model.tar.gz -b 1 -d l -m sl -p tmp/race.best.f/oracle_outputs.c=concat.d=1_AB_turns.all.cpu.pkl -a 32 -c concat -f
@@ -32,8 +32,8 @@ allennlp train training_config/race.best.debate.lr=5e-6.jsonnet -s tmp/race.l.m=
 tb race.l.m=sl.bsz=32.lr=1e-5.c=concat.2:race.l.m=sl.bsz=32.lr=1e-5.c=concat.2,race.l.m=sl.bsz=32.lr=5e-6.c=concat.2:race.l.m=sl.bsz=32.lr=5e-6.c=concat.2,race.l.m=sl.bsz=64.lr=1e-5.c=concat.2:race.l.m=sl.bsz=64.lr=1e-5.c=concat.2,race.l.m=sl.bsz=64.lr=5e-6.c=concat.2:race.l.m=sl.bsz=64.lr=5e-6.c=concat.2 --port 7012
 
 allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.l.m=sl-sents.bsz=32.lr=1e-5.c=concat.2 -j tmp/race.best.f/model.tar.gz -b 1 -d l -m sl-sents -p tmp/race.best.f/oracle_outputs.c=concat.d=1_AB_turns.all.cpu.pkl -a 32 -c concat -f
-allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.l.m=sl-sents-delta.bsz=32.lr=1e-5.c=concat.2 -j tmp/race.best.f/model.tar.gz -b 1 -d l -m sl-sents-delta -p tmp/race.best.f/oracle_outputs.c=concat.d=1_AB_turns.all.cpu.pkl -a 32 -c concat -f
 allennlp train training_config/race.best.debate.lr=5e-6.jsonnet -s tmp/race.l.m=sl-sents.bsz=32.lr=5e-6.c=concat.2 -j tmp/race.best.f/model.tar.gz -b 1 -d l -m sl-sents -p tmp/race.best.f/oracle_outputs.c=concat.d=1_AB_turns.all.cpu.pkl -a 32 -c concat -f
+allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.l.m=sl-sents-delta.bsz=32.lr=1e-5.c=concat.2 -j tmp/race.best.f/model.tar.gz -b 1 -d l -m sl-sents-delta -p tmp/race.best.f/oracle_outputs.c=concat.d=1_AB_turns.all.cpu.pkl -a 32 -c concat -f
 allennlp train training_config/race.best.debate.lr=5e-6.jsonnet -s tmp/race.l.m=sl-sents-delta.bsz=32.lr=5e-6.c=concat.2 -j tmp/race.best.f/model.tar.gz -b 1 -d l -m sl-sents-delta -p tmp/race.best.f/oracle_outputs.c=concat.d=1_AB_turns.all.cpu.pkl -a 32 -c concat -f
 
 tb race.l.m=sl-sents.bsz=32.lr=1e-5.c=concat.2:race.l.m=sl-sents.bsz=32.lr=1e-5.c=concat.2,race.l.m=sl-sents-delta.bsz=32.lr=1e-5.c=concat.2:race.l.m=sl-sents-delta.bsz=32.lr=1e-5.c=concat.2,race.l.m=sl-sents.bsz=32.lr=5e-6.c=concat.2:race.l.m=sl-sents.bsz=32.lr=5e-6.c=concat.2,race.l.m=sl-sents-delta.bsz=32.lr=5e-6.c=concat.2:race.l.m=sl-sents-delta.bsz=32.lr=5e-6.c=concat.2 --port 7011

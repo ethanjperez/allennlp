@@ -39,27 +39,30 @@ for file in files:
 print('Merging dictionaries...')
 all_oracle_outputs = merge_dicts_by_key_and_value(*oracle_outputs, max_turns=max_turns)
 
-print('Correcting dictionary keys...')
+print('Correcting dictionary keys and moving tensors to CPU...')
 fixed_all_oracle_outputs = {}
-for k, v in all_oracle_outputs.items():
-    if 'train' in k:
-        for i in range(10):
-            bad_str = 'train.' + str(i)
-            if bad_str in k:
-                fixed_k = k.replace(bad_str, 'train')
-                fixed_all_oracle_outputs[fixed_k] = v
-                break
-    else:
-        fixed_all_oracle_outputs[k] = v
-
-print('Moving tensors to cpu...')
-for sample_id, sample_oracle_outputs in fixed_all_oracle_outputs.items():
+for sample_id, sample_oracle_outputs in all_oracle_outputs.items():
     for cum_turn_str, oracle_dict in sample_oracle_outputs.items():
         for k, v in oracle_dict.items():
-            fixed_all_oracle_outputs[sample_id][cum_turn_str][k] = v.cpu() if isinstance(v, torch.Tensor) else v
+            if isinstance(v, torch.Tensor):
+                v = v.cpu()
+            fixed_k = k
+            if 'train' in k:
+                for i in range(10):
+                    bad_str = 'train.' + str(i)
+                    if bad_str in k:
+                        fixed_k = k.replace(bad_str, 'train')
+                        break
+            fixed_all_oracle_outputs[sample_id][cum_turn_str][fixed_k] = v
 
 print('Saving to file...')
 with open(save_file, 'wb') as f:
     pickle.dump(fixed_all_oracle_outputs, f, pickle.HIGHEST_PROTOCOL)
+
+example_key = list(fixed_all_oracle_outputs.keys())[0]
+print('Example key:', example_key)
+print('Example cum_turn_strs:', fixed_all_oracle_outputs[example_key].keys())
+example_cum_turn_str = list(fixed_all_oracle_outputs[example_key].keys())[0]
+print('Example oracle_output dict:', fixed_all_oracle_outputs[example_key][example_cum_turn_str])
 
 print('Done!')
