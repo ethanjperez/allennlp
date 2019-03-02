@@ -606,10 +606,12 @@ class Trainer(TrainerBase):
         turn_no = 0 if past_sent_choice_idxs is None else past_sent_choice_idxs.size(1)  # TODO: Pass in turn_no directly! Accurate for even # players/round > 1
         sample_id = batch['metadata'][sample_no]['id']
         cum_turn_str = ''.join(debate_mode)[:turn_no+1]
+        cum_turn_str = cum_turn_str.replace('L', 'A')
         if sample_id in self._oracle_outputs:
             # return self._oracle_outputs[sample_id]  # Old save format
             if cum_turn_str in self._oracle_outputs[sample_id]:  # New save format
-                return self._oracle_outputs[sample_id][cum_turn_str]
+                # NB: Potentially incorrect cuda device for multi-gpu
+                return nn_util.move_to_device(self._oracle_outputs[sample_id][cum_turn_str], self._cuda_devices[0])
         elif self._oracle_outputs_is_complete:
             logger.warning('Recalculating Oracle despite _oracle_outputs_is_complete = True !')
 
@@ -994,47 +996,48 @@ class Trainer(TrainerBase):
             for i in range(bsz):
                 batch['metadata'][i]['[SEP]'] = self.get_token_index('[SEP]')
 
+        # Precomputation for all rounds
+        required_text_mask, judge_answer_mask = self._judge_text_masks(batch)  # TODO: Verify for span-based, span-based with Q in P
+        debate_choice_mask = self._debater_text_masks(batch, required_text_mask)  # TODO: Verify for span-based, span-based with Q in P
+        num_sents = self._get_num_sents(debate_choice_mask)
+        sent_idxs = {
+            'output': self._get_sent_idxs(required_text_mask, debate_choice_mask, num_sents, 'output'),
+            'input': self._get_sent_idxs(required_text_mask, debate_choice_mask, num_sents, 'input')
+        }
+        sent_answer_idx = None
+        if not self._mc:  # NOTE: Issue that BiDAF RACE model has self._mc == True here?
+            span_start = batch['span_start'].to(sent_idxs['output'].device)
+            sent_answer_idx = sent_idxs['output'].gather(1, span_start.clamp(max=(output_dim-1)))  # TODO: Verify  # TODO: Check sent_idxs[[SEP] token loc] = -1
+            sent_answer_idx[span_start >= output_dim] = -100  # Dummy negative value, can't be -1 (used for padding)
+
+        # Get Judge baseline opinion
+        prev_round_ver_dict = None
+        if (debater is not None) and (debater.influence_reward or debater.theory_of_mind):
+            # Copy and modify Judge's input
+            no_rounds_batch = self._slice_or_copy_batch(batch, copy=True)
+            no_sent_choice_input_mask = torch.zeros_like(required_text_mask['input'])
+            no_rounds_batch = self._modify_input_passage(no_rounds_batch, required_text_mask, no_sent_choice_input_mask)
+
+            # Judge forward pass
+            if self._span_model:
+                no_rounds_batch['valid_output_mask'] = judge_answer_mask['output']
+            choice_start_time = time.time()
+            prev_round_ver_dict = self._forward([no_rounds_batch], judge)
+            self._update_trainer_metrics('time_j_baseline', torch.Tensor([time.time() - choice_start_time]))
+            # NOTE: Optional: if self.model.update_judge: loss += prev_round_ver_dict['loss']
+            if self._span_model:
+                no_rounds_batch['valid_output_mask'] = None
+
         # Execute turns and accumulate loss across rounds.
         # Decisions/turns within a single round are sequential for Oracles, simultaneous otherwise.
         loss = torch.Tensor([0]).cuda() if torch.cuda.is_available() else torch.Tensor([0])
-        prev_round_ver_dict = None
         sent_choice_idxs, sent_choice_probs, values, advantage = [], [], [], None
         turns_completed = 0
         stances = self._get_all_stances(batch, debate_mode)
         for round_no in range(len(debate_mode)):
-            required_text_mask, judge_answer_mask = self._judge_text_masks(batch)  # TODO: Verify for span-based, span-based with Q in P
-            debate_choice_mask = self._debater_text_masks(batch, required_text_mask)  # TODO: Verify for span-based, span-based with Q in P
-            num_sents = self._get_num_sents(debate_choice_mask)
-            sent_idxs = {
-                'output': self._get_sent_idxs(required_text_mask, debate_choice_mask, num_sents, 'output'),
-                'input': self._get_sent_idxs(required_text_mask, debate_choice_mask, num_sents, 'input')
-            }
-            sent_answer_idx = None
-            if not self._mc:  # NOTE: Issue that BiDAF RACE model has self._mc == True here?
-                span_start = batch['span_start'].to(sent_idxs['output'].device)
-                sent_answer_idx = sent_idxs['output'].gather(1, span_start.clamp(max=(output_dim-1)))  # TODO: Verify  # TODO: Check sent_idxs[[SEP] token loc] = -1
-                sent_answer_idx[span_start >= output_dim] = -100  # Dummy negative value, can't be -1 (used for padding)
-
-            # Get Judge baseline opinion
-            if (prev_round_ver_dict is None) and (debater is not None) and (debater.influence_reward or debater.theory_of_mind):
-                # Copy and modify Judge's input
-                no_rounds_batch = self._slice_or_copy_batch(batch, copy=True)
-                no_sent_choice_input_mask = torch.zeros_like(required_text_mask['input'])
-                no_rounds_batch = self._modify_input_passage(no_rounds_batch, required_text_mask, no_sent_choice_input_mask)
-
-                # Judge forward pass
-                if self._span_model:
-                    no_rounds_batch['valid_output_mask'] = judge_answer_mask['output']
-                choice_start_time = time.time()
-                prev_round_ver_dict = self._forward([no_rounds_batch], judge)
-                self._update_trainer_metrics('time_j_baseline', torch.Tensor([time.time() - choice_start_time]))
-                # NOTE: Optional: if self.model.update_judge: loss += prev_round_ver_dict['loss']
-                if self._span_model:
-                    no_rounds_batch['valid_output_mask'] = None
-
-            # Execute player turns to determine decisions
             round_sent_choice_idxs, round_sent_choice_probs, round_values = [], [], []
             for round_turn_no, method in enumerate(debate_mode[round_no]):
+                # Execute a single player's turn to determine decisions
                 turn_no = turns_completed + round_turn_no
                 cur_turn_str = "_turn_" + str(turn_no) + "_agent_" + method
                 sent_choice_idx, sent_choice_prob, value, turn_loss, advantage, all_values = \
@@ -1046,7 +1049,7 @@ class Trainer(TrainerBase):
                 round_sent_choice_probs.append(sent_choice_prob)
                 round_values.append(value)
                 if turn_loss is not None:
-                    loss += turn_loss  # Add auxiliary/SL losses for debaters
+                    loss += turn_loss  # Add Loss: SL (primary or auxiliary losses)
             sent_choice_idxs += round_sent_choice_idxs
             sent_choice_probs += round_sent_choice_probs
             values += round_values
@@ -1065,11 +1068,11 @@ class Trainer(TrainerBase):
             if self._span_model:
                 judge_batch['valid_output_mask'] = None
 
-            # Add training losses
+            # Add Loss: Judge
             if self.model.update_judge:
                 loss += ver_dict['loss']
 
-            # Add new post-Judge RL losses
+            # Add Loss: RL agents
             for round_turn_no, method in enumerate(debate_mode[round_no]):
                 if (method not in {'a', 'b', 'l', 'w'}) or (debater.reward_method.startswith('sl')):
                     continue  # Don't apply RL loss in the above cases
