@@ -1,10 +1,17 @@
+import argparse
 import os
 import pickle
 
+parser = argparse.ArgumentParser()
+parser.add_argument("--max_turns",
+                    default=8,
+                    type=int,
+                    help="The maximum number of Oracle turns to save.")
+args = parser.parse_args()
+
 prefix = 'tmp/race.best.f/oracle_outputs.c=concat.d='
 postfixes = ['B_A_B_A_B_A_B_A.all.pkl', 'A_B_A_B_A_B_A_B.all.pkl']
-max_turns = 4
-save_file_postfix = str(max_turns) + '_AB_turns.all.pkl'
+save_file_postfix = str(args.max_turns) + '_AB_turns.all.pkl'
 
 files = [prefix + postfix for postfix in postfixes]
 save_file = prefix + save_file_postfix
@@ -37,7 +44,7 @@ for file in files:
         oracle_outputs.append(pickle.load(f))
 
 print('Merging dictionaries...')
-fixed_all_oracle_outputs = merge_dicts_by_key_and_value(*oracle_outputs, max_turns=max_turns)
+fixed_all_oracle_outputs = merge_dicts_by_key_and_value(*oracle_outputs, max_turns=args.max_turns)
 
 print('Saving to file:', save_file, '...')
 with open(save_file, 'wb') as f:
