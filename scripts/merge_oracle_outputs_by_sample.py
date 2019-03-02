@@ -46,10 +46,9 @@ for sample_id, sample_oracle_outputs in all_oracle_outputs.items():
         sample_id = fix_sample_id(sample_id)
     fixed_all_oracle_outputs[sample_id] = {}
     for cum_turn_str, oracle_dict in sample_oracle_outputs.items():
+        fixed_all_oracle_outputs[sample_id][cum_turn_str] = {}
         for k, v in oracle_dict.items():
-            if isinstance(v, torch.Tensor):
-                v = v.cpu()
-            fixed_all_oracle_outputs[sample_id][cum_turn_str] = {k: v}
+            fixed_all_oracle_outputs[sample_id][cum_turn_str][k] = v.cpu if isinstance(v, torch.Tensor) else v
 
 print('Saving to file...')
 with open(save_file, 'wb') as f:
@@ -57,8 +56,8 @@ with open(save_file, 'wb') as f:
 
 example_key = list(fixed_all_oracle_outputs.keys())[0]
 print('Example key:', example_key)
-print('Example cum_turn_strs:', fixed_all_oracle_outputs[example_key].keys())
-example_cum_turn_str = list(fixed_all_oracle_outputs[example_key].keys())[0]
-print('Example oracle_output dict:', fixed_all_oracle_outputs[example_key][example_cum_turn_str])
+example_cum_turn_strs = list(fixed_all_oracle_outputs[example_key].keys())
+print('Example cum_turn_strs:', example_cum_turn_strs)
+print('Example oracle_output dict:', fixed_all_oracle_outputs[example_key][example_cum_turn_strs[0]])
 
 print('Done!')
