@@ -46,6 +46,14 @@ class RaceMCReader(DatasetReader):
         self._token_indexers = token_indexers or {'tokens': SingleIdTokenIndexer()}
         self._letter_to_answer_idx = {'A': 0, 'B': 1, 'C': 2, 'D': 3}
 
+    @staticmethod
+    def _filepath_to_id(filepath: str, q_no: int) -> str:
+        file_parts = os.path.join(filepath, str(q_no)).split('/')[2:]
+        for split in ['train', 'dev', 'test']:
+            if split in file_parts[0]:
+                file_parts[0] = split
+        return '/'.join(file_parts)
+
     @overrides
     def _read(self, file_path: str):
         # if `file_path` is a URL, redirect to the cache
@@ -73,7 +81,7 @@ class RaceMCReader(DatasetReader):
                     question_text = art_data["questions"][q].strip().replace("\n", "")
                     options_text = art_data["options"][q]
                     answer_index = self._letter_to_answer_idx[art_data["answers"][q]]
-                    qid = os.path.join(art_file, str(q))
+                    qid = self._filepath_to_id(art_file, q)
                     yield self.text_to_instance(question_text,
                                                 passage_text,
                                                 options_text,

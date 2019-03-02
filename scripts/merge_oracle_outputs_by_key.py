@@ -21,6 +21,14 @@ def merge_dicts(*dict_args):
     return result
 
 
+def fix_sample_id(sample_id: str) -> str:
+    file_parts = sample_id.split('/')[2:]
+    for split in ['train', 'dev', 'test']:
+        if split in file_parts[0]:
+            file_parts[0] = split
+    return '/'.join(file_parts)
+
+
 oracle_outputs = []
 for file in files:
     print('Reading', file, '...')
@@ -30,21 +38,17 @@ for file in files:
 print('Merging dictionaries...')
 all_oracle_outputs = merge_dicts(*oracle_outputs)
 
-print('Correcting dictionary keys and moving tensors to CPU...')
+print('Correcting sample_ids and moving to CPU...')
 fixed_all_oracle_outputs = {}
 for sample_id, sample_oracle_outputs in all_oracle_outputs.items():
+    if 'datasets' in sample_id:
+        sample_id = fix_sample_id(sample_id)
+    fixed_all_oracle_outputs[sample_id] = {}
     for cum_turn_str, oracle_dict in sample_oracle_outputs.items():
         for k, v in oracle_dict.items():
             if isinstance(v, torch.Tensor):
                 v = v.cpu()
-            fixed_k = k
-            if 'train' in k:
-                for i in range(10):
-                    bad_str = 'train.' + str(i)
-                    if bad_str in k:
-                        fixed_k = k.replace(bad_str, 'train')
-                        break
-            fixed_all_oracle_outputs[sample_id][cum_turn_str][fixed_k] = v
+            fixed_all_oracle_outputs[sample_id][cum_turn_str] = {k: v}
 
 print('Saving to file...')
 with open(save_file, 'wb') as f:
