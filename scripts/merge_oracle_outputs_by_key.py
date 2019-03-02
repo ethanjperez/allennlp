@@ -26,6 +26,7 @@ def fix_sample_id(sample_id: str) -> str:
     for split in ['train', 'dev', 'test']:
         if split in file_parts[0]:
             file_parts[0] = split
+            break
     return '/'.join(file_parts)
 
 
