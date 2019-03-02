@@ -656,7 +656,7 @@ class Trainer(TrainerBase):
             oracle_batch.pop('valid_output_mask')
         # Cache for later use and saving to file
         self._oracle_outputs[sample_id] = self._oracle_outputs.get(sample_id, {})
-        self._oracle_outputs[sample_id][cum_turn_str] = oracle_output_dict
+        self._oracle_outputs[sample_id][cum_turn_str] = {k: v.detach().cpu() if isinstance(v, torch.Tensor) else v for k, v in oracle_output_dict.items()}
 
         return oracle_output_dict
 
