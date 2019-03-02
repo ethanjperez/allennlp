@@ -69,7 +69,8 @@ class Trainer(TrainerBase):
                  oracle_outputs_path: str = None,
                  accumulation_steps: int = 1,
                  allocation_dict: Dict[str, int] = None,
-                 choice_mode: str = None) -> None:
+                 choice_mode: str = None,
+                 num_pred_rounds: int = -1) -> None:
         """
         A trainer for doing supervised learning. It just takes a labeled dataset
         and a ``DataIterator``, and uses the supplied ``Optimizer`` to learn the weights
@@ -187,6 +188,7 @@ class Trainer(TrainerBase):
         self.choice_mode = choice_mode
         if self.choice_mode is None:
             self.choice_mode = 'delete' if self._mc else 'reveal'
+        self._num_pred_rounds = num_pred_rounds
 
         self._using_bert = hasattr(self.model, '_text_field_embedder') and \
                    hasattr(self.model._text_field_embedder, 'token_embedder_tokens') and \
@@ -409,10 +411,10 @@ class Trainer(TrainerBase):
             for round_no in len(debate_mode):
                 for round_turn_no, method in enumerate(debate_mode[round_no]):
                     turn_no = turns_completed + round_turn_no
-                    cur_turn_str = "_turn_" + str(turn_no) + "_agent_" + method
+                    turn_str = "_turn_" + str(turn_no) + "_agent_" + method
 
                     j_sent_chosen = ((j_span_start_sent <= sent_choice_idxs[turn_no]) * (sent_choice_idxs[turn_no] <= j_span_end_sent)).float()
-                    self._update_trainer_metrics('j_sent_chosen' + cur_turn_str, j_sent_chosen.mean())
+                    self._update_trainer_metrics('j_sent_chosen' + turn_str, j_sent_chosen.mean())
                     j_num_debater_sents_chosen += j_sent_chosen
                 turns_completed += len(debate_mode[round_no])
             j_chose_no_debater_sents = (j_num_debater_sents_chosen == 0).float()
@@ -609,10 +611,10 @@ class Trainer(TrainerBase):
         cum_turn_str = cum_turn_str.replace('L', 'A')
         if sample_id in self._oracle_outputs:
             if cum_turn_str in self._oracle_outputs[sample_id]:  # New save format
-                # NB: Potentially incorrect cuda device for multi-gpu
+                # NB: For multi-gpu, fix cuda device
                 return nn_util.move_to_device(self._oracle_outputs[sample_id][cum_turn_str], self._cuda_devices[0])
         elif self._oracle_outputs_is_complete:
-            logger.warning('Recalculating Oracle despite _oracle_outputs_is_complete = True !')
+            raise Exception('Recalculating Oracle despite _oracle_outputs_is_complete = True !')
 
         judge = self.model if self.model.is_judge else self.model.judge
         bsz = batch['passage']['tokens'].size(0)
@@ -678,7 +680,7 @@ class Trainer(TrainerBase):
                                     debate_choice_mask: TensorDict, required_text_mask: TensorDict,
                                     past_sent_choice_idxs: List[torch.Tensor],
                                     stance: torch.Tensor, sent_answer_idx: torch.Tensor, num_sents: torch.Tensor,
-                                    cur_turn_str: str, for_training: bool, method: str, debate_mode: List[str],
+                                    turn_str: str, for_training: bool, method: str, debate_mode: List[str],
                                     )-> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, List[torch.Tensor]]:
         """
         Returns the sentence chosen by a particular policy.
@@ -739,7 +741,7 @@ class Trainer(TrainerBase):
                 # Get Oracle results
                 oracle_sent_choice_idx, _, _, _, oracle_advantage, all_values = self._get_sent_choice_prob_value(
                     batch, sent_idxs, judge_answer_mask, debate_choice_mask, required_text_mask, past_sent_choice_idxs,
-                    stance, sent_answer_idx, num_sents, cur_turn_str, for_training, method.upper(), debate_mode)
+                    stance, sent_answer_idx, num_sents, turn_str, for_training, method.upper(), debate_mode)
                 if debater.reward_method == 'sl':
                     answer_token_mask_input = ((oracle_sent_choice_idx == sent_idxs['input']).long() * batch['valid_output_mask'])
                     batch['sent_targets'] = answer_token_mask_input.nonzero()[:, 1].unsqueeze(-1)
@@ -763,9 +765,9 @@ class Trainer(TrainerBase):
             # Set SL / debate-auxiliary losses for SGD
             turn_loss = debater_output_dict.get('loss')
             if turn_loss is not None:
-                self._update_trainer_metrics('sl_loss' + cur_turn_str, turn_loss.float().mean())
+                self._update_trainer_metrics('sl_loss' + turn_str, turn_loss.float().mean())
             if debater_output_dict['em'] is not None:
-                self._update_trainer_metrics('debater_answer_acc' + cur_turn_str, debater_output_dict['em'].float().mean())
+                self._update_trainer_metrics('debater_answer_acc' + turn_str, debater_output_dict['em'].float().mean())
 
             # Remove debater-specific batch info.
             batch['stance'] = None
@@ -781,21 +783,21 @@ class Trainer(TrainerBase):
                     batch, sent_idxs, sent_choice_idx, debater_output_dict['prob_dist'])
                 # Log statistics comparing SL to Oracle
                 sl_acc = (oracle_sent_choice_idx == sent_choice_idx).float()
-                self._update_trainer_metrics('sl_acc' + cur_turn_str, sl_acc.mean())
-                self._update_trainer_metrics('sl_first_sent_acc' + cur_turn_str, (oracle_sent_choice_idx == 0).float().mean())
-                self._update_trainer_metrics('sl_first_sent_preds' + cur_turn_str, (sent_choice_idx == 0).float().mean())
+                self._update_trainer_metrics('sl_acc' + turn_str, sl_acc.mean())
+                self._update_trainer_metrics('sl_first_sent_acc' + turn_str, (oracle_sent_choice_idx == 0).float().mean())
+                self._update_trainer_metrics('sl_first_sent_preds' + turn_str, (sent_choice_idx == 0).float().mean())
                 last_sent_idxs = sent_idxs['input'].max(dim=-1)[0]
-                self._update_trainer_metrics('sl_last_sent_acc' + cur_turn_str, (oracle_sent_choice_idx == last_sent_idxs).float().mean())
-                self._update_trainer_metrics('sl_last_sent_preds' + cur_turn_str, (sent_choice_idx == last_sent_idxs).float().mean())
+                self._update_trainer_metrics('sl_last_sent_acc' + turn_str, (oracle_sent_choice_idx == last_sent_idxs).float().mean())
+                self._update_trainer_metrics('sl_last_sent_preds' + turn_str, (sent_choice_idx == last_sent_idxs).float().mean())
                 for i in range(-1, 10):
                     thres_start = i / 10.
                     thres_end = (i + 1) / 10.
                     thres_start_mask = (oracle_advantage.abs() > thres_start).float()
                     thres_end_mask = (thres_end >= oracle_advantage.abs()).float()
                     oracle_sc_diff_in_thres_idxs = (thres_start_mask * thres_end_mask).nonzero()
-                    self._update_trainer_metrics('sl_num_per_batch_MaxScoreDrop_in_' + str(thres_end) + '_' + str(thres_start) + cur_turn_str, torch.tensor(float(len(oracle_sc_diff_in_thres_idxs))))
+                    self._update_trainer_metrics('sl_num_per_batch_MaxScoreDrop_in_' + str(thres_end) + '_' + str(thres_start) + turn_str, torch.tensor(float(len(oracle_sc_diff_in_thres_idxs))))
                     for idx in oracle_sc_diff_in_thres_idxs:
-                        self._update_trainer_metrics('sl_acc_where_MaxScoreDrop_in_' + str(thres_end) + '_' + str(thres_start) + cur_turn_str, sl_acc[idx])
+                        self._update_trainer_metrics('sl_acc_where_MaxScoreDrop_in_' + str(thres_end) + '_' + str(thres_start) + turn_str, sl_acc[idx])
             else:  # RL: Add predictions and value (no loss calculated yet)
                 if for_training:  # Use probability of sampled sentence to calculate loss
                     word_choice_idx = torch.multinomial(debater_output_dict['prob_dist'], 1)
@@ -810,9 +812,9 @@ class Trainer(TrainerBase):
 
         if sent_answer_idx is not None:
             answer_sent_chosen = (sent_choice_idx == sent_answer_idx).float()
-            self._update_trainer_metrics('answer_sent_chosen' + cur_turn_str, answer_sent_chosen.mean())
+            self._update_trainer_metrics('answer_sent_chosen' + turn_str, answer_sent_chosen.mean())
 
-        self._update_trainer_metrics('time' + cur_turn_str, torch.Tensor([time.time() - choice_start_time]))
+        self._update_trainer_metrics('time' + turn_str, torch.Tensor([time.time() - choice_start_time]))
         return sent_choice_idx, sent_choice_prob, value, turn_loss, advantage, all_values
 
     def _judge_text_masks(self, batch: TensorDict) -> Tuple[TensorDict, TensorDict]:
@@ -1027,6 +1029,11 @@ class Trainer(TrainerBase):
             if self._span_model:
                 no_rounds_batch['valid_output_mask'] = None
 
+        if self._num_pred_rounds > 0:
+            pred_round_nos = torch.multinomial(torch.ones([len(debate_mode)]), self._num_pred_rounds, replacement=False)
+            debate_mode = [round_mode if (round_no in pred_round_nos) else round_mode.upper()
+                           for round_no, round_mode in enumerate(debate_mode[:pred_round_nos.max() + 1])]
+
         # Execute turns and accumulate loss across rounds.
         # Decisions/turns within a single round are sequential for Oracles, simultaneous otherwise.
         loss = torch.Tensor([0]).cuda() if torch.cuda.is_available() else torch.Tensor([0])
@@ -1038,11 +1045,11 @@ class Trainer(TrainerBase):
             for round_turn_no, method in enumerate(debate_mode[round_no]):
                 # Execute a single player's turn to determine decisions
                 turn_no = turns_completed + round_turn_no
-                cur_turn_str = "_turn_" + str(turn_no) + "_agent_" + method
+                turn_str = "_turn_" + str(turn_no) + "_agent_" + method
                 sent_choice_idx, sent_choice_prob, value, turn_loss, advantage, all_values = \
                     self._get_sent_choice_prob_value(batch, sent_idxs, judge_answer_mask, debate_choice_mask,
                                                      required_text_mask, sent_choice_idxs, stances[method],
-                                                     sent_answer_idx, num_sents, cur_turn_str, for_training, method,
+                                                     sent_answer_idx, num_sents, turn_str, for_training, method,
                                                      debate_mode)
                 round_sent_choice_idxs.append(sent_choice_idx)
                 round_sent_choice_probs.append(sent_choice_prob)
@@ -1077,11 +1084,11 @@ class Trainer(TrainerBase):
                     continue  # Don't apply RL loss in the above cases
 
                 turn_no = turns_completed + round_turn_no
-                cur_turn_str = "_turn_" + str(turn_no) + "_agent_" + method  # NB: Rename throughout to turn_str (after merge)
+                turn_str = "_turn_" + str(turn_no) + "_agent_" + method
                 rewards = self._get_reward(ver_dict, stances[method], method, debater.reward_method)
                 if debater.influence_reward:
                     raw_rewards = rewards.clone().detach()
-                    self._update_trainer_metrics('raw_reward' + cur_turn_str, raw_rewards.mean())
+                    self._update_trainer_metrics('raw_reward' + turn_str, raw_rewards.mean())
                     prev_round_rewards = self._get_reward(prev_round_ver_dict, stances[method], method, debater.reward_method)
                     rewards = rewards - prev_round_rewards
                 baselines = values[turn_no]
@@ -1089,27 +1096,27 @@ class Trainer(TrainerBase):
                 loss += policy_losses.mean()
                 value_losses = 0.5 * ((baselines - rewards) ** 2)
                 loss += value_losses.mean()
-                self._update_trainer_metrics('policy_loss' + cur_turn_str, policy_losses.mean())
-                self._update_trainer_metrics('value_loss' + cur_turn_str, value_losses.mean())  # Upper bound ~= .125
-                self._update_trainer_metrics('baseline' + cur_turn_str, baselines.mean())
-                self._update_trainer_metrics('baseline_std' + cur_turn_str, (baselines - self._trainer_metrics['baseline' + cur_turn_str].get_metric()).abs().mean())
-                self._update_trainer_metrics('reward' + cur_turn_str, rewards.mean())
-                self._update_trainer_metrics('reward_std' + cur_turn_str, (rewards - self._trainer_metrics['reward' + cur_turn_str].get_metric()).abs().mean())
-                self._update_trainer_metrics('advantage' + cur_turn_str, (rewards - baselines).mean())
-                self._update_trainer_metrics('advantage_abs' + cur_turn_str, (rewards - baselines).abs().mean())
-                self._update_trainer_metrics('sent_choice_prob' + cur_turn_str, sent_choice_probs[turn_no].mean())
+                self._update_trainer_metrics('policy_loss' + turn_str, policy_losses.mean())
+                self._update_trainer_metrics('value_loss' + turn_str, value_losses.mean())  # Upper bound ~= .125
+                self._update_trainer_metrics('baseline' + turn_str, baselines.mean())
+                self._update_trainer_metrics('baseline_std' + turn_str, (baselines - self._trainer_metrics['baseline' + turn_str].get_metric()).abs().mean())  # Should be high
+                self._update_trainer_metrics('reward' + turn_str, rewards.mean())
+                self._update_trainer_metrics('reward_std' + turn_str, (rewards - self._trainer_metrics['reward' + turn_str].get_metric()).abs().mean())
+                self._update_trainer_metrics('advantage' + turn_str, (rewards - baselines).mean())
+                self._update_trainer_metrics('advantage_abs' + turn_str, (rewards - baselines).abs().mean())  # Should have low variance
+                self._update_trainer_metrics('sent_choice_prob' + turn_str, sent_choice_probs[turn_no].mean())
                 if method in {'l', 'w'}:  # Log statistics based on if l-agent was given correct answer or not
                     stance_was_correct = stances[method].gather(1, judge_batch['answer_index']).squeeze(1).float().tolist()
                     correctness_str = {0: '_incorrect_stance', 1: '_correct_stance'}
                     for i in range(bsz):
                         if 'em' in ver_dict:
-                            self._update_trainer_metrics('em' + cur_turn_str + correctness_str[stance_was_correct[i]], ver_dict['em'][i])
-                        self._update_trainer_metrics('policy_loss' + cur_turn_str + correctness_str[stance_was_correct[i]], policy_losses[i])
-                        self._update_trainer_metrics('baseline' + cur_turn_str + correctness_str[stance_was_correct[i]], baselines[i])
-                        self._update_trainer_metrics('value_loss' + cur_turn_str + correctness_str[stance_was_correct[i]], value_losses[i])  # Upper bound ~= .125
-                        self._update_trainer_metrics('reward' + cur_turn_str + correctness_str[stance_was_correct[i]], rewards[i])
+                            self._update_trainer_metrics('em' + turn_str + correctness_str[stance_was_correct[i]], ver_dict['em'][i])
+                        self._update_trainer_metrics('policy_loss' + turn_str + correctness_str[stance_was_correct[i]], policy_losses[i])
+                        self._update_trainer_metrics('baseline' + turn_str + correctness_str[stance_was_correct[i]], baselines[i])
+                        self._update_trainer_metrics('value_loss' + turn_str + correctness_str[stance_was_correct[i]], value_losses[i])  # Upper bound ~= .125
+                        self._update_trainer_metrics('reward' + turn_str + correctness_str[stance_was_correct[i]], rewards[i])
                         if debater.influence_reward:
-                            self._update_trainer_metrics('raw_reward' + cur_turn_str + correctness_str[stance_was_correct[i]], raw_rewards[i])
+                            self._update_trainer_metrics('raw_reward' + turn_str + correctness_str[stance_was_correct[i]], raw_rewards[i])
 
             prev_round_ver_dict = ver_dict  # Update baseline Judge scores for next round
             turns_completed += len(debate_mode[round_no])
@@ -1565,7 +1572,8 @@ class Trainer(TrainerBase):
                     oracle_outputs_path: str = None,
                     accumulation_steps: int = 1,
                     allocation_dict: Dict[str, int] = None,
-                    choice_mode: str = None) -> 'Trainer':
+                    choice_mode: str = None,
+                    num_pred_rounds: int = -1) -> 'Trainer':
 
         # pylint: disable=arguments-differ
         patience = params.pop_int("patience", None)
@@ -1641,7 +1649,8 @@ class Trainer(TrainerBase):
                    oracle_outputs_path=oracle_outputs_path,
                    accumulation_steps=accumulation_steps,
                    allocation_dict=allocation_dict,
-                   choice_mode=choice_mode)
+                   choice_mode=choice_mode,
+                   num_pred_rounds=num_pred_rounds)
 
 
 class TrainerPieces(NamedTuple):
