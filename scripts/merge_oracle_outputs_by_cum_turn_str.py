@@ -11,11 +11,12 @@ args = parser.parse_args()
 
 prefix = 'tmp/race.best.f/oracle_outputs.c=concat.d='
 postfixes = ['B_A_B_A_B_A_B_A.all.pkl', 'A_B_A_B_A_B_A_B.all.pkl']
-save_file_postfix = str(args.max_turns) + '_AB_turns.all.pkl'
 
+save_file_postfix = str(args.max_turns) + '_AB_turns.all.pkl'
 files = [prefix + postfix for postfix in postfixes]
 save_file = prefix + save_file_postfix
 assert not os.path.exists(save_file), 'Save file already exists! Not overriding: ' + save_file
+print('Saving to:', save_file)
 
 
 def merge_dicts_by_key_and_value(*dict_args, max_turns=None):
