@@ -4,7 +4,7 @@ import pickle
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--max_turns",
-                    default=8,
+                    required=True,
                     type=int,
                     help="The maximum number of Oracle turns to save.")
 args = parser.parse_args()

@@ -8,32 +8,32 @@
 
 ### RACE
 # Concat SL Multi-step (Prince): AB, ABAB, BA, BABA. TODO: m={sl-sents,sl-sents-delta}?
-allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.ab.m=sl.bsz=32.lr=1e-5.c=concat.2 -j tmp/race.best.f/model.tar.gz -b 1 -d ab -m sl -p tmp/race.best.f/oracle_outputs.c=concat.d=1_AB_turns.all.cpu.pkl -a 32 -c concat -f #p100
-allennlp train training_config/race.best.debate.lr=5e-6.jsonnet -s tmp/race.ab.m=sl.bsz=32.lr=5e-6.c=concat.2 -j tmp/race.best.f/model.tar.gz -b 1 -d ab -m sl -p tmp/race.best.f/oracle_outputs.c=concat.d=1_AB_turns.all.cpu.pkl -a 32 -c concat -f #p40
+allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.ab.m=sl.bsz=32.lr=1e-5.c=concat.2 -j tmp/race.best.f/model.tar.gz -b 1 -d ab -m sl -p tmp/race.best.f/oracle_outputs.c=concat.d=1_AB_turns.all.pkl -a 32 -c concat -f #p100
+allennlp train training_config/race.best.debate.lr=5e-6.jsonnet -s tmp/race.ab.m=sl.bsz=32.lr=5e-6.c=concat.2 -j tmp/race.best.f/model.tar.gz -b 1 -d ab -m sl -p tmp/race.best.f/oracle_outputs.c=concat.d=1_AB_turns.all.pkl -a 32 -c concat -f #p40
 
 tb race.ab.m=sl.bsz=32.lr=1e-5.c=concat.2:race.ab.m=sl.bsz=32.lr=1e-5.c=concat.2,race.ab.m=sl.bsz=32.lr=5e-6.c=concat.2:race.ab.m=sl.bsz=32.lr=5e-6.c=concat.2 --port 7032
 
-allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.a_b.m=sl.bsz=32.lr=1e-5.c=concat -j tmp/race.best.f/model.tar.gz -b 1 -d a b -m sl -p tmp/race.best.f/oracle_outputs.c=concat.d=8_AB_turns.all.cpu.pkl -a 32 -c concat -f #p40
-allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.a_b_a.m=sl.bsz=32.lr=1e-5.c=concat -j tmp/race.best.f/model.tar.gz -b 1 -d a b a -m sl -p tmp/race.best.f/oracle_outputs.c=concat.d=8_AB_turns.all.cpu.pkl -a 32 -c concat -f #p40
+allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.a_b.m=sl.bsz=32.lr=1e-5.c=concat -j tmp/race.best.f/model.tar.gz -b 1 -d a b -m sl -p tmp/race.best.f/oracle_outputs.c=concat.d=2_AB_turns.all.pkl -a 32 -c concat -f #p40
+allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.a_b_a.m=sl.bsz=32.lr=1e-5.c=concat -j tmp/race.best.f/model.tar.gz -b 1 -d a b a -m sl -p tmp/race.best.f/oracle_outputs.c=concat.d=3_AB_turns.all.pkl -a 32 -c concat -f #p40
 
 tb race.a_b.m=sl.bsz=32.lr=1e-5.c=concat:race.a_b.m=sl.bsz=32.lr=1e-5.c=concat,race.a_b_a.m=sl.bsz=32.lr=1e-5.c=concat:race.a_b_a.m=sl.bsz=32.lr=1e-5.c=concat --port 7031
 
-allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.b_a.m=sl.bsz=32.lr=1e-5.c=concat -j tmp/race.best.f/model.tar.gz -b 1 -d b a -m sl -p tmp/race.best.f/oracle_outputs.c=concat.d=8_AB_turns.all.cpu.pkl -a 32 -c concat -f #p40
-allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.b_a_b.m=sl.bsz=32.lr=1e-5.c=concat -j tmp/race.best.f/model.tar.gz -b 1 -d b a b -m sl -p tmp/race.best.f/oracle_outputs.c=concat.d=8_AB_turns.all.cpu.pkl -a 32 -c concat -f #p40
+allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.b_a.m=sl.bsz=32.lr=1e-5.c=concat -j tmp/race.best.f/model.tar.gz -b 1 -d b a -m sl -p tmp/race.best.f/oracle_outputs.c=concat.d=2_AB_turns.all.pkl -a 32 -c concat -f #p40
+allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.b_a_b.m=sl.bsz=32.lr=1e-5.c=concat -j tmp/race.best.f/model.tar.gz -b 1 -d b a b -m sl -p tmp/race.best.f/oracle_outputs.c=concat.d=3_AB_turns.all.pkl -a 32 -c concat -f #p40
 
 tb race.b_a.m=sl.bsz=32.lr=1e-5.c=concat:race.b_a.m=sl.bsz=32.lr=1e-5.c=concat,race.b_a_b.m=sl.bsz=32.lr=1e-5.c=concat:race.b_a_b.m=sl.bsz=32.lr=1e-5.c=concat --port 7030
 
 # Concat SL L
-allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.l.m=sl.bsz=32.lr=1e-5.c=concat.3 -j tmp/race.best.f/model.tar.gz -b 1 -d l -m sl -p tmp/race.best.f/oracle_outputs.c=concat.d=1_AB_turns.all.cpu.pkl -a 32 -c concat -f
-allennlp train training_config/race.best.debate.lr=5e-6.jsonnet -s tmp/race.l.m=sl.bsz=32.lr=5e-6.c=concat.3 -j tmp/race.best.f/model.tar.gz -b 1 -d l -m sl -p tmp/race.best.f/oracle_outputs.c=concat.d=1_AB_turns.all.cpu.pkl -a 32 -c concat -f
-allennlp train training_config/race.best.debate.lr=5e-6.jsonnet -s tmp/race.l.m=sl.bsz=64.lr=5e-6.c=concat.3 -j tmp/race.best.f/model.tar.gz -b 1 -d l -m sl -p tmp/race.best.f/oracle_outputs.c=concat.d=1_AB_turns.all.cpu.pkl -a 64 -c concat -f
+allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.l.m=sl.bsz=32.lr=1e-5.c=concat.3 -j tmp/race.best.f/model.tar.gz -b 1 -d l -m sl -p tmp/race.best.f/oracle_outputs.c=concat.d=1_AB_turns.all.pkl -a 32 -c concat -f
+allennlp train training_config/race.best.debate.lr=5e-6.jsonnet -s tmp/race.l.m=sl.bsz=32.lr=5e-6.c=concat.3 -j tmp/race.best.f/model.tar.gz -b 1 -d l -m sl -p tmp/race.best.f/oracle_outputs.c=concat.d=1_AB_turns.all.pkl -a 32 -c concat -f
+allennlp train training_config/race.best.debate.lr=5e-6.jsonnet -s tmp/race.l.m=sl.bsz=64.lr=5e-6.c=concat.3 -j tmp/race.best.f/model.tar.gz -b 1 -d l -m sl -p tmp/race.best.f/oracle_outputs.c=concat.d=1_AB_turns.all.pkl -a 64 -c concat -f
 
 tb race.l.m=sl.bsz=32.lr=1e-5.c=concat.3:race.l.m=sl.bsz=32.lr=1e-5.c=concat.3,race.l.m=sl.bsz=32.lr=5e-6.c=concat.3:race.l.m=sl.bsz=32.lr=5e-6.c=concat.3,race.l.m=sl.bsz=64.lr=1e-5.c=concat.3:race.l.m=sl.bsz=64.lr=1e-5.c=concat.3,race.l.m=sl.bsz=64.lr=5e-6.c=concat.3:race.l.m=sl.bsz=64.lr=5e-6.c=concat.3 --port 7012
 
-allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.l.m=sl-sents.bsz=32.lr=1e-5.c=concat.3 -j tmp/race.best.f/model.tar.gz -b 1 -d l -m sl-sents -p tmp/race.best.f/oracle_outputs.c=concat.d=1_AB_turns.all.cpu.pkl -a 32 -c concat -f
-allennlp train training_config/race.best.debate.lr=5e-6.jsonnet -s tmp/race.l.m=sl-sents.bsz=32.lr=5e-6.c=concat.3 -j tmp/race.best.f/model.tar.gz -b 1 -d l -m sl-sents -p tmp/race.best.f/oracle_outputs.c=concat.d=1_AB_turns.all.cpu.pkl -a 32 -c concat -f
-allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.l.m=sl-sents-delta.bsz=32.lr=1e-5.c=concat.3 -j tmp/race.best.f/model.tar.gz -b 1 -d l -m sl-sents-delta -p tmp/race.best.f/oracle_outputs.c=concat.d=1_AB_turns.all.cpu.pkl -a 32 -c concat -f
-allennlp train training_config/race.best.debate.lr=5e-6.jsonnet -s tmp/race.l.m=sl-sents-delta.bsz=32.lr=5e-6.c=concat.3 -j tmp/race.best.f/model.tar.gz -b 1 -d l -m sl-sents-delta -p tmp/race.best.f/oracle_outputs.c=concat.d=1_AB_turns.all.cpu.pkl -a 32 -c concat -f
+allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.l.m=sl-sents.bsz=32.lr=1e-5.c=concat.3 -j tmp/race.best.f/model.tar.gz -b 1 -d l -m sl-sents -p tmp/race.best.f/oracle_outputs.c=concat.d=1_AB_turns.all.pkl -a 32 -c concat -f
+allennlp train training_config/race.best.debate.lr=5e-6.jsonnet -s tmp/race.l.m=sl-sents.bsz=32.lr=5e-6.c=concat.3 -j tmp/race.best.f/model.tar.gz -b 1 -d l -m sl-sents -p tmp/race.best.f/oracle_outputs.c=concat.d=1_AB_turns.all.pkl -a 32 -c concat -f
+allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.l.m=sl-sents-delta.bsz=32.lr=1e-5.c=concat.3 -j tmp/race.best.f/model.tar.gz -b 1 -d l -m sl-sents-delta -p tmp/race.best.f/oracle_outputs.c=concat.d=1_AB_turns.all.pkl -a 32 -c concat -f
+allennlp train training_config/race.best.debate.lr=5e-6.jsonnet -s tmp/race.l.m=sl-sents-delta.bsz=32.lr=5e-6.c=concat.3 -j tmp/race.best.f/model.tar.gz -b 1 -d l -m sl-sents-delta -p tmp/race.best.f/oracle_outputs.c=concat.d=1_AB_turns.all.pkl -a 32 -c concat -f
 
 tb race.l.m=sl-sents.bsz=32.lr=1e-5.c=concat.3:race.l.m=sl-sents.bsz=32.lr=1e-5.c=concat.3,race.l.m=sl-sents-delta.bsz=32.lr=1e-5.c=concat.3:race.l.m=sl-sents-delta.bsz=32.lr=1e-5.c=concat.3,race.l.m=sl-sents.bsz=32.lr=5e-6.c=concat.3:race.l.m=sl-sents.bsz=32.lr=5e-6.c=concat.3,race.l.m=sl-sents-delta.bsz=32.lr=5e-6.c=concat.3:race.l.m=sl-sents-delta.bsz=32.lr=5e-6.c=concat.3 --port 7011
 
@@ -590,14 +590,19 @@ watch 'squeue -o "%.18i %.40j %.10u %.8T %.10M %.9l %.16b %.6C %.6D %R" -u $USER
 srun --pty --mem=20000 -t 1-23:58 --gres=gpu:titanxp bash
 srun --pty --mem=20000 -t 1-23:58 --gres=gpu:1080ti:1 bash
 
+# Cassio CPU
+srun --pty --mem=80000 -t 1-23:58 bash
+
 # Prince GPUs: {p40,v100,p100,k80}  {.55,1,.65}
 srun --pty --mem=20000 -t 1-23:58 --gres=gpu:p40 bash
 srun --pty --mem=20000 -t 6-23:58 --gres=gpu:k80 bash
 
+scp ejp416@access.cims.nyu.edu:/home/ejp416/allennlp/tmp/race.best.f/oracle_outputs.c=concat.d=7_AB_turns.all.pkl tmp/race.best.f/
+
 # SBATCH: NB: Cut memory usage based on plots
-export COMMAND="allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.ab.m=sl.bsz=32.lr=1e-5.c=concat.2 -j tmp/race.best.f/model.tar.gz -b 1 -d ab -m sl -p tmp/race.best.f/oracle_outputs.c=concat.d=1_AB_turns.all.cpu.pkl -a 32 -c concat -f #p100"
+export COMMAND="allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.b_a_b.m=sl.bsz=32.lr=1e-5.c=concat -j tmp/race.best.f/model.tar.gz -b 1 -d b a b -m sl -p tmp/race.best.f/oracle_outputs.c=concat.d=3_AB_turns.all.pkl -a 32 -c concat -f #p40"
 export COMMAND_ARRAY=($COMMAND)
 export SERIALIZATION_DIR="${COMMAND_ARRAY[4]}"
 if test -e $SERIALIZATION_DIR; then echo -e "\n${PURPLE}NOTICE: Directory already exists.\n"; else mkdir -p $SERIALIZATION_DIR; fi
-sbatch --job-name $SERIALIZATION_DIR --mem=40000 -t 6-23:58 --gres=gpu:p100 --open-mode append --requeue --wrap "$COMMAND"
+sbatch --job-name $SERIALIZATION_DIR --mem=40000 -t 6-23:58 --gres=gpu:p40 --open-mode append --requeue --wrap "$COMMAND"
 echo -e "\n${CYAN}${SERIALIZATION_DIR}/train.log\n"

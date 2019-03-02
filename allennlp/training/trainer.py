@@ -70,7 +70,8 @@ class Trainer(TrainerBase):
                  accumulation_steps: int = 1,
                  allocation_dict: Dict[str, int] = None,
                  choice_mode: str = None,
-                 num_pred_rounds: int = -1) -> None:
+                 num_pred_rounds: int = -1,
+                 x_order_prob: float = 0.) -> None:
         """
         A trainer for doing supervised learning. It just takes a labeled dataset
         and a ``DataIterator``, and uses the supplied ``Optimizer`` to learn the weights
@@ -189,6 +190,7 @@ class Trainer(TrainerBase):
         if self.choice_mode is None:
             self.choice_mode = 'delete' if self._mc else 'reveal'
         self._num_pred_rounds = num_pred_rounds
+        self._x_order_prob = x_order_prob
 
         self._using_bert = hasattr(self.model, '_text_field_embedder') and \
                    hasattr(self.model._text_field_embedder, 'token_embedder_tokens') and \
@@ -1029,6 +1031,9 @@ class Trainer(TrainerBase):
             if self._span_model:
                 no_rounds_batch['valid_output_mask'] = None
 
+        if (torch.rand([1]) < self._x_order_prob).item():
+            debate_mode.reverse()
+
         if self._num_pred_rounds > 0:
             pred_round_nos = torch.multinomial(torch.ones([len(debate_mode)]), self._num_pred_rounds, replacement=False)
             debate_mode = [round_mode if (round_no in pred_round_nos) else round_mode.upper()
@@ -1080,11 +1085,26 @@ class Trainer(TrainerBase):
 
             # Add Loss: RL agents
             for round_turn_no, method in enumerate(debate_mode[round_no]):
-                if (method not in {'a', 'b', 'l', 'w'}) or (debater.reward_method.startswith('sl')):
-                    continue  # Don't apply RL loss in the above cases
-
+                # Log stats for all methods
                 turn_no = turns_completed + round_turn_no
                 turn_str = "_turn_" + str(turn_no) + "_agent_" + method
+                if 'em' in ver_dict:
+                    self._update_trainer_metrics('judge_em' + turn_str, ver_dict['em'].mean())
+                if 'prob' in ver_dict:
+                    self._update_trainer_metrics('judge_prob' + turn_str, ver_dict['prob'].mean())
+                if method in {'l', 'w'}:  # Log statistics based on if l-agent was given correct answer or not
+                    stance_was_correct = stances[method].gather(1, judge_batch['answer_index']).squeeze(1).float().tolist()
+                    correctness_str = {0: '_incorrect_stance', 1: '_correct_stance'}
+                    for i in range(bsz):
+                        if 'em' in ver_dict:
+                            self._update_trainer_metrics('judge_em' + turn_str + correctness_str[stance_was_correct[i]], ver_dict['em'][i])
+                        if 'prob' in ver_dict:
+                            self._update_trainer_metrics('judge_prob' + turn_str + correctness_str[stance_was_correct[i]], ver_dict['prob'][i])
+
+                if (method not in {'a', 'b', 'l', 'w'}) or (debater.reward_method.startswith('sl')):
+                    continue  # Don't apply RL losses in the above cases
+
+                # Calculate RL losses and rewards
                 rewards = self._get_reward(ver_dict, stances[method], method, debater.reward_method)
                 if debater.influence_reward:
                     raw_rewards = rewards.clone().detach()
@@ -1096,21 +1116,19 @@ class Trainer(TrainerBase):
                 loss += policy_losses.mean()
                 value_losses = 0.5 * ((baselines - rewards) ** 2)
                 loss += value_losses.mean()
+
+                # Log RL-only stats
+                self._update_trainer_metrics('reward' + turn_str, rewards.mean())
+                self._update_trainer_metrics('reward_std' + turn_str, (rewards - self._trainer_metrics['reward' + turn_str].get_metric()).abs().mean())
+                self._update_trainer_metrics('sent_choice_prob' + turn_str, sent_choice_probs[turn_no].mean())
                 self._update_trainer_metrics('policy_loss' + turn_str, policy_losses.mean())
                 self._update_trainer_metrics('value_loss' + turn_str, value_losses.mean())  # Upper bound ~= .125
                 self._update_trainer_metrics('baseline' + turn_str, baselines.mean())
                 self._update_trainer_metrics('baseline_std' + turn_str, (baselines - self._trainer_metrics['baseline' + turn_str].get_metric()).abs().mean())  # Should be high
-                self._update_trainer_metrics('reward' + turn_str, rewards.mean())
-                self._update_trainer_metrics('reward_std' + turn_str, (rewards - self._trainer_metrics['reward' + turn_str].get_metric()).abs().mean())
                 self._update_trainer_metrics('advantage' + turn_str, (rewards - baselines).mean())
                 self._update_trainer_metrics('advantage_abs' + turn_str, (rewards - baselines).abs().mean())  # Should have low variance
-                self._update_trainer_metrics('sent_choice_prob' + turn_str, sent_choice_probs[turn_no].mean())
                 if method in {'l', 'w'}:  # Log statistics based on if l-agent was given correct answer or not
-                    stance_was_correct = stances[method].gather(1, judge_batch['answer_index']).squeeze(1).float().tolist()
-                    correctness_str = {0: '_incorrect_stance', 1: '_correct_stance'}
                     for i in range(bsz):
-                        if 'em' in ver_dict:
-                            self._update_trainer_metrics('em' + turn_str + correctness_str[stance_was_correct[i]], ver_dict['em'][i])
                         self._update_trainer_metrics('policy_loss' + turn_str + correctness_str[stance_was_correct[i]], policy_losses[i])
                         self._update_trainer_metrics('baseline' + turn_str + correctness_str[stance_was_correct[i]], baselines[i])
                         self._update_trainer_metrics('value_loss' + turn_str + correctness_str[stance_was_correct[i]], value_losses[i])  # Upper bound ~= .125
@@ -1573,7 +1591,8 @@ class Trainer(TrainerBase):
                     accumulation_steps: int = 1,
                     allocation_dict: Dict[str, int] = None,
                     choice_mode: str = None,
-                    num_pred_rounds: int = -1) -> 'Trainer':
+                    num_pred_rounds: int = -1,
+                    x_order_prob: float = 0.) -> 'Trainer':
 
         # pylint: disable=arguments-differ
         patience = params.pop_int("patience", None)
@@ -1650,7 +1669,8 @@ class Trainer(TrainerBase):
                    accumulation_steps=accumulation_steps,
                    allocation_dict=allocation_dict,
                    choice_mode=choice_mode,
-                   num_pred_rounds=num_pred_rounds)
+                   num_pred_rounds=num_pred_rounds,
+                   x_order_prob=x_order_prob)
 
 
 class TrainerPieces(NamedTuple):
