@@ -39,7 +39,7 @@ for file in files:
 print('Merging dictionaries...')
 fixed_all_oracle_outputs = merge_dicts_by_key_and_value(*oracle_outputs, max_turns=max_turns)
 
-print('Saving to file...')
+print('Saving to file:', save_file, '...')
 with open(save_file, 'wb') as f:
     pickle.dump(fixed_all_oracle_outputs, f, pickle.HIGHEST_PROTOCOL)
 
