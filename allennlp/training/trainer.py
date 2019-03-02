@@ -1049,7 +1049,7 @@ class Trainer(TrainerBase):
                 round_sent_choice_probs.append(sent_choice_prob)
                 round_values.append(value)
                 if turn_loss is not None:
-                    loss += turn_loss  # Add auxiliary/SL losses for debaters
+                    loss += turn_loss  # Add Loss: SL (primary or auxiliary losses)
             sent_choice_idxs += round_sent_choice_idxs
             sent_choice_probs += round_sent_choice_probs
             values += round_values
@@ -1068,11 +1068,11 @@ class Trainer(TrainerBase):
             if self._span_model:
                 judge_batch['valid_output_mask'] = None
 
-            # Add Judge loss
+            # Add Loss: Judge
             if self.model.update_judge:
                 loss += ver_dict['loss']
 
-            # Add new post-Judge RL losses
+            # Add Loss: RL agents
             for round_turn_no, method in enumerate(debate_mode[round_no]):
                 if (method not in {'a', 'b', 'l', 'w'}) or (debater.reward_method.startswith('sl')):
                     continue  # Don't apply RL loss in the above cases

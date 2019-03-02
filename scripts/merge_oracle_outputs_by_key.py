@@ -1,5 +1,6 @@
 import os
 import pickle
+import torch
 
 prefix = 'tmp/race.best.f/oracle_outputs.c=concat.d=B_A_B_A_B_A_B_A'
 postfixes = ['dev.pkl', 'test.pkl', 'train.0.pkl', 'train.1.pkl', 'train.2.pkl', 'train.3.pkl', 'train.4.pkl', 'train.5.pkl', 'train.6.pkl', 'train.7.pkl', 'train.8.pkl', 'train.9.pkl']
@@ -29,7 +30,7 @@ for file in files:
 print('Merging dictionaries...')
 all_oracle_outputs = merge_dicts(*oracle_outputs)
 
-print('Correcting dictionary...')
+print('Correcting dictionary keys...')
 fixed_all_oracle_outputs = {}
 for k, v in all_oracle_outputs.items():
     if 'train' in k:
@@ -41,6 +42,12 @@ for k, v in all_oracle_outputs.items():
                 break
     else:
         fixed_all_oracle_outputs[k] = v
+
+print('Moving tensors to cpu...')
+for sample_id, sample_oracle_outputs in fixed_all_oracle_outputs.items():
+    for cum_turn_str, oracle_dict in sample_oracle_outputs.items():
+        for k, v in oracle_dict.items():
+            fixed_all_oracle_outputs[sample_id][cum_turn_str][k] = v.cpu() if isinstance(v, torch.Tensor) else v
 
 print('Saving to file...')
 with open(save_file, 'wb') as f:
