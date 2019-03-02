@@ -3,8 +3,8 @@ import pickle
 
 prefix = 'tmp/race.best.f/oracle_outputs.c=concat.d='
 postfixes = ['B_A_B_A_B_A_B_A.all.pkl', 'A_B_A_B_A_B_A_B.all.pkl']
-max_turns = 2
-save_file_postfix = '2_AB_turns.all.pkl'
+max_turns = 4
+save_file_postfix = '4_AB_turns.all.pkl'
 
 files = [prefix + postfix for postfix in postfixes]
 save_file = prefix + save_file_postfix
