@@ -46,6 +46,14 @@ class RaceMCReader(DatasetReader):
         self._token_indexers = token_indexers or {'tokens': SingleIdTokenIndexer()}
         self._letter_to_answer_idx = {'A': 0, 'B': 1, 'C': 2, 'D': 3}
 
+    @staticmethod
+    def _filepath_to_id(filepath: str, q_no: int) -> str:
+        file_parts = os.path.join(filepath, str(q_no)).split('/')[2:]
+        for split in ['train', 'dev', 'test']:
+            if split in file_parts[0]:
+                file_parts[0] = split
+        return '/'.join(file_parts)
+
     @overrides
     def _read(self, file_path: str):
         # if `file_path` is a URL, redirect to the cache
@@ -55,6 +63,8 @@ class RaceMCReader(DatasetReader):
         for level in ['middle', 'high']:
             # Get all articles
             file_level_path = os.path.join(file_path, level)
+            if not os.path.exists(file_level_path):
+                continue
             articles = os.listdir(file_level_path)
             for article in articles:
                 art_file = os.path.join(file_level_path, article)
@@ -71,7 +81,7 @@ class RaceMCReader(DatasetReader):
                     question_text = art_data["questions"][q].strip().replace("\n", "")
                     options_text = art_data["options"][q]
                     answer_index = self._letter_to_answer_idx[art_data["answers"][q]]
-                    qid = os.path.join(art_file, str(q))
+                    qid = self._filepath_to_id(art_file, q)
                     yield self.text_to_instance(question_text,
                                                 passage_text,
                                                 options_text,
@@ -115,53 +125,3 @@ class RaceMCReader(DatasetReader):
         metadata.update(additional_metadata)
         fields['metadata'] = MetadataField(metadata)
         return Instance(fields)
-
-# if __name__ == "__main__":
-#     # Parses RAW Race Files into Single JSON Format
-#     # Assumes race_raw directory lives in "datasets/race_raw" and you're running from allenlp dir
-#     race_raw_path = "datasets/race_raw"
-#     race_path = "datasets/race_mc"
-#     splits = ['train', 'dev', 'test']
-#     letter_to_answer_idx = {'A': 0, 'B': 1, 'C': 2, 'D': 3}
-#
-#     if not os.path.exists(race_path):
-#         os.mkdir(race_path)
-#
-#     # Create Data Dictionary
-#     data = {}
-#     for split in splits:
-#         data[split] = {'data': []}
-#         split_path = os.path.join(race_raw_path, split)
-#         for level in ['middle', 'high']:
-#             split_level_path = os.path.join(split_path, level)
-#
-#             # Get all articles
-#             articles = os.listdir(split_level_path)
-#             for article in articles:
-#                 art_file = os.path.join(split_level_path, article)
-#                 with open(art_file, 'rb') as f:
-#                     art_data = json.load(f)
-#
-#                 # Set up top level json dict
-#                 article_dict = {"title": art_data["id"], "paragraphs": []}
-#
-#                 # Iterate through questions
-#                 for q in range(len(art_data["questions"])):
-#                     # Create Instance Dictionary
-#                     article_dict["paragraphs"].append({
-#                         'context': art_data["article"],
-#                         'qas': [{
-#                             "options": art_data["options"][q],
-#                             "answers": [letter_to_answer_idx[art_data["answers"][q]]],
-#                             "question": art_data["questions"][q],
-#                             "id": art_file
-#                         }]
-#                     })
-#
-#                 # Add article dict to data
-#                 data[split]['data'].append(article_dict)
-#
-#     # Dump JSON Files
-#     for split in splits:
-#         with open(os.path.join(race_path, "race-" + split + "-v1.0.json"), 'w') as f:
-#             json.dump(data[split], f)
