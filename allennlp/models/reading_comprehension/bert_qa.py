@@ -52,7 +52,9 @@ class BertQA(Model):
                  judge: Model = None,
                  update_judge: bool = False,
                  reward_method: str = None,
-                 detach_value_head: bool = False) -> None:
+                 detach_value_head: bool = False,
+                 qa_loss_weight: float = 0.,
+                 influence_reward: bool = False) -> None:
         super(BertQA, self).__init__(vocab, regularizer)
         raise NotImplementedError('This model is no longer verified/debugged to work.')
 
@@ -61,6 +63,8 @@ class BertQA(Model):
         self.reward_method = None if self.is_judge else reward_method
         self.update_judge = update_judge and (self.judge is not None)
         self._detach_value_head = detach_value_head
+        self._qa_loss_weight = qa_loss_weight
+        self.influence_reward = influence_reward
         self._text_field_embedder = text_field_embedder
         self.answer_type = 'span' if (span_end_encoder is not None) else 'mc'
         self.output_type = 'span'  # The actual way the output is given (here it's as a pointer to input)
@@ -99,7 +103,8 @@ class BertQA(Model):
                 metadata: List[Dict[str, Any]] = None,
                 store_metrics: bool = True,
                 valid_output_mask: torch.LongTensor = None,
-                sent_targets: torch.Tensor = None) -> Dict[str, torch.Tensor]:
+                sent_targets: torch.Tensor = None,
+                stance: torch.LongTensor = None) -> Dict[str, torch.Tensor]:
         # pylint: disable=arguments-differ
         """
         Parameters
@@ -159,12 +164,10 @@ class BertQA(Model):
         sep_token_mask = (passage['tokens'] == sep_token).long()
         token_type_ids = (sep_token_mask.cumsum(-1) - sep_token_mask).clamp(max=1)
         if not self.is_judge:
-            assert(metadata is not None and 'a_turn' in metadata[0])
-            a_turn = torch.tensor([sample_metadata['a_turn'] for sample_metadata in metadata]).to(passage['tokens']).unsqueeze(1)
+            assert stance is not None
             # TODO: Use boolean variable passed in to determine if A/B should use Frozen Judge BERT or their own updating BERT
             if self._text_field_embedder._token_embedders['tokens'].requires_grad:
-                token_type_ids[:, 0] = a_turn.squeeze(1)
-            a_turn = a_turn.float()
+                token_type_ids[:, 0] = stance
         # Shape: (batch_size, passage_length, modeling_dim)
         modeled_passage = self._text_field_embedder(passage)  # TODO: Use token_type_ids (May improve RACE, also SQUAD to SOTA). TODO: Output a BERT-input-level distribution
         batch_size, passage_length, modeling_dim = modeled_passage.size()
@@ -174,7 +177,7 @@ class BertQA(Model):
 
         # Debate: Post-BERT agent-based conditioning
         if not self.is_judge:
-            turn_film_params = self._turn_film_gen(a_turn)
+            turn_film_params = self._turn_film_gen(stance.float())
             turn_gammas, turn_betas = torch.split(turn_film_params, modeling_dim, dim=-1)
             # NB: Check you need to apply passage_mask here
             modeled_passage = self._film(modeled_passage, 1. + turn_gammas, turn_betas) * passage_mask.unsqueeze(-1)
@@ -242,7 +245,7 @@ class BertQA(Model):
                 self._span_end_accuracy(span_end_logits, span_end.squeeze(-1))
                 self._span_accuracy(best_span, torch.stack([span_start, span_end], -1))
             output_dict["loss"] = loss
-        elif (span_start is not None) and (not self.is_judge):  # Debate SL
+        elif not self.is_judge:  # Debate SL
             if self.reward_method == 'sl':  # sent_targets should be a vector of target indices
                 output_dict["loss"] = nll_loss(util.masked_log_softmax(span_start_logits, valid_output_mask), sent_targets.squeeze(-1))
                 if store_metrics:

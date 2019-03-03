@@ -1,10 +1,11 @@
 import pickle
 import os
 
-folder = 'tmp/race.best.f/'
-files = ['oracle_outputs.dev.pkl', 'oracle_outputs.test.pkl', 'oracle_outputs.train.0.pkl', 'oracle_outputs.train.1.pkl', 'oracle_outputs.train.2.pkl', 'oracle_outputs.train.3.pkl', 'oracle_outputs.train.4.pkl', 'oracle_outputs.train.5.pkl', 'oracle_outputs.train.6.pkl', 'oracle_outputs.train.7.pkl', 'oracle_outputs.train.8.pkl', 'oracle_outputs.train.9.pkl']
+prefix = 'tmp/race.best.f/oracle_outputs.c=concat'
+postfixes = ['dev.pkl', 'test.pkl', 'train.0.pkl', 'train.1.pkl', 'train.2.pkl', 'train.3.pkl', 'train.4.pkl', 'train.5.pkl', 'train.6.pkl', 'train.7.pkl', 'train.8.pkl', 'train.9.pkl']
 
-save_file = os.path.join(folder, 'oracle_outputs.all.corrected.pkl')
+files = [prefix + '.' + postfix for postfix in postfixes]
+save_file = prefix + '.' + 'all.pkl'
 assert not os.path.exists(save_file), 'Save file already exists! Not overriding: ' + save_file
 
 
@@ -22,7 +23,7 @@ def merge_dicts(*dict_args):
 oracle_outputs = []
 for file in files:
     print('Reading', file, '...')
-    with open(os.path.join(folder, file), 'rb') as f:
+    with open(file, 'rb') as f:
         oracle_outputs.append(pickle.load(f))
 
 print('Merging dictionaries...')

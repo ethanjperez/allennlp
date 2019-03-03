@@ -89,6 +89,9 @@ class BidirectionalAttentionFlow(Model):
                  update_judge: bool = False,
                  reward_method: str = None,
                  detach_value_head: bool = False,
+                 qa_loss_weight: float = 0.,
+                 influence_reward: bool = False,
+                 theory_of_mind: bool = False,
                  dataset_name: str = 'squad') -> None:
         super(BidirectionalAttentionFlow, self).__init__(vocab, regularizer)
 
@@ -97,6 +100,9 @@ class BidirectionalAttentionFlow(Model):
         self.reward_method = None if self.is_judge else reward_method
         self.update_judge = update_judge and (self.judge is not None)
         self._detach_value_head = detach_value_head
+        self._qa_loss_weight = qa_loss_weight
+        self.influence_reward = influence_reward
+        self.theory_of_mind = theory_of_mind
         self.answer_type = 'mc' if dataset_name == 'race' else 'span'  # NB: Field will be incorrect for previously trained RACE bidaf models, but we're not using those anyways
         self.output_type = 'span'  # The actual way the output is given (here it's as a pointer to input)
         self._text_field_embedder = text_field_embedder
@@ -159,7 +165,8 @@ class BidirectionalAttentionFlow(Model):
                 metadata: List[Dict[str, Any]] = None,
                 store_metrics: bool = True,
                 valid_output_mask: torch.LongTensor = None,
-                sent_targets: torch.Tensor = None) -> Dict[str, torch.Tensor]:
+                sent_targets: torch.Tensor = None,
+                stance: torch.LongTensor = None) -> Dict[str, torch.Tensor]:
         # pylint: disable=arguments-differ
         """
         Parameters
@@ -260,9 +267,7 @@ class BidirectionalAttentionFlow(Model):
 
         # Debate: Conditioning on whose turn it is (A/B)
         if not self.is_judge:
-            assert(metadata is not None and 'a_turn' in metadata[0])
-            a_turn = torch.tensor([sample_metadata['a_turn'] for sample_metadata in metadata]).to(final_merged_passage).unsqueeze(1)
-            turn_film_params = self._turn_film_gen(a_turn)
+            turn_film_params = self._turn_film_gen(stance.to(final_merged_passage).unsqueeze(1))
             turn_gammas, turn_betas = torch.split(turn_film_params, self._modeling_layer.get_input_dim(), dim=-1)
             final_merged_passage_mask = (final_merged_passage != 0).float()  # NOTE: Using heuristic to get mask
             final_merged_passage = self._film(final_merged_passage, 1. + turn_gammas, turn_betas) * final_merged_passage_mask
@@ -331,7 +336,7 @@ class BidirectionalAttentionFlow(Model):
                 self._span_end_accuracy(span_end_logits, span_end.squeeze(-1))
                 self._span_accuracy(best_span, torch.stack([span_start, span_end], -1))
             output_dict["loss"] = loss
-        elif (span_start is not None) and (not self.is_judge):  # Debate SL
+        elif not self.is_judge:  # Debate SL
             if self.reward_method == 'sl':  # sent_targets should be a vector of target indices
                 output_dict["loss"] = nll_loss(util.masked_log_softmax(span_start_logits, valid_output_mask), sent_targets.squeeze(-1))
                 if store_metrics:
