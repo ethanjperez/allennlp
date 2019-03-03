@@ -17,7 +17,7 @@
     "text_field_embedder": {
       "allow_unmatched_keys": true,
       "embedder_to_indexer_map": {
-        "tokens": ["tokens", "tokens-offsets"]
+        "tokens": ["tokens", "tokens-offsets", "token-type-ids"]
       },
       "token_embedders": {
         "tokens": {
@@ -32,7 +32,7 @@
   "iterator": {
     "type": "bucket",
     "sorting_keys": [["passage", "num_tokens"], ["question", "num_tokens"]],
-    "batch_size": 8
+    "batch_size": 4
   },
 
   "trainer": {

@@ -459,6 +459,7 @@ class BertMCDCMN(BertMC):
         question['token-type-ids'] = BertMC.get_token_type_ids(question['tokens'], sep_token)
         options['token-type-ids'] = BertMC.get_token_type_ids(options['tokens'], sep_token)
         if not self.is_judge:
+            raise NotImplementedError('BertMCDCMN Debater not implemented.')
             # TODO: Use boolean variable passed in to determine if A/B should use Frozen Judge BERT or their own updating BERT
             if self._text_field_embedder._token_embedders['tokens'].requires_grad:
                 conditioning = options_to_support.long().squeeze(1)
