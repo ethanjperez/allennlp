@@ -439,7 +439,7 @@ class Trainer(TrainerBase):
                 print('\n**Question**\n', ' '.join(batch['metadata'][i]['question_tokens']))
                 toks = batch['metadata'][i]['passage_tokens']
                 if 'options' in batch:
-                    print('\n**Options**\n', [' '.join(batch['metadata'][i]['options_tokens'][j]) for j in range(4)])
+                    print('\n**Options**\n', [' '.join(batch['metadata'][i]['options_tokens'][j]) for j in range(len(batch['metadata'][i]['options_tokens']))])
                     true_answer_index = batch['answer_index'][i]
                     print('\n**True Answer**\n', true_answer_index.item(), ' '.join(batch['metadata'][i]['options_tokens'][true_answer_index]))
                     best_answer_index = output_dict['best_answer_index'][i]
