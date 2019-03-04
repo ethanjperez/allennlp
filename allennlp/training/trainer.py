@@ -439,7 +439,7 @@ class Trainer(TrainerBase):
                 print('\n**Question**\n', ' '.join(batch['metadata'][i]['question_tokens']))
                 toks = batch['metadata'][i]['passage_tokens']
                 if 'options' in batch:
-                    print('\n**Options**\n', [' '.join(batch['metadata'][i]['options_tokens'][j]) for j in range(4)])
+                    print('\n**Options**\n', [' '.join(batch['metadata'][i]['options_tokens'][j]) for j in range(len(batch['metadata'][i]['options_tokens']))])
                     true_answer_index = batch['answer_index'][i]
                     print('\n**True Answer**\n', true_answer_index.item(), ' '.join(batch['metadata'][i]['options_tokens'][true_answer_index]))
                     best_answer_index = output_dict['best_answer_index'][i]
@@ -616,7 +616,7 @@ class Trainer(TrainerBase):
                 # NB: For multi-gpu, fix cuda device
                 return nn_util.move_to_device(self._oracle_outputs[sample_id][cum_turn_str], self._cuda_devices[0])
         elif self._oracle_outputs_is_complete:
-            raise Exception('Recalculating Oracle despite _oracle_outputs_is_complete = True !')
+            raise Exception('Recalculating Oracle despite _oracle_outputs_is_complete = True ! For sample_id:', sample_id)
 
         judge = self.model if self.model.is_judge else self.model.judge
         bsz = batch['passage']['tokens'].size(0)
