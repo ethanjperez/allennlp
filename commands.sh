@@ -6,14 +6,14 @@
 
 # TODO: Check 6090-6095. And others right before / that may also have updated
 
-# α,β,γ,δ  Α,Β,Γ,Δ
-
 # RACE: More Judge HP sweeping
 allennlp train training_config/bert_mc.race.lr=1e-5.jsonnet -s tmp/race.bert_mc.bsz=32.lr=1e-5.f -d f -a 4 -f #r
 allennlp train training_config/bert_mc.race.lr=5e-6.jsonnet -s tmp/race.bert_mc.bsz=32.lr=5e-6.f -d f -a 4 -f
 allennlp train training_config/bert_mc_pq2a.race.lr=5e-6.bsz=4.jsonnet -s tmp/race.bert_mc_pq2a.bsz=32.lr=5e-6.a=8.f -d f -a 8 -f
 
 ### RACE
+allennlp train training_config/race.best.jsonnet -s tmp/race.best.f -e -r -d A B A B A B A B -c concat -p tmp/race.best.f/oracle_outputs.c=concat.d=A_B_A_B_A_B_A_B.all.fixed.pkl -o \"{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/dev'}\" 2>&1 | tee tmp/race.best.f/d=A_B_A_B_A_B_A_B.c=concat.dev.fixed.txt
+
 ## Oracle: Question-type specific evaluation
 # A (Word matching)
 allennlp train training_config/race.best.jsonnet -s tmp/race.best.f -e -r -d A A -p tmp/race.best.f/oracle_outputs.c=concat.d=AA.qtype=A.all.pkl -c concat -o \"{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/A'}\" 2>&1 | tee tmp/race.best.f/eval-AA-concat.qtype=A.2.txt
@@ -712,7 +712,7 @@ srun --pty --mem=20000 -t 1-23:58 --gres=gpu:p40 bash
 srun --pty --mem=20000 -t 6-23:58 --gres=gpu:k80 bash
 
 # SBATCH: NB: Cut memory usage based on plots
-export COMMAND="allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.l.m=sl-sents-delta.bsz=32.lr=1e-5.c=concat.4 -j tmp/race.best.f/model.tar.gz -b 1 -d l -m sl-sents-delta -p tmp/race.best.f/oracle_outputs.c=concat.d=1_AB_turns.all.pkl -a 32 -c concat -f"
+export COMMAND="allennlp train training_config/race.best.jsonnet -s tmp/race.best.f -e -r -d A B A B A B A B -c concat -p tmp/race.best.f/oracle_outputs.c=concat.d=A_B_A_B_A_B_A_B.all.fixed.pkl -o \"{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/dev'}\" 2>&1 | tee tmp/race.best.f/d=A_B_A_B_A_B_A_B.c=concat.dev.fixed.txt"
 export COMMAND_ARRAY=($COMMAND)
 export SERIALIZATION_DIR="${COMMAND_ARRAY[4]}"
 if test -e $SERIALIZATION_DIR; then echo -e "\n${PURPLE}NOTICE: Directory already exists.\n"; else mkdir -p $SERIALIZATION_DIR; fi
