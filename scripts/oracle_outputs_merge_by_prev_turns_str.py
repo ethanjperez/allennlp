@@ -51,10 +51,9 @@ print('Saving to file:', save_file, '...')
 with open(save_file, 'wb') as f:
     pickle.dump(fixed_all_oracle_outputs, f, pickle.HIGHEST_PROTOCOL)
 
-example_key = list(fixed_all_oracle_outputs.keys())[0]
+example_key = list(fixed_all_oracle_outputs.keys())[-1]
 print('Example key:', example_key)
-example_cum_turn_strs = list(fixed_all_oracle_outputs[example_key].keys())
-print('Example cum_turn_strs:', example_cum_turn_strs)
-print('Example oracle_output dict:', fixed_all_oracle_outputs[example_key][example_cum_turn_strs[0]])
-
+example_prev_turns_strs = list(fixed_all_oracle_outputs[example_key].keys())
+print('Example prev_turns_strs:', example_prev_turns_strs)
+print('Example oracle_output dict:', fixed_all_oracle_outputs[example_key][example_prev_turns_strs[0]])
 print('Done!')

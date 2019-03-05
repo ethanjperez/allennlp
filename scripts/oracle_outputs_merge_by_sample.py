@@ -45,18 +45,17 @@ for sample_id, sample_oracle_outputs in all_oracle_outputs.items():
     if 'datasets' in sample_id:
         sample_id = fix_sample_id(sample_id)
     fixed_all_oracle_outputs[sample_id] = {}
-    for cum_turn_str, oracle_dict in sample_oracle_outputs.items():
-        fixed_all_oracle_outputs[sample_id][cum_turn_str] = {k: v.cpu() if isinstance(v, torch.Tensor) else v
+    for prev_turns_str, oracle_dict in sample_oracle_outputs.items():
+        fixed_all_oracle_outputs[sample_id][prev_turns_str] = {k: v.cpu() if isinstance(v, torch.Tensor) else v
                                                              for k, v in oracle_dict.items()}
 
 print('Saving to file:', save_file, '...')
 with open(save_file, 'wb') as f:
     pickle.dump(fixed_all_oracle_outputs, f, pickle.HIGHEST_PROTOCOL)
 
-example_key = list(fixed_all_oracle_outputs.keys())[0]
+example_key = list(fixed_all_oracle_outputs.keys())[-1]
 print('Example key:', example_key)
-example_cum_turn_strs = list(fixed_all_oracle_outputs[example_key].keys())
-print('Example cum_turn_strs:', example_cum_turn_strs)
-print('Example oracle_output dict:', fixed_all_oracle_outputs[example_key][example_cum_turn_strs[0]])
-
+example_prev_turns_strs = list(fixed_all_oracle_outputs[example_key].keys())
+print('Example prev_turns_strs:', example_prev_turns_strs)
+print('Example oracle_output dict:', fixed_all_oracle_outputs[example_key][example_prev_turns_strs[0]])
 print('Done!')
