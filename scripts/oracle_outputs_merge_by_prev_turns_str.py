@@ -32,7 +32,7 @@ def merge_dicts_by_key_and_value(*dict_args, max_turns=None):
         for sample_id, oracle_outputs_per_turn in result.items():
             filtered_results = {}
             for turn, oracle_outputs in result[sample_id].items():
-                if len(turn) <= max_turns:
+                if (len(turn.replace('_', '')) + 1) <= max_turns:
                     filtered_results[turn] = oracle_outputs
             result[sample_id] = filtered_results
     return result
