@@ -52,6 +52,8 @@ class RaceMCReader(DatasetReader):
         for split in ['train', 'dev', 'test']:
             if split in file_parts[0]:
                 file_parts[0] = split
+            elif file_parts[0] in {'A', 'B', 'C', 'D', 'E'}:
+                file_parts[0] = 'test'  # Question-type datasets come from test
         return '/'.join(file_parts)
 
     @overrides

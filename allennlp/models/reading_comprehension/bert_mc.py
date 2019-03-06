@@ -402,6 +402,137 @@ class BertMCGPT(BertMC):
             return option_logits, policy_logits, value
 
 
+@Model.register("bert-mc-pqa-sa")
+class BertMCPQASA(BertMC):
+    """
+    Computes: Softmax(Self-Attention(BERT(P), BERT(Q), BERT(Option_i)) for all i)
+    """
+    def __init__(self, vocab: Vocabulary,
+                 text_field_embedder: TextFieldEmbedder,
+                 initializer: InitializerApplicator = InitializerApplicator(),
+                 regularizer: Optional[RegularizerApplicator] = None,
+                 judge: Model = None,
+                 update_judge: bool = False,
+                 reward_method: str = None,
+                 detach_value_head: bool = False,
+                 qa_loss_weight: float = 0.,
+                 influence_reward: bool = False,
+                 theory_of_mind: bool = False) -> None:
+        super().__init__(vocab=vocab,
+                         text_field_embedder=text_field_embedder,
+                         initializer=initializer,
+                         regularizer=regularizer,
+                         judge=judge,
+                         update_judge=update_judge,
+                         reward_method=reward_method,
+                         detach_value_head=detach_value_head,
+                         qa_loss_weight=qa_loss_weight,
+                         influence_reward=influence_reward,
+                         theory_of_mind=theory_of_mind)
+        self._logit_predictor = torch.nn.Linear(self._hidden_dim, 1)
+        self._initializer(self)
+
+    def compute_logits_and_value(self,  # type: ignore
+                                 question: Dict[str, torch.LongTensor],
+                                 passage: Dict[str, torch.LongTensor],
+                                 options: Dict[str, torch.LongTensor],
+                                 sep_token: int,
+                                 options_to_support: torch.FloatTensor = None,
+                                 all_past_sent_choice_mask: torch.LongTensor = None,
+                                 ) -> Tuple[torch.FloatTensor, torch.FloatTensor, torch.FloatTensor]:
+        """
+        Architecture-specific forward pass
+        """
+        # Get masks and other variables
+        passage_mask = util.get_text_field_mask(passage).float()
+        question_mask = util.get_text_field_mask(question).float()
+        options_mask = util.get_text_field_mask(options).float()
+        num_options = options['tokens'].size(1)
+
+        passage['token-type-ids'] = BertMC.get_token_type_ids(passage['tokens'], sep_token)
+        question['token-type-ids'] = BertMC.get_token_type_ids(question['tokens'], sep_token)
+        options['token-type-ids'] = BertMC.get_token_type_ids(options['tokens'], sep_token)
+        # Condition debater on stance. Also add in past debater choices
+        if not self.is_judge:
+            raise NotImplementedError('bert-mc-pqa-sa debater not yet implemented.')
+            pqo['token-type-ids'][:, :, 0] = options_to_support  # Change segment embedding for [CLS] tokens only.
+            if all_past_sent_choice_mask is not None:
+                pqo_sent_chosen_mask = torch.zeros(batch_size, max(pqo_token_maxlens), dtype=torch.long, device=passage['tokens'].device)
+                pqo_sent_chosen_mask[:, :all_past_sent_choice_mask.size(1)] = all_past_sent_choice_mask
+                pqo_sent_chosen_mask = pqo_sent_chosen_mask.unsqueeze(1).expand(-1, num_options, -1)
+                pqo['token-type-ids'] = (pqo['token-type-ids'] + pqo_sent_chosen_mask).clamp(max=1)
+            # TODO: Use boolean variable passed in to determine if A/B should use Frozen Judge BERT or their own updating BERT
+            if self._text_field_embedder._token_embedders['tokens'].requires_grad:
+                conditioning = options_to_support.long().squeeze(1)
+                passage['token-type-ids'][:, 0] = conditioning
+                question['token-type-ids'][:, 0] = conditioning
+                options['token-type-ids'][:, :, 0] = conditioning
+        # Shape: (batch_size, passage_length, hidden_dim)  # TODO: Get full BERT output: Set 'tokens-offsets'=None
+        hidden_passage = self._text_field_embedder(passage) * passage_mask.unsqueeze(-1)
+        hidden_question = self._text_field_embedder(question) * question_mask.unsqueeze(-1)
+        hidden_options = self._text_field_embedder(options) * options_mask.unsqueeze(-1)
+
+        raise NotImplementedError('bert-mc-pqa-sa not implemented for judge or debaters.')
+        hidden_pqo = hidden_passage  # TODO: Make instead pad-free concat of hidden_passage/question/options
+        # TODO: Verify all beyond this point
+        pqo_mask = util.get_text_field_mask(hidden_pqo).float()
+
+        # Debate: Post-BERT agent-based conditioning
+        if not self.is_judge:
+            # Condition on option to support (again)
+            agent_film_params = self._turn_film_gen(options_to_support.unsqueeze(-1))
+            agent_gammas, agent_betas = torch.split(agent_film_params, self._hidden_dim, dim=-1)
+            hidden_pqo = self._film(hidden_pqo, 1. + agent_gammas, agent_betas) * pqo_mask.float().unsqueeze(-1)
+            # Process Judge hidden states
+            if self.theory_of_mind:
+                # Condition Judge states on Debater opinion (to highlight strong candidate sentences)
+                cond_judge_hidden_pqo = self._film(self.judge.hidden_pqo, 1. + agent_gammas, agent_betas
+                                                   ) * self.judge.pqo['mask'].float().unsqueeze(-1)
+                # Align Judge states to Debater's full passage states
+                shifted_judge_hidden_pqo = torch.zeros_like(hidden_pqo)
+                seq_lengths = util.get_lengths_from_binary_sequence_mask(pqo_mask)
+                judge_seq_lengths = util.get_lengths_from_binary_sequence_mask(self.judge.pqo_mask)
+                for i in range(batch_size):
+                    for j in range(num_options):
+                        shifted_judge_hidden_pqo[i, j, seq_lengths[i, j] - judge_seq_lengths[i, j]: seq_lengths[i, j]] = \
+                            cond_judge_hidden_pqo[i, j, :judge_seq_lengths[i, j]]
+                hidden_pqo = self.final_blocks_input_proj(torch.cat([hidden_pqo, shifted_judge_hidden_pqo], dim=-1))
+
+        # Joint processing with transformer block
+        # TODO: Make transformer layer take > 512 positions
+        # TODO: Add position/option embeddings for PQO (otherwise position embeddings are identical across P,Q,O)
+        extended_attention_mask = util.combine_initial_dims(pqo_mask).unsqueeze(1).unsqueeze(2)
+        extended_attention_mask = extended_attention_mask.to(dtype=next(self.final_blocks.parameters()).dtype)
+        extended_attention_mask = (1.0 - extended_attention_mask) * -10000.0
+        hidden_pqo = self.final_blocks(hidden_pqo.view(batch_size * num_options, -1, self._hidden_dim),
+                                       extended_attention_mask, output_all_encoded_layers=False)[-1]
+        # Reshape and remask
+        hidden_pqo = hidden_pqo.view(batch_size, num_options, -1, self._hidden_dim) * pqo_mask.float().unsqueeze(-1)
+
+        if self.is_judge:
+            pred_hidden_a = hidden_pqo[:, :, 0]
+            option_logits = self._logit_predictor(pred_hidden_a).squeeze(-1)
+            # Expose detached hidden states for theory-of-mind debaters
+            self.pqo = pqo  # TODO: Get pqo!
+            self.pqo_mask = pqo_mask
+            self.hidden_pqo = hidden_pqo.detach()
+            self.pred_hidden_a = pred_hidden_a.detach()
+            self.option_logits = option_logits.detach()
+            return option_logits, None, None
+        else:
+            # Predict answer (auxiliary SL loss)
+            option_logits = None
+            if self._qa_loss_weight > 0:
+                pred_hidden_a = hidden_pqo[:, :, 0]
+                option_logits = self._logit_predictor(pred_hidden_a).squeeze(-1)
+
+            # Predict distribution over sentence actions
+            tokenwise_values = self._value_head(agent_hidden_pqo.detach() if self._detach_value_head else agent_hidden_pqo).squeeze(-1)
+            value, value_option = util.replace_masked_values(tokenwise_values, pqo_mask, -1e7).max(-1)[0].max(-1)
+            policy_logits = self._policy_head(agent_hidden_pqo).squeeze(-1).sum(1)
+            return option_logits, policy_logits, value
+
+
 @Model.register("bert-mc")
 class BertMCDCMN(BertMC):
     """
