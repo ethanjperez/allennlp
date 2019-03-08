@@ -1,7 +1,6 @@
 import argparse
 import os
 import pickle
-import torch
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--prefix",
@@ -29,6 +28,8 @@ def merge_dicts(*dict_args):
 
 
 def fix_sample_id(sample_id: str) -> str:
+    if 'datasets' not in sample_id:
+        return sample_id
     file_parts = sample_id.split('/')[2:]
     for split in ['train', 'dev', 'test']:
         if split in file_parts[0]:
@@ -46,15 +47,8 @@ for file in files:
 print('Merging dictionaries...')
 all_oracle_outputs = merge_dicts(*oracle_outputs)
 
-print('Correcting sample_ids and moving to CPU...')
-fixed_all_oracle_outputs = {}
-for sample_id, sample_oracle_outputs in all_oracle_outputs.items():
-    if 'datasets' in sample_id:
-        sample_id = fix_sample_id(sample_id)
-    fixed_all_oracle_outputs[sample_id] = {}
-    for prev_turns_str, oracle_dict in sample_oracle_outputs.items():
-        fixed_all_oracle_outputs[sample_id][prev_turns_str] = {k: v.cpu() if isinstance(v, torch.Tensor) else v
-                                                               for k, v in oracle_dict.items()}
+print('Fixing sample_ids...')
+fixed_all_oracle_outputs = {fix_sample_id(sample_id): v for sample_id, v in all_oracle_outputs.items()}
 
 print('Saving to file:', save_file, '...')
 with open(save_file, 'wb') as f:
