@@ -54,7 +54,7 @@ for sample_id, sample_oracle_outputs in all_oracle_outputs.items():
     fixed_all_oracle_outputs[sample_id] = {}
     for prev_turns_str, oracle_dict in sample_oracle_outputs.items():
         fixed_all_oracle_outputs[sample_id][prev_turns_str] = {k: v.cpu() if isinstance(v, torch.Tensor) else v
-                                                             for k, v in oracle_dict.items()}
+                                                               for k, v in oracle_dict.items()}
 
 print('Saving to file:', save_file, '...')
 with open(save_file, 'wb') as f:
