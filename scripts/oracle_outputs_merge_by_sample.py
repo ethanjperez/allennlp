@@ -1,12 +1,19 @@
+import argparse
 import os
 import pickle
 import torch
 
-prefix = 'tmp/race.best.f/oracle_outputs.c=concat.d=B_A_B_A_B_A_B_A'
+parser = argparse.ArgumentParser()
+parser.add_argument("--prefix",
+                    default='tmp/race.best.f/oracle_outputs.c=concat.d=Ⅰ_Ⅱ_Ⅰ_Ⅱ_Ⅰ_Ⅱ_Ⅰ_Ⅱ',
+                    type=str,
+                    help="The prefix for files to load.")
+args = parser.parse_args()
+
 postfixes = ['dev.pkl', 'test.pkl', 'train.0.pkl', 'train.1.pkl', 'train.2.pkl', 'train.3.pkl', 'train.4.pkl', 'train.5.pkl', 'train.6.pkl', 'train.7.pkl', 'train.8.pkl', 'train.9.pkl']
 
-files = [prefix + '.' + postfix for postfix in postfixes]
-save_file = prefix + '.' + 'all.pkl'
+files = [args.prefix + '.' + postfix for postfix in postfixes]
+save_file = args.prefix + '.all.pkl'
 assert not os.path.exists(save_file), 'Save file already exists! Not overriding: ' + save_file
 
 

@@ -7,14 +7,17 @@ parser.add_argument("--max_turns",
                     required=True,
                     type=int,
                     help="The maximum number of Oracle turns to save.")
+parser.add_argument("--prefix",
+                    default='tmp/race.best.f/oracle_outputs.c=concat.d=',
+                    type=str,
+                    help="The prefix for files to load.")
 args = parser.parse_args()
 
-prefix = 'tmp/race.best.f/oracle_outputs.c=concat.d='
-postfixes = ['B_A_B_A_B_A_B_A.all.fixed.pkl', 'A_B_A_B_A_B_A_B.all.fixed.pkl']
+postfixes = ['Ⅰ_Ⅱ_Ⅰ_Ⅱ_Ⅰ_Ⅱ_Ⅰ_Ⅱ.all.pkl', 'Ⅱ_Ⅰ_Ⅱ_Ⅰ_Ⅱ_Ⅰ_Ⅱ_Ⅰ.all.pkl']
 
-save_file_postfix = str(args.max_turns) + '_AB_turns.all.fixed.pkl'
-files = [prefix + postfix for postfix in postfixes]
-save_file = prefix + save_file_postfix
+save_file_postfix = str(args.max_turns) + '_ⅠⅡ_turns.all.pkl'
+files = [args.prefix + postfix for postfix in postfixes]
+save_file = args.prefix + save_file_postfix
 assert not os.path.exists(save_file), 'Save file already exists! Not overriding: ' + save_file
 print('Saving to:', save_file)
 
