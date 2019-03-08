@@ -3,7 +3,7 @@ import os
 import pickle
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--prefix",
+parser.add_argument("-p", "--prefix",
                     default='tmp/race.best.f/oracle_outputs.c=concat.d=Ⅰ_Ⅱ_Ⅰ_Ⅱ_Ⅰ_Ⅱ_Ⅰ_Ⅱ',
                     type=str,
                     help="The prefix for files to load.")

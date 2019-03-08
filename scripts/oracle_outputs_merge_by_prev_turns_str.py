@@ -3,11 +3,11 @@ import os
 import pickle
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--max_turns",
+parser.add_argument("-m", "--max_turns",
                     required=True,
                     type=int,
                     help="The maximum number of Oracle turns to save.")
-parser.add_argument("--prefix",
+parser.add_argument("-p", "--prefix",
                     default='tmp/race.best.f/oracle_outputs.c=concat.d=',
                     type=str,
                     help="The prefix for files to load.")
