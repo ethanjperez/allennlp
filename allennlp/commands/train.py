@@ -382,8 +382,8 @@ def train_model(params: Params,
     if (qa_loss_weight > 0) and (num_no_qa_turns == 0):
         warnings.warn('Unused argument qa_loss_weight in debate mode ' + str(debate_mode) +
                       '. If this was unintentional, please remove the -q flag.', UserWarning)
-    using_trained_debater = len(set('ablwⅰⅱⅲⅳ').intersection(''.join(debate_mode))) > 0
-    if (judge_filename is not None) and using_trained_debater:
+    not_using_trained_debater = len(set('ablwⅰⅱⅲⅳ').intersection(''.join(debate_mode))) == 0
+    if (judge_filename is not None) and not_using_trained_debater:
         warnings.warn('Unnecessary to have debaters in debate mode ' + str(debate_mode) +
                       '. If this was unintentional, please remove the -j flag.', UserWarning)
 
