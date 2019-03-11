@@ -747,7 +747,7 @@ class Trainer(TrainerBase):
                 # Get Oracle results
                 oracle_sent_choice_idx, _, _, _, oracle_advantage, all_values = self._get_sent_choice_prob_value(
                     batch, sent_idxs, judge_answer_mask, debate_choice_mask, required_text_mask, past_sent_choice_idxs,
-                    stance, sent_answer_idx, num_sents, turn_str, for_training, method.upper(), debate_mode)
+                    stance, sent_answer_idx, num_sents, turn_str, for_training, method.upper(), debate_mode, round_no)
                 if debater.reward_method == 'sl':
                     answer_token_mask_input = ((oracle_sent_choice_idx == sent_idxs['input']).long() * batch['valid_output_mask'])
                     batch['sent_targets'] = answer_token_mask_input.nonzero()[:, 1].unsqueeze(-1)
