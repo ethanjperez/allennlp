@@ -1106,7 +1106,7 @@ class Trainer(TrainerBase):
                 turn_str = "_turn_" + str(turn_no) + "_agent_" + method
                 rewards = self._get_reward(ver_dict, stances[method], method, 'prob' if 'sl' in debater.reward_method else debater.reward_method)
                 self._update_trainer_metrics('reward' + turn_str, rewards.mean())
-                self._update_trainer_metrics('reward_std' + turn_str, (rewards - self._trainer_metrics['reward' + turn_str].get_metric()).abs().mean())
+                self._update_trainer_metrics('reward_std' + turn_str, (rewards.cpu() - self._trainer_metrics['reward' + turn_str].get_metric()).abs().mean())
                 self._update_trainer_metrics('sent_choice_prob' + turn_str, sent_choice_probs[turn_no].mean())
                 if 'em' in ver_dict:
                     self._update_trainer_metrics('judge_em' + turn_str, ver_dict['em'].mean())
