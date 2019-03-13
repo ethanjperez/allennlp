@@ -1101,9 +1101,13 @@ class Trainer(TrainerBase):
 
             # Add Loss: RL agents
             for round_turn_no, method in enumerate(debate_mode[round_no]):
-                # Log stats for all methods
+                # Log rewards and stats for all methods
                 turn_no = turns_completed + round_turn_no
                 turn_str = "_turn_" + str(turn_no) + "_agent_" + method
+                rewards = self._get_reward(ver_dict, stances[method], method, 'prob' if 'sl' in debater.reward_method else debater.reward_method)
+                self._update_trainer_metrics('reward' + turn_str, rewards.mean())
+                self._update_trainer_metrics('reward_std' + turn_str, (rewards - self._trainer_metrics['reward' + turn_str].get_metric()).abs().mean())
+                self._update_trainer_metrics('sent_choice_prob' + turn_str, sent_choice_probs[turn_no].mean())
                 if 'em' in ver_dict:
                     self._update_trainer_metrics('judge_em' + turn_str, ver_dict['em'].mean())
                 if 'prob' in ver_dict:
@@ -1114,6 +1118,7 @@ class Trainer(TrainerBase):
                     stance_was_correct = stance_was_correct.tolist()
                     correctness_str = {0: '_incorrect_stance', 1: '_correct_stance'}
                     for i in range(bsz):
+                        self._update_trainer_metrics('reward' + turn_str + correctness_str[stance_was_correct[i]], rewards[i])
                         if 'em' in ver_dict:
                             self._update_trainer_metrics('judge_em' + turn_str + correctness_str[stance_was_correct[i]], ver_dict['em'][i])
                         if 'prob' in ver_dict:
@@ -1122,13 +1127,11 @@ class Trainer(TrainerBase):
                 if (method not in self._learning_debate_methods) or (debater.reward_method.startswith('sl')):
                     continue  # Don't apply RL losses in the above cases
 
-                # Calculate RL losses and rewards
-                rewards = self._get_reward(ver_dict, stances[method], method, debater.reward_method)
+                # Calculate RL losses
                 if debater.influence_reward:
-                    raw_rewards = rewards.clone().detach()
-                    self._update_trainer_metrics('raw_reward' + turn_str, raw_rewards.mean())
                     prev_round_rewards = self._get_reward(prev_round_ver_dict, stances[method], method, debater.reward_method)
                     rewards = rewards - prev_round_rewards
+                    self._update_trainer_metrics('influence_reward' + turn_str, rewards.mean())
                 baselines = values[turn_no]
                 policy_losses = -(torch.log(sent_choice_probs[turn_no]) * (rewards - baselines.detach()))
                 loss += policy_losses.mean()
@@ -1136,9 +1139,6 @@ class Trainer(TrainerBase):
                 loss += value_losses.mean()
 
                 # Log RL-only stats
-                self._update_trainer_metrics('reward' + turn_str, rewards.mean())
-                self._update_trainer_metrics('reward_std' + turn_str, (rewards - self._trainer_metrics['reward' + turn_str].get_metric()).abs().mean())
-                self._update_trainer_metrics('sent_choice_prob' + turn_str, sent_choice_probs[turn_no].mean())
                 self._update_trainer_metrics('policy_loss' + turn_str, policy_losses.mean())
                 self._update_trainer_metrics('value_loss' + turn_str, value_losses.mean())  # Upper bound ~= .125
                 self._update_trainer_metrics('baseline' + turn_str, baselines.mean())
@@ -1150,9 +1150,8 @@ class Trainer(TrainerBase):
                         self._update_trainer_metrics('policy_loss' + turn_str + correctness_str[stance_was_correct[i]], policy_losses[i])
                         self._update_trainer_metrics('baseline' + turn_str + correctness_str[stance_was_correct[i]], baselines[i])
                         self._update_trainer_metrics('value_loss' + turn_str + correctness_str[stance_was_correct[i]], value_losses[i])  # Upper bound ~= .125
-                        self._update_trainer_metrics('reward' + turn_str + correctness_str[stance_was_correct[i]], rewards[i])
                         if debater.influence_reward:
-                            self._update_trainer_metrics('raw_reward' + turn_str + correctness_str[stance_was_correct[i]], raw_rewards[i])
+                            self._update_trainer_metrics('influence_reward' + turn_str + correctness_str[stance_was_correct[i]], rewards[i])
 
             prev_round_ver_dict = ver_dict  # Update baseline Judge scores for next round
             turns_completed += len(debate_mode[round_no])
