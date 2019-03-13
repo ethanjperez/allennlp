@@ -757,11 +757,9 @@ class Trainer(TrainerBase):
                     for i in range(bsz):
                         if num_sents[i].item() != len(all_values[i]):
                             logger.warning('Discrepancy in loaded Oracle num_sents ' + str(num_sents[i].item()) + ' and SL num_sents ' + str(len(all_values[i])) + ' for sample: ' + str(batch['metadata'][i]['id']))
-                        target_shift = sum(all_values[i]) / float(len(all_values[i])) if debater.influence_reward else 0.
+                        target_shift = (sum(all_values[i]) / float(len(all_values[i]))) if debater.influence_reward else 0.
                         for sent_no in range(num_sents[i]):
                             oracle_token_values[i] = oracle_token_values[i].masked_fill(sent_idxs['input'][i] == sent_no, all_values[i][sent_no] - target_shift)
-                        if method == 'b':  # b should predict/choose based on negated values
-                            oracle_token_values[i] = (-1 * oracle_token_values[i]) if debater.influence_reward else (1. - oracle_token_values[i])
                     oracle_token_values = nn_util.replace_masked_values(oracle_token_values, batch['valid_output_mask'], -1e7)
                     batch['sent_targets'] = oracle_token_values
 
@@ -1104,7 +1102,8 @@ class Trainer(TrainerBase):
                 # Log rewards and stats for all methods
                 turn_no = turns_completed + round_turn_no
                 turn_str = "_turn_" + str(turn_no) + "_agent_" + method
-                rewards = self._get_reward(ver_dict, stances[method], method, 'prob' if 'sl' in debater.reward_method else debater.reward_method)
+                reward_to_track = 'prob' if 'sl' in debater.reward_method else debater.reward_method
+                rewards = self._get_reward(ver_dict, stances[method], method, reward_to_track)
                 self._update_trainer_metrics('reward' + turn_str, rewards.mean())
                 self._update_trainer_metrics('reward_std' + turn_str, (rewards.cpu() - self._trainer_metrics['reward' + turn_str].get_metric()).abs().mean())
                 self._update_trainer_metrics('sent_choice_prob' + turn_str, sent_choice_probs[turn_no].mean())
@@ -1124,14 +1123,18 @@ class Trainer(TrainerBase):
                         if 'prob' in ver_dict:
                             self._update_trainer_metrics('judge_prob' + turn_str + correctness_str[stance_was_correct[i]], ver_dict['prob'][i])
 
+                if debater.influence_reward:
+                    prev_round_rewards = self._get_reward(prev_round_ver_dict, stances[method], method, reward_to_track)
+                    rewards = rewards - prev_round_rewards
+                    self._update_trainer_metrics('influence_reward' + turn_str, rewards.mean())
+                    if method.lower() in {'l', 'w', 'ⅰ', 'ⅱ', 'ⅲ', 'ⅳ'}:  # Log statistics based on if stance-conditioned debater was defending correct stance
+                        for i in range(bsz):
+                            self._update_trainer_metrics('influence_reward' + turn_str + correctness_str[stance_was_correct[i]], rewards[i])
+
                 if (method not in self._learning_debate_methods) or (debater.reward_method.startswith('sl')):
                     continue  # Don't apply RL losses in the above cases
 
                 # Calculate RL losses
-                if debater.influence_reward:
-                    prev_round_rewards = self._get_reward(prev_round_ver_dict, stances[method], method, debater.reward_method)
-                    rewards = rewards - prev_round_rewards
-                    self._update_trainer_metrics('influence_reward' + turn_str, rewards.mean())
                 baselines = values[turn_no]
                 policy_losses = -(torch.log(sent_choice_probs[turn_no]) * (rewards - baselines.detach()))
                 loss += policy_losses.mean()
