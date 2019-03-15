@@ -13,7 +13,7 @@
   "train_data_path": "/private/home/siddk/allennlp/datasets/dream/train.json",
   "validation_data_path": "/private/home/siddk/allennlp/datasets/dream/dev.json",
   "model": {
-    "type": "bert-mc-a",
+    "type": "bert-mc-gpt",
     "text_field_embedder": {
       "allow_unmatched_keys": true,
       "embedder_to_indexer_map": {
@@ -32,12 +32,12 @@
   "iterator": {
     "type": "bucket",
     "sorting_keys": [["passage", "num_tokens"], ["question", "num_tokens"]],
-    "batch_size": 8
+    "batch_size": 1
   },
 
   "trainer": {
     "num_epochs": 20,
-    "patience": 3,
+    "patience": 10,
     "validation_metric": "+start_acc",
     "cuda_device": 0,
     "learning_rate_scheduler": {
@@ -47,7 +47,7 @@
       "patience": 1
     },
     "optimizer": {
-      "lr": 0.00001,
+      "lr": 0.00002,
       "type": "bert_adam"
     }
   }

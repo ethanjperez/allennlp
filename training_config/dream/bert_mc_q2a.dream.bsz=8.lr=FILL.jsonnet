@@ -4,14 +4,14 @@
     "token_indexers": {
       "tokens": {
           "type": "bert-pretrained",
-          "pretrained_model": "datasets/bert/uncased_L-12_H-768_A-12/vocab.txt",
+          "pretrained_model": "/private/home/siddk/allennlp/datasets/bert/uncased_L-12_H-768_A-12/vocab.txt",
           "do_lowercase": true,
           "use_starting_offsets": true
       }
     }
   },
-  "train_data_path": "datasets/dream/train.json",
-  "validation_data_path": "datasets/dream/dev.json",
+  "train_data_path": "/private/home/siddk/allennlp/datasets/dream/train.json",
+  "validation_data_path": "/private/home/siddk/allennlp/datasets/dream/dev.json",
   "model": {
     "type": "bert-mc-q2a",
     "text_field_embedder": {

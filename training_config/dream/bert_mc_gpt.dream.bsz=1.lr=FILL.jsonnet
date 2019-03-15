@@ -13,7 +13,7 @@
   "train_data_path": "/private/home/siddk/allennlp/datasets/dream/train.json",
   "validation_data_path": "/private/home/siddk/allennlp/datasets/dream/dev.json",
   "model": {
-    "type": "bert-mc-a",
+    "type": "bert-mc-gpt",
     "text_field_embedder": {
       "allow_unmatched_keys": true,
       "embedder_to_indexer_map": {
@@ -32,7 +32,7 @@
   "iterator": {
     "type": "bucket",
     "sorting_keys": [["passage", "num_tokens"], ["question", "num_tokens"]],
-    "batch_size": 8
+    "batch_size": 1
   },
 
   "trainer": {
