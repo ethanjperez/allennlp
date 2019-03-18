@@ -749,7 +749,6 @@ class Trainer(TrainerBase):
         elif (method in self._learning_debate_methods) and (debater.reward_method == 'sl-random'):
             sent_choice_idx = (torch.rand_like(num_sents.float()) * (num_sents.float())).trunc().long().unsqueeze(1)
             sent_choice_prob = torch.ones(bsz) / (num_sents.float())
-            turn_loss = 0.
         elif method in self._learning_debate_methods:
             assert debater is not None, 'Cannot use debate method ' + method + ' without debate agents!'
 
