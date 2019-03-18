@@ -726,7 +726,7 @@ class Trainer(TrainerBase):
             opt_sent_idxs = []
             advantage = []
             value = []
-            all_values = []  # Will be returned for SL per-sentence targets (sl-sents)
+            all_values = []  # Will be returned for SL per-sentence targets (sl-sents). Only need to return for Oracle.
             judge_was_training = judge.training
             judge.eval()
             for sample_no in range(bsz):
@@ -746,6 +746,10 @@ class Trainer(TrainerBase):
             sent_choice_prob = torch.ones(bsz)
             value = torch.Tensor(value)
             advantage = torch.Tensor(advantage)
+        elif (method in self._learning_debate_methods) and (debater.reward_method == 'sl-random'):
+            sent_choice_idx = (torch.rand_like(num_sents.float()) * (num_sents.float())).trunc().long().unsqueeze(1)
+            sent_choice_prob = torch.ones(bsz) / (num_sents.float())
+            turn_loss = 0.
         elif method in self._learning_debate_methods:
             assert debater is not None, 'Cannot use debate method ' + method + ' without debate agents!'
 
@@ -1077,7 +1081,7 @@ class Trainer(TrainerBase):
                 # Execute a single player's turn to determine decisions
                 turn_no = turns_completed + round_turn_no
                 turn_str = "_turn_" + str(turn_no) + "_agent_" + method
-                sent_choice_idx, sent_choice_prob, value, turn_loss, advantage, all_values = \
+                sent_choice_idx, sent_choice_prob, value, turn_loss, advantage, _ = \
                     self._get_sent_choice_prob_value(batch, sent_idxs, judge_answer_mask, debate_choice_mask,
                                                      required_text_mask, sent_choice_idxs, stances[method],
                                                      sent_answer_idx, num_sents, turn_str, for_training, method,
