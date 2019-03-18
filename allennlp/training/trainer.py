@@ -227,6 +227,8 @@ class Trainer(TrainerBase):
                 logger.info('No oracle_outputs at filepath: ' + self._oracle_outputs_path)
                 logger.info('Will save oracle_outputs to: ' + self._oracle_outputs_path)
 
+        self._debate_logs = {}
+
         self._trainer_metrics = {}
         if patience is None:  # no early stopping
             if validation_dataset:
@@ -431,48 +433,58 @@ class Trainer(TrainerBase):
             self._update_trainer_metrics('j_chose_no_debater_sents', j_chose_no_debater_sents.mean())
         return
 
-    @staticmethod
-    def _print_debate(batch: TensorDict, sent_idxs: TensorDict, output_dict: TensorDict,
-                      sent_choice_idxs: List[torch.Tensor], num_sents: torch.Tensor, debate_mode: List[str],
-                      stances: List[torch.Tensor], advantage: torch.Tensor = None) -> None:
+    def _log_debate(self, batch: TensorDict, sent_idxs: TensorDict, output_dict: TensorDict,
+                    sent_choice_idxs: List[torch.Tensor], debate_mode: List[str],
+                    stances: List[torch.Tensor], advantage: torch.Tensor = None) -> None:
         """
-        Neatly prints all debates from a batch.
+        Neatly prints and logs all debates from a batch.
         """
         bsz = batch['passage']['tokens'].size(0)
         sent_choice_output_masks = [(sent_idxs['output'] == sent_choice_idx) for sent_choice_idx in sent_choice_idxs]
         for i in range(bsz):
-            if bool(num_sents[i] >= 3):
-                print('\n**ID**\n', batch['metadata'][i]['id'])
-                print('\n**Passage**\n', ' '.join(batch['metadata'][i]['passage_tokens']))
-                print('\n**Question**\n', ' '.join(batch['metadata'][i]['question_tokens']))
-                toks = batch['metadata'][i]['passage_tokens']
-                if 'options' in batch:
-                    print('\n**Options**\n', [' '.join(batch['metadata'][i]['options_tokens'][j]) for j in range(len(batch['metadata'][i]['options_tokens']))])
-                    true_answer_index = batch['answer_index'][i]
-                    print('\n**True Answer**\n', true_answer_index.item(), ' '.join(batch['metadata'][i]['options_tokens'][true_answer_index]))
-                    best_answer_index = output_dict['best_answer_index'][i]
-                    print('\n**Predicted Answer**\n', best_answer_index.item(), ' '.join(batch['metadata'][i]['options_tokens'][best_answer_index]))
-                else:
-                    print('\n**Answers**\n', [answer if isinstance(answer, str) else ' '.join(answer) for answer in batch['metadata'][i]['answer_texts']])
-                    if 'best_span' in output_dict:
-                        print(' '.join(toks[output_dict['best_span'][i][0]:output_dict['best_span'][i][1] + 1]))
-                turns_completed = 0
-                for round_methods in debate_mode:
-                    for round_turn_no, method in enumerate(round_methods):
-                        turn_no = turns_completed + round_turn_no
-                        turn_sent_idxs = {'output': sent_choice_output_masks[turn_no][i].nonzero().squeeze(-1)}
-                        sent_str = 'None'
-                        if len(turn_sent_idxs['output']) > 0:
-                            sent_str = ' '.join(toks[turn_sent_idxs['output'].min(): turn_sent_idxs['output'].max() + 1])
-                        print('\n**' + method + '**', '*( Stance: ' + str(stances[method][i].nonzero().tolist()) + ')*' if method.lower() in {'l', 'w'} else '',
-                              ': Sentence', int(sent_choice_idxs[turn_no][i]), '\n', sent_str)
-                    turns_completed += len(round_methods)
-                print('\n**J**:')
-                if advantage is not None:
-                    print('*ADVANTAGE*:', round(float(advantage[i]), 4))
-                for k in ['prob', 'em', 'f1']:
-                    if output_dict.get(k) is not None:
-                        print('*' + k.upper() + '*:', round(output_dict[k].item(), 4))
+            qid = batch['metadata'][i]['id']
+            passage = ' '.join(batch['metadata'][i]['passage_tokens'])
+            question = ' '.join(batch['metadata'][i]['question_tokens'])
+            self._debate_logs[qid] = {'passage': passage, 'question': question, 'debate_mode': debate_mode, 'sentences_chosen': [], 'stances': []}
+            print('\n**ID**\n', qid)
+            print('\n**Passage**\n', passage)
+            print('\n**Question**\n', question)
+            toks = batch['metadata'][i]['passage_tokens']
+            if 'options' in batch:
+                options = [' '.join(batch['metadata'][i]['options_tokens'][j]) for j in range(len(batch['metadata'][i]['options_tokens']))]
+                self._debate_logs[qid]['options'] = options
+                print('\n**Options**\n', options)
+                true_answer_index = batch['answer_index'][i]
+                self._debate_logs[qid]['answer_index'] = true_answer_index.item()
+                print('\n**True Answer**\n', true_answer_index.item(), ' '.join(batch['metadata'][i]['options_tokens'][true_answer_index]))
+                best_answer_index = output_dict['best_answer_index'][i]
+                print('\n**Predicted Answer**\n', best_answer_index.item(), ' '.join(batch['metadata'][i]['options_tokens'][best_answer_index]))
+            else:
+                print('\n**Answers**\n', [answer if isinstance(answer, str) else ' '.join(answer) for answer in batch['metadata'][i]['answer_texts']])
+                if 'best_span' in output_dict:
+                    print(' '.join(toks[output_dict['best_span'][i][0]:output_dict['best_span'][i][1] + 1]))
+            turns_completed = 0
+            for round_methods in debate_mode:
+                for round_turn_no, method in enumerate(round_methods):
+                    turn_no = turns_completed + round_turn_no
+                    turn_sent_idxs = {'output': sent_choice_output_masks[turn_no][i].nonzero().squeeze(-1)}
+                    sent_str = None
+                    if len(turn_sent_idxs['output']) > 0:
+                        sent_str = ' '.join(toks[turn_sent_idxs['output'].min(): turn_sent_idxs['output'].max() + 1])
+                    self._debate_logs[qid]['sentences_chosen'].append(sent_str)
+                    stance_str = str(stances[method][i].nonzero().tolist()) if method.lower() in {'l', 'w'} else method
+                    self._debate_logs[qid]['stances'].append(stances)
+                    print('\n**' + method + '**', '*(Stance: ' + stance_str + ')*',
+                          ': Sentence', int(sent_choice_idxs[turn_no][i]), '\n', sent_str)
+                turns_completed += len(round_methods)
+            print('\n**J**:')
+            if advantage is not None:
+                self._debate_logs[qid]['advantage'] = float(advantage[i])
+                print('*ADVANTAGE*:', round(float(advantage[i]), 4))
+            for k in ['prob', 'em', 'f1']:
+                if output_dict.get(k) is not None:
+                    self._debate_logs[qid][k] = output_dict[k].item()
+                    print('*' + k.upper() + '*:', round(output_dict[k].item(), 4))
         return
 
     def _print_tokens(self, tokens) -> None:
@@ -1102,7 +1114,7 @@ class Trainer(TrainerBase):
                 # Log rewards and stats for all methods
                 turn_no = turns_completed + round_turn_no
                 turn_str = "_turn_" + str(turn_no) + "_agent_" + method
-                reward_to_track = 'prob' if 'sl' in debater.reward_method else debater.reward_method
+                reward_to_track = 'prob' if ((debater is None) or (debater.reward_method.startswith('sl'))) else debater.reward_method
                 rewards = self._get_reward(ver_dict, stances[method], method, reward_to_track)
                 self._update_trainer_metrics('reward' + turn_str, rewards.mean())
                 self._update_trainer_metrics('reward_std' + turn_str, (rewards.cpu() - self._trainer_metrics['reward' + turn_str].get_metric()).abs().mean())
@@ -1123,7 +1135,7 @@ class Trainer(TrainerBase):
                         if 'prob' in ver_dict:
                             self._update_trainer_metrics('judge_prob' + turn_str + correctness_str[stance_was_correct[i]], ver_dict['prob'][i])
 
-                if debater.influence_reward:
+                if (debater is not None) and debater.influence_reward:
                     prev_round_rewards = self._get_reward(prev_round_ver_dict, stances[method], method, reward_to_track)
                     rewards = rewards - prev_round_rewards
                     self._update_trainer_metrics('influence_reward' + turn_str, rewards.mean())
@@ -1131,7 +1143,7 @@ class Trainer(TrainerBase):
                         for i in range(bsz):
                             self._update_trainer_metrics('influence_reward' + turn_str + correctness_str[stance_was_correct[i]], rewards[i])
 
-                if (method not in self._learning_debate_methods) or (debater.reward_method.startswith('sl')):
+                if (method not in self._learning_debate_methods) or (debater is None) or (debater.reward_method.startswith('sl')):
                     continue  # Don't apply RL losses in the above cases
 
                 # Calculate RL losses
@@ -1159,8 +1171,8 @@ class Trainer(TrainerBase):
             prev_round_ver_dict = ver_dict  # Update baseline Judge scores for next round
             turns_completed += len(debate_mode[round_no])
 
-        if self._eval_mode and ((self._batch_num_total % 1) == 0):
-            self._print_debate(batch, sent_idxs, ver_dict, sent_choice_idxs, num_sents, debate_mode, stances, advantage)
+        if self._eval_mode:
+            self._log_debate(batch, sent_idxs, ver_dict, sent_choice_idxs, debate_mode, stances, advantage)
 
         self._add_debate_metrics(ver_dict, sent_idxs, sent_choice_idxs, debate_mode)
         return loss.cpu()  # NB: Necessary to move loss to CPU?
@@ -1478,6 +1490,7 @@ class Trainer(TrainerBase):
                     logger.info('Saved oracle_outputs to: ' + self._oracle_outputs_path)
                 if self._eval_mode:
                     dump_metrics(os.path.join(self._serialization_dir, f'metrics_epoch_{epoch}.d=' + '_'.join(self._debate_mode) + '.json'), metrics)
+                    dump_metrics(os.path.join(self._serialization_dir, f'debate_logs.d=' + '_'.join(self._debate_mode) + '.json'), self._debate_logs)
                 else:
                     dump_metrics(os.path.join(self._serialization_dir, f'metrics_epoch_{epoch}.json'), metrics)
 

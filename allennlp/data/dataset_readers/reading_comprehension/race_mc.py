@@ -48,7 +48,7 @@ class RaceMCReader(DatasetReader):
 
     @staticmethod
     def _filepath_to_id(filepath: str, q_no: int) -> str:
-        file_parts = os.path.join(filepath, str(q_no)).split('/')[2:]
+        file_parts = os.path.join(filepath, str(q_no)).split('/')[2:]  # NB: [2:] -> [-4:] (to make more general)
         for split in ['train', 'dev', 'test']:
             if split in file_parts[0]:
                 file_parts[0] = split
