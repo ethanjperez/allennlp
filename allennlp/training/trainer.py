@@ -473,7 +473,7 @@ class Trainer(TrainerBase):
                         sent_str = ' '.join(toks[turn_sent_idxs['output'].min(): turn_sent_idxs['output'].max() + 1])
                     self._debate_logs[qid]['sentences_chosen'].append(sent_str)
                     stance_str = str(stances[method][i].nonzero().tolist()) if method.lower() in {'l', 'w'} else method
-                    self._debate_logs[qid]['stances'].append(stances)
+                    self._debate_logs[qid]['stances'].append(stance_str)
                     print('\n**' + method + '**', '*(Stance: ' + stance_str + ')*',
                           ': Sentence', int(sent_choice_idxs[turn_no][i]), '\n', sent_str)
                 turns_completed += len(round_methods)
