@@ -2,9 +2,9 @@
 ## SLURM scripts for running Dream Debate Jobs
 
 ## Job Metadata
-#SBATCH --job-name=Oracle_Eval_Debate
-#SBATCH --output=/checkpoint/%u/debate_out/Oracle-Eval-%j.out
-#SBATCH --error=/checkpoint/%u/debate_out/Oracle-Eval-%j.err
+#SBATCH --job-name=Supervised_I_Debate
+#SBATCH --output=/checkpoint/%u/debate_out/Supervised-I-%j.out
+#SBATCH --error=/checkpoint/%u/debate_out/Supervised-I-%j.err
 
 ## Partition
 #SBATCH --partition=uninterrupted
@@ -33,4 +33,4 @@ module load anaconda3
 
 ### Section 3:
 ### Run your job.
-srun --label /private/home/siddk/.conda/envs/allennlp/bin/python3.6 /private/home/siddk/allennlp/dream_experiments/slurm/dream_runner.py -m oracle -o train
+srun --label /private/home/siddk/.conda/envs/allennlp/bin/python3.6 /private/home/siddk/allennlp/dream_experiments/slurm/dream_runner.py -m supervised -s 0

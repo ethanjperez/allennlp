@@ -18,7 +18,9 @@ LR = [1e-5, 2e-5, 3e-5, 5e-5, 5e-6]
 
 BASE_BSZ = 8
 
-ACCUMULATION_STEPS = [4]
+ACCUMULATION_STEPS = [2, 4]
+
+GPT_ACCUMULATION_STEPS = [16, 32]
 
 MODE_CONFIGS = {m: '/private/home/siddk/allennlp/training_config/dream/bert_mc_%s.dream.bsz=8.lr=FILL.jsonnet' % m
                 for m in ['pq2a', 'a', 'q2a']}
@@ -32,13 +34,14 @@ BEST_TRAIN_CONFIG = '/private/home/siddk/allennlp/training_config/dream/dream.be
 
 BEST_CKPT_PATH = '/checkpoint/siddk/debate/dream/dream.bert_mc_gpt.bsz=32.lr=2.0e-05.f'
 
-DEBATE_MODES = ["A", "B", "A A", "A B", "B A", "B B", "A B A", "B A B", "r", "rr"]
+DEBATE_MODES = ["ⅰ", "ⅱ", "ⅰ ⅱ", "ⅰ ⅱ ⅰ ⅱ", "ⅰ ⅱ ⅰ ⅱ ⅰ ⅱ"]
 
 
 def parse_args():
     p = argparse.ArgumentParser("Dream SLURM Runner")
     p.add_argument("-m", "--mode", default='pq2a', help='Default BERT Mode - choices <pq2a | a | q2a | gpt | oracle>')
     p.add_argument("-o", "--oracle_mode", default='eval', help='Oracle Mode for dumping - choices <eval | train>')
+    p.add_argument("-s", "--supervised", default=0, type=int, help='Debate mode to run search over for super training')
 
     return p.parse_args()
 
@@ -89,6 +92,32 @@ if __name__ == "__main__":
                 DEBATE_MODES[s_id],
                 os.path.join(BEST_CKPT_PATH, 'oracle_outputs.d=' + ("".join(DEBATE_MODES[s_id].split()) + '.train.pkl'))
             )
+
+    elif args.mode in ['supervised']:
+        debate_mode = DEBATE_MODES[args.supervised]
+        atom_lr = LR[s_id % len(LR)]
+        atom_bsz = GPT_ACCUMULATION_STEPS[s_id % len(GPT_ACCUMULATION_STEPS)]
+
+        ckpt_path = '/checkpoint/siddk/debate/dream/dream.%s.m=sl.n=1.x=0.5.lr=%.1e.bsz=%d.c=concat' % \
+                    ("".join(debate_mode.split()), atom_lr, atom_bsz)
+        judge_path = '/checkpoint/siddk/debate/dream/dream.bert_mc_gpt.bsz=32.lr=2.0e-05.f/model.tar.gz'
+        oracle_path = '/checkpoint/siddk/debate/dream/dream.bert_mc_gpt.bsz=32.lr=2.0e-05.f/oracle_outputs.d=6_ⅠⅡ_turns.all.pkl'
+
+        run_command = '%s %s train %s -s %s -j %s -b 1 -d %s -m sl -p %s -a %d -c concat' % (
+            PYTHON_PATH,
+            PROGRAM_PATH,
+            MODE_CONFIGS['gpt'],
+            ckpt_path,
+            judge_path,
+            debate_mode,
+            oracle_path,
+            atom_bsz
+        )
+
+        if len(debate_mode.split()) > 1:
+            run_command += ' -n 1 -x 0.5'
+
+        run_command += ' -o "%s"' % (TRAIN_CONFIG % atom_lr)
 
     print("Running %s!" % run_command)
     os.system(run_command)

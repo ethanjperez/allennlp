@@ -4,12 +4,12 @@ import pickle
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-p", "--prefix",
-                    default='tmp/race.best.f/oracle_outputs.c=concat.d=Ⅰ_Ⅱ_Ⅰ_Ⅱ_Ⅰ_Ⅱ_Ⅰ_Ⅱ',
+                    default='/checkpoint/siddk/debate/dream/dream.bert_mc_gpt.bsz=32.lr=2.0e-05.f/oracle_outputs.d=BABABA',
                     type=str,
                     help="The prefix for files to load.")
 args = parser.parse_args()
 
-postfixes = ['dev.pkl', 'test.pkl', 'train.0.pkl', 'train.1.pkl', 'train.2.pkl', 'train.3.pkl', 'train.4.pkl', 'train.5.pkl', 'train.6.pkl', 'train.7.pkl', 'train.8.pkl', 'train.9.pkl']
+postfixes = ['train.pkl', 'dev.pkl']
 
 files = [args.prefix + '.' + postfix for postfix in postfixes]
 save_file = args.prefix + '.all.pkl'

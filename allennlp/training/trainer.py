@@ -617,6 +617,7 @@ class Trainer(TrainerBase):
         """
         sample_id = batch['metadata'][sample_no]['id']
         prev_turns_str = '_'.join(debate_mode[:round_no])
+
         if sample_id in self._oracle_outputs:
             if prev_turns_str in self._oracle_outputs[sample_id]:  # New save format
                 # NB: For multi-gpu, fix cuda device

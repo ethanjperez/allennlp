@@ -13,7 +13,8 @@ parser.add_argument("-p", "--prefix",
                     help="The prefix for files to load.")
 args = parser.parse_args()
 
-postfixes = ['Ⅰ_Ⅱ_Ⅰ_Ⅱ_Ⅰ_Ⅱ_Ⅰ_Ⅱ.all.pkl', 'Ⅱ_Ⅰ_Ⅱ_Ⅰ_Ⅱ_Ⅰ_Ⅱ_Ⅰ.all.pkl']
+# postfixes = ['Ⅰ_Ⅱ_Ⅰ_Ⅱ_Ⅰ_Ⅱ_Ⅰ_Ⅱ.all.pkl', 'Ⅱ_Ⅰ_Ⅱ_Ⅰ_Ⅱ_Ⅰ_Ⅱ_Ⅰ.all.pkl']
+postfixes = ['ABABAB.all.pkl', 'BABABA.all.pkl']
 
 save_file_postfix = str(args.max_turns) + '_ⅠⅡ_turns.all.pkl'
 files = [args.prefix + postfix for postfix in postfixes]
