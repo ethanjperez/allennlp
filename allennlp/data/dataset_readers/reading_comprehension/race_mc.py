@@ -61,9 +61,6 @@ class RaceMCReader(DatasetReader):
         # if `file_path` is a URL, redirect to the cache
         file_path = cached_path(file_path)
 
-        import IPython
-        IPython.embed()
-
         logger.info("Reading files at %s", file_path)
         for level in ['middle', 'high']:
             # Get all articles
