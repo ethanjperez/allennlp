@@ -16,7 +16,7 @@ args = parser.parse_args()
 # postfixes = ['Ⅰ_Ⅱ_Ⅰ_Ⅱ_Ⅰ_Ⅱ_Ⅰ_Ⅱ.all.pkl', 'Ⅱ_Ⅰ_Ⅱ_Ⅰ_Ⅱ_Ⅰ_Ⅱ_Ⅰ.all.pkl']
 postfixes = ['ABABAB.all.pkl', 'BABABA.all.pkl']
 
-save_file_postfix = str(args.max_turns) + '_ⅠⅡ_turns.all.pkl'
+save_file_postfix = str(args.max_turns) + '_AB_turns.all.pkl'
 files = [args.prefix + postfix for postfix in postfixes]
 save_file = args.prefix + save_file_postfix
 assert not os.path.exists(save_file), 'Save file already exists! Not overriding: ' + save_file

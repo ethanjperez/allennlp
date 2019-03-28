@@ -139,3 +139,30 @@ class PretrainedBertEmbedder(BertEmbedder):
             param.requires_grad = requires_grad
 
         super().__init__(bert_model=model, top_layer_only=top_layer_only)
+
+
+@TokenEmbedder.register("bert-scratch")
+class ScratchBertEmbedder(BertEmbedder):
+    # pylint: disable=line-too-long
+    """
+    Parameters
+    ----------
+    requires_grad : ``bool``, optional (default = False)
+        If True, compute gradient of BERT parameters for fine tuning.
+    top_layer_only: ``bool``, optional (default = ``False``)
+        If ``True``, then only return the top layer instead of apply the scalar mix.
+    """
+
+    def __init__(self, pretrained_model: str, requires_grad: bool = False, top_layer_only: bool = False) -> None:
+        model = BertModel.from_pretrained(pretrained_model)
+
+        # Sidd: Apply the Initializer to all Weights to reinitialize... minimal change?
+        model.apply(model.init_bert_weights)
+        # Sidd - DONE
+
+        self.requires_grad = requires_grad
+
+        for param in model.parameters():
+            param.requires_grad = requires_grad
+
+        super().__init__(bert_model=model, top_layer_only=top_layer_only)

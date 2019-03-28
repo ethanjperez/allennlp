@@ -24,7 +24,9 @@ GPT_ACCUMULATION_STEPS = [16, 32]
 
 MODE_CONFIGS = {m: '/private/home/siddk/allennlp/training_config/dream/bert_mc_%s.dream.bsz=8.lr=FILL.jsonnet' % m
                 for m in ['pq2a', 'a', 'q2a']}
+
 MODE_CONFIGS['gpt'] = '/private/home/siddk/allennlp/training_config/dream/bert_mc_gpt.dream.bsz=1.lr=FILL.jsonnet'
+MODE_CONFIGS['gpt-scratch'] = '/private/home/siddk/allennlp/training_config/dream/bert_mc_gpt_scratch.dream.bsz=1.lr=FILL.jsonnet'
 
 CKPT_PATH = "/checkpoint/siddk/debate/dream/dream.bert_mc_%s.bsz=%d.lr=%.1e.f"
 
@@ -34,7 +36,11 @@ BEST_TRAIN_CONFIG = '/private/home/siddk/allennlp/training_config/dream/dream.be
 
 BEST_CKPT_PATH = '/checkpoint/siddk/debate/dream/dream.bert_mc_gpt.bsz=32.lr=2.0e-05.f'
 
-DEBATE_MODES = ["ⅰ", "ⅱ", "ⅰ ⅱ", "ⅰ ⅱ ⅰ ⅱ", "ⅰ ⅱ ⅰ ⅱ ⅰ ⅱ"]
+# DEBATE_MODES = ["ⅰ", "ⅱ", "ⅰ ⅱ", "ⅰ ⅱ ⅰ ⅱ", "ⅰ ⅱ ⅰ ⅱ ⅰ ⅱ"]
+
+DEBATE_MODES = ["a", "b", "a b", "a b a b", "a b a b a b"]
+
+# DEBATE_MODES = ["A B A B A B", "B A B A B A"]
 
 
 def parse_args():
@@ -73,6 +79,15 @@ if __name__ == "__main__":
             TRAIN_CONFIG % LR[s_id % len(LR)]
         )
 
+    elif args.mode in ['gpt-scratch']:
+        run_command = '%s %s train %s -s %s -d f -a 32 -o "%s"' % (
+            PYTHON_PATH,
+            PROGRAM_PATH,
+            MODE_CONFIGS[args.mode],
+            CKPT_PATH % (args.mode, 32, LR[s_id % len(LR)]),
+            TRAIN_CONFIG % LR[s_id % len(LR)]
+        )
+
     elif args.mode in ['oracle']:
         if args.oracle_mode == 'eval':
             run_command = '%s %s train %s -s %s -e -r -d %s -c concat -p %s' % (
@@ -101,7 +116,7 @@ if __name__ == "__main__":
         ckpt_path = '/checkpoint/siddk/debate/dream/dream.%s.m=sl.n=1.x=0.5.lr=%.1e.bsz=%d.c=concat' % \
                     ("".join(debate_mode.split()), atom_lr, atom_bsz)
         judge_path = '/checkpoint/siddk/debate/dream/dream.bert_mc_gpt.bsz=32.lr=2.0e-05.f/model.tar.gz'
-        oracle_path = '/checkpoint/siddk/debate/dream/dream.bert_mc_gpt.bsz=32.lr=2.0e-05.f/oracle_outputs.d=6_ⅠⅡ_turns.all.pkl'
+        oracle_path = '/checkpoint/siddk/debate/dream/dream.bert_mc_gpt.bsz=32.lr=2.0e-05.f/oracle_outputs.d=6_AB_turns.all.pkl'
 
         run_command = '%s %s train %s -s %s -j %s -b 1 -d %s -m sl -p %s -a %d -c concat' % (
             PYTHON_PATH,

@@ -2,21 +2,22 @@
 ## SLURM scripts for running Dream Debate Jobs
 
 ## Job Metadata
-#SBATCH --job-name=PQ2A_Sweep_Debate
-#SBATCH --output=/checkpoint/%u/debate_out/PQ2A-Sweep-%j.out
-#SBATCH --error=/checkpoint/%u/debate_out/PQ2A-Sweep-%j.err
+#SBATCH --job-name=Oracle_Train_Debate
+#SBATCH --output=/checkpoint/%u/debate_out/Oracle-Train-%j.out
+#SBATCH --error=/checkpoint/%u/debate_out/Oracle-Train-%j.err
 
 ## Partition
 #SBATCH --partition=uninterrupted
+#SBATCH --comment="Meeting later today!"
 
 ## Number of Nodes (Number of Tasks to run)
-#SBATCH --nodes=5
+#SBATCH --nodes=2
 
 ## Tasks per Node
 #SBATCH --ntasks-per-node=1
 
 ## CPUS/Rollout Workers per Task
-#SBATCH --cpus-per-task=32
+#SBATCH --cpus-per-task=8
 
 ## Time Limit - 1 Day
 #SBATCH --time=1440
@@ -32,4 +33,4 @@ module load anaconda3
 
 ### Section 3:
 ### Run your job.
-srun --label /private/home/siddk/.conda/envs/allennlp/bin/python3.6 /private/home/siddk/allennlp/dream_experiments/slurm/dream_runner.py -m pq2a
+srun --label /private/home/siddk/.conda/envs/allennlp/bin/python3.6 /private/home/siddk/allennlp/dream_experiments/slurm/dream_runner.py -m oracle -o train
