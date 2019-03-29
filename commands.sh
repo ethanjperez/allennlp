@@ -947,6 +947,12 @@ python scripts/oracle_outputs_merge_by_prev_turns_str.py -m
 srun --pty --mem=20000 -t 1-23:58 --gres=gpu:p40 bash
 srun --pty --mem=20000 -t 0-23:58 --gres=gpu:k80 bash
 
+# ParlAI human eval
+srun --pty --mem=20000 -t 1-23:58 bash
+. ~/parlai.sh
+export PYTHONPATH='.'
+python parlai/mturk/tasks/context_evaluator/run.py --live --unique --unique-qual-name tfidf4 --max-connections 30 --reward 1.5 --allowed-conversations 1 --max-hits-per-worker 1 --num-conversations 120 --count-complete --max-time 3600 --hobby --disconnect-qualification disconnect_tfidf
+
 # SBATCH: NB: Cut memory usage based on plots
 export COMMAND="allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.ⅰ.m=sl.n=1.x=0.5.lr=1e-5.bsz=32.c=concat -j tmp/race.best.f/model.tar.gz -b 1 -d ⅰ -m sl -p tmp/race.best.f/oracle_outputs.c=concat.d=1_ⅠⅡ_turns.all.pkl -a 32 -c concat -f"
 export COMMAND_ARRAY=($COMMAND)z
