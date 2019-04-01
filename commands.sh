@@ -6,9 +6,28 @@
 
 # TODO: Check 6090-6095. 7030-7032. bert_mc_gpt runs. race.l.m=sl* runs. And others right before / that may also have updated
 
+# Produce human eval Oracle data
+allennlp train training_config/race.best.jsonnet -s tmp/race.best.f -e -r -d Ⅰ -c concat -p tmp/race.best.f/oracle_outputs.c=concat.d=Ⅰ.dev.num_passages=13.pkl -o \"{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/dev.num_passages=13'}\" 2>&1 | tee tmp/race.best.f/d=Ⅰ.c=concat.dev.num_passages=13.txt
+allennlp train training_config/race.best.jsonnet -s tmp/race.best.f -e -r -d Ⅱ -c concat -p tmp/race.best.f/oracle_outputs.c=concat.d=Ⅱ.dev.num_passages=13.pkl -o \"{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/dev.num_passages=13'}\" 2>&1 | tee tmp/race.best.f/d=Ⅱ.c=concat.dev.num_passages=13.txt
+allennlp train training_config/race.best.jsonnet -s tmp/race.best.f -e -r -d Ⅲ -c concat -p tmp/race.best.f/oracle_outputs.c=concat.d=Ⅲ.dev.num_passages=13.pkl -o \"{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/dev.num_passages=13'}\" 2>&1 | tee tmp/race.best.f/d=Ⅲ.c=concat.dev.num_passages=13.txt
+allennlp train training_config/race.best.jsonnet -s tmp/race.best.f -e -r -d Ⅳ -c concat -p tmp/race.best.f/oracle_outputs.c=concat.d=Ⅳ.dev.num_passages=13.pkl -o \"{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/dev.num_passages=13'}\" 2>&1 | tee tmp/race.best.f/d=Ⅳ.c=concat.dev.num_passages=13.txt
+
+# Produce human eval SL data: ⅰ ⅱ ⅲ ⅳ
+tmp/race.ⅱ.m=sl-sents.i.lr=2e-5.bsz=12.n=1.x=0.5.c=concat
+
+allennlp train training_config/race.best.debate.lr=2e-5.jsonnet -s tmp/race.ⅱ.m=sl-sents.i.lr=2e-5.bsz=12.n=1.x=0.5.c=concat -j tmp/race.best.f/model.tar.gz -e -r -b 1 -d ⅰ -m sl -a 12 -c concat -p tmp/race.best.f/oracle_outputs.c=concat.d=ⅰ.dev.num_passages=13.pkl -o \"{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/dev.num_passages=13'}\" 2>&1 | tee tmp/race.ⅱ.m=sl-sents.i.lr=2e-5.bsz=12.n=1.x=0.5.c=concat/d=ⅰ.c=concat.dev.num_passages=13.txt
+allennlp train training_config/race.best.debate.lr=2e-5.jsonnet -s tmp/race.ⅱ.m=sl-sents.i.lr=2e-5.bsz=12.n=1.x=0.5.c=concat -j tmp/race.best.f/model.tar.gz -e -r -b 1 -d ⅱ -m sl -a 12 -c concat -p tmp/race.best.f/oracle_outputs.c=concat.d=ⅱ.dev.num_passages=13.pkl -o \"{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/dev.num_passages=13'}\" 2>&1 | tee tmp/race.ⅱ.m=sl-sents.i.lr=2e-5.bsz=12.n=1.x=0.5.c=concat/d=ⅱ.c=concat.dev.num_passages=13.txt
+allennlp train training_config/race.best.debate.lr=2e-5.jsonnet -s tmp/race.ⅱ.m=sl-sents.i.lr=2e-5.bsz=12.n=1.x=0.5.c=concat -j tmp/race.best.f/model.tar.gz -e -r -b 1 -d ⅲ -m sl -a 12 -c concat -p tmp/race.best.f/oracle_outputs.c=concat.d=ⅲ.dev.num_passages=13.pkl -o \"{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/dev.num_passages=13'}\" 2>&1 | tee tmp/race.ⅱ.m=sl-sents.i.lr=2e-5.bsz=12.n=1.x=0.5.c=concat/d=ⅲ.c=concat.dev.num_passages=13.txt
+allennlp train training_config/race.best.debate.lr=2e-5.jsonnet -s tmp/race.ⅱ.m=sl-sents.i.lr=2e-5.bsz=12.n=1.x=0.5.c=concat -j tmp/race.best.f/model.tar.gz -e -r -b 1 -d ⅳ -m sl -a 12 -c concat -p tmp/race.best.f/oracle_outputs.c=concat.d=ⅳ.dev.num_passages=13.pkl -o \"{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/dev.num_passages=13'}\" 2>&1 | tee tmp/race.ⅱ.m=sl-sents.i.lr=2e-5.bsz=12.n=1.x=0.5.c=concat/d=ⅳ.c=concat.dev.num_passages=13.txt
+
+allennlp train training_config/race.best.debate.lr=5e-6.jsonnet -s tmp/race.ⅱ.m=sl.n=1.x=0.5.lr=5e-6.bsz=12.c=concat -j tmp/race.best.f/model.tar.gz -e -r -b 1 -d ⅰ -m sl -a 12 -c concat -p tmp/race.best.f/oracle_outputs.c=concat.d=ⅰ.dev.num_passages=13.pkl -o \"{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/dev.num_passages=13'}\" 2>&1 | tee tmp/race.best.f/d=ⅰ.c=concat.dev.num_passages=13.txt
+allennlp train training_config/race.best.debate.lr=5e-6.jsonnet -s tmp/race.ⅱ.m=sl.n=1.x=0.5.lr=5e-6.bsz=12.c=concat -j tmp/race.best.f/model.tar.gz -e -r -b 1 -d ⅱ -m sl -a 12 -c concat -p tmp/race.best.f/oracle_outputs.c=concat.d=ⅱ.dev.num_passages=13.pkl -o \"{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/dev.num_passages=13'}\" 2>&1 | tee tmp/race.best.f/d=ⅱ.c=concat.dev.num_passages=13.txt
+allennlp train training_config/race.best.debate.lr=5e-6.jsonnet -s tmp/race.ⅱ.m=sl.n=1.x=0.5.lr=5e-6.bsz=12.c=concat -j tmp/race.best.f/model.tar.gz -e -r -b 1 -d ⅲ -m sl -a 12 -c concat -p tmp/race.best.f/oracle_outputs.c=concat.d=ⅲ.dev.num_passages=13.pkl -o \"{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/dev.num_passages=13'}\" 2>&1 | tee tmp/race.best.f/d=ⅲ.c=concat.dev.num_passages=13.txt
+allennlp train training_config/race.best.debate.lr=5e-6.jsonnet -s tmp/race.ⅱ.m=sl.n=1.x=0.5.lr=5e-6.bsz=12.c=concat -j tmp/race.best.f/model.tar.gz -e -r -b 1 -d ⅳ -m sl -a 12 -c concat -p tmp/race.best.f/oracle_outputs.c=concat.d=ⅳ.dev.num_passages=13.pkl -o \"{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/dev.num_passages=13'}\" 2>&1 | tee tmp/race.best.f/d=ⅳ.c=concat.dev.num_passages=13.txt
+
 # Test commands:
 allennlp train training_config/race.best.jsonnet -s tmp/race.best.f -e -r -d rr -p tmp/race.best.f/oracle_outputs.dev.d=rr.4.pkl -c concat -o "{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/dev'}" 2>&1 | tee tmp/race.best.f/eval-rr-concat.4.txt
-allennlp train training_config/race.best.debate.lr=5e-6.jsonnet -s tmp/race.ⅰⅱ.m=sl.n=1.x=0.5.lr=5e-6.bsz=32.c=concat.copy -j tmp/race.best.f/model.tar.gz -b 1 -d ⅰ ⅱ -m sl -p tmp/race.best.f/oracle_outputs.c=concat.d=2_ⅠⅡ_turns.all.pkl -a 32 -c concat -n 1 -x 0.5 -e -r
+allennlp train training_config/race.best.debate.lr=5e-6.jsonnet -s tmp/race.ⅰⅱ.m=sl.n=1.x=0.5.lr=5e-6.bsz=32.c=concat.copy -j tmp/race.best.f/model.tar.gz -b 1 -d Ⅰ -p tmp/race.best.f/oracle_outputs.c=concat.d=1_ⅠⅡ_turns.all.pkl -a 32 -c concat -n 1 -x 0.5 -e -r
 
 # RACE: More Judge HP sweeping
 allennlp train training_config/bert_mc.race.lr=5e-6.jsonnet -s tmp/race.bert_mc.bsz=32.lr=5e-6.f -d f -a 4 -f # TODO
@@ -180,7 +199,6 @@ allennlp train training_config/race.best.jsonnet -s tmp/race.best.f -e -r -d B A
 allennlp train training_config/race.best.jsonnet -s tmp/race.best.f -e -r -d B A B A B r -c concat -p tmp/race.best.f/oracle_outputs.c=concat.d=8_AB_turns.all.pkl -o \"{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/dev'}\" 2>&1 | tee tmp/race.best.f/d=B_A_B_A_B_r.c=concat.dev.txt
 allennlp train training_config/race.best.jsonnet -s tmp/race.best.f -e -r -d B A B A B A r -c concat -p tmp/race.best.f/oracle_outputs.c=concat.d=8_AB_turns.all.pkl -o \"{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/dev'}\" 2>&1 | tee tmp/race.best.f/d=B_A_B_A_B_A_r.c=concat.dev.txt
 allennlp train training_config/race.best.jsonnet -s tmp/race.best.f -e -r -d B A B A B A B r -c concat -p tmp/race.best.f/oracle_outputs.c=concat.d=8_AB_turns.all.pkl -o \"{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/dev'}\" 2>&1 | tee tmp/race.best.f/d=B_A_B_A_B_A_B_r.c=concat.dev.txt
-
 
 ### RACE-M
 # Oracle
@@ -946,12 +964,6 @@ python scripts/oracle_outputs_merge_by_prev_turns_str.py -m
 # Prince GPUs: {p40,v100,p100,k80}  {.55,1,.65}
 srun --pty --mem=20000 -t 1-23:58 --gres=gpu:p40 bash
 srun --pty --mem=20000 -t 0-23:58 --gres=gpu:k80 bash
-
-# ParlAI human eval
-srun --pty --mem=20000 -t 1-23:58 bash
-. ~/parlai.sh
-export PYTHONPATH='.'
-python parlai/mturk/tasks/context_evaluator/run.py --live --unique --unique-qual-name tfidf4 --max-connections 30 --reward 1.5 --allowed-conversations 1 --max-hits-per-worker 1 --num-conversations 120 --count-complete --max-time 3600 --hobby --disconnect-qualification disconnect_tfidf
 
 # SBATCH: NB: Cut memory usage based on plots
 export COMMAND="allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.ⅰ.m=sl.n=1.x=0.5.lr=1e-5.bsz=32.c=concat -j tmp/race.best.f/model.tar.gz -b 1 -d ⅰ -m sl -p tmp/race.best.f/oracle_outputs.c=concat.d=1_ⅠⅡ_turns.all.pkl -a 32 -c concat -f"
