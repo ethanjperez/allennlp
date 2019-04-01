@@ -435,7 +435,7 @@ class Trainer(TrainerBase):
 
     def _log_debate(self, batch: TensorDict, sent_idxs: TensorDict, output_dict: TensorDict,
                     sent_choice_idxs: List[torch.Tensor], debate_mode: List[str],
-                    stances: List[torch.Tensor], advantage: torch.Tensor = None) -> None:
+                    stances: List[torch.Tensor], num_sents: torch.Tensor, advantage: torch.Tensor = None) -> None:
         """
         Neatly prints and logs all debates from a batch.
         """
@@ -445,7 +445,8 @@ class Trainer(TrainerBase):
             qid = batch['metadata'][i]['id']
             passage = ' '.join(batch['metadata'][i]['passage_tokens'])
             question = ' '.join(batch['metadata'][i]['question_tokens'])
-            self._debate_logs[qid] = {'passage': passage, 'question': question, 'debate_mode': debate_mode, 'sentences_chosen': [], 'stances': []}
+            self._debate_logs[qid] = {'passage': passage, 'question': question, 'debate_mode': debate_mode,
+                                      'sentences_chosen': [], 'stances': [], 'num_sents': int(num_sents[i])}
             print('\n**ID**\n', qid)
             print('\n**Passage**\n', passage)
             print('\n**Question**\n', question)
@@ -1176,7 +1177,7 @@ class Trainer(TrainerBase):
             turns_completed += len(debate_mode[round_no])
 
         if self._eval_mode:
-            self._log_debate(batch, sent_idxs, ver_dict, sent_choice_idxs, debate_mode, stances, advantage)
+            self._log_debate(batch, sent_idxs, ver_dict, sent_choice_idxs, debate_mode, stances, num_sents, advantage)
 
         self._add_debate_metrics(ver_dict, sent_idxs, sent_choice_idxs, debate_mode)
         return loss.cpu()  # NB: Necessary to move loss to CPU?
