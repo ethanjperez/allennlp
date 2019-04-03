@@ -415,6 +415,7 @@ def train_model(params: Params,
 
     if trainer_type == "default":
         # Special logic to instantiate backward-compatible trainer.
+        params['dataset_reader']['debate_mode'] = debate_mode  # If debate_mode requires sample duplicates
         pieces = TrainerPieces.from_params(params,
                                            serialization_dir,
                                            cuda_device,

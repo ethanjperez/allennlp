@@ -193,7 +193,7 @@ class Trainer(TrainerBase):
         self._x_order_prob = x_order_prob
 
         # NOTE: 'Ⅰ', 'Ⅱ', 'Ⅲ', 'Ⅳ' are special unicode chars. Copy and paste to use elsewhere (don't type directly).
-        self._oracle_debate_methods = {'A', 'B', 'L', 'W', 'Ⅰ', 'Ⅱ', 'Ⅲ', 'Ⅳ'}
+        self._oracle_debate_methods = {'A', 'B', 'E', 'L', 'W', 'Ⅰ', 'Ⅱ', 'Ⅲ', 'Ⅳ'}
         self._learning_debate_methods = {method.lower() for method in self._oracle_debate_methods}
         self._method_to_stance_idx = {'Ⅰ': 0, 'Ⅱ': 1, 'Ⅲ': 2, 'Ⅳ': 3}
         self._method_to_stance_idx.update({method.lower(): self._method_to_stance_idx[method]
@@ -473,7 +473,7 @@ class Trainer(TrainerBase):
                     if len(turn_sent_idxs['output']) > 0:
                         sent_str = ' '.join(toks[turn_sent_idxs['output'].min(): turn_sent_idxs['output'].max() + 1])
                     self._debate_logs[qid]['sentences_chosen'].append(sent_str)
-                    stance_str = str(stances[method][i].nonzero().tolist()) if method.lower() in {'l', 'w'} else method
+                    stance_str = str(stances[method][i].nonzero().tolist()) if method.lower() in {'e', 'l', 'w'} else method
                     self._debate_logs[qid]['stances'].append(stance_str)
                     print('\n**' + method + '**', '*(Stance: ' + stance_str + ')*',
                           ': Sentence', int(sent_choice_idxs[turn_no][i]), '\n', sent_str)
@@ -659,7 +659,7 @@ class Trainer(TrainerBase):
         # TODO: Check this gets sliced appropriately and included in oracle_batch
         if self._span_model:
             oracle_batch['valid_output_mask'] = judge_answer_mask['output'][sample_no].unsqueeze(0).expand(num_sent_options, -1)
-        # NB: Slice batch based on batch_size. Do several separate forward passes.
+        # Slice batch based on batch_size. Do several separate forward passes.
         num_oracle_batch_slices = math.ceil(num_sent_options.item() / float(bsz))
         oracle_output_dict = None
         for oracle_batch_slice_num in range(num_oracle_batch_slices):
@@ -684,7 +684,8 @@ class Trainer(TrainerBase):
 
         return oracle_output_dict
 
-    def _get_sent_choice_prob_from_dist(self, batch: TensorDict, sent_idxs: TensorDict, sent_choice_idx: torch.Tensor,
+    @staticmethod
+    def _get_sent_choice_prob_from_dist(batch: TensorDict, sent_idxs: TensorDict, sent_choice_idx: torch.Tensor,
                                         prob_dist: torch.Tensor) -> torch.Tensor:
         """
         Returns the probability of the selected sentence according to the given distribution.
@@ -968,7 +969,7 @@ class Trainer(TrainerBase):
             rewards = j_score
         elif debate_method == 'b':
             rewards = (1. - j_score)
-        elif debate_method in {'l', 'w', 'ⅰ', 'ⅱ', 'ⅲ', 'ⅳ'}:
+        elif debate_method in {'e', 'l', 'w', 'ⅰ', 'ⅱ', 'ⅲ', 'ⅳ'}:
             rewards = (ver_dict['prob_dist'] * stance.to(ver_dict['prob_dist'])).sum(dim=1)
         else:
             raise NotImplementedError('_get_reward not implemented for debate_method', debate_method)
@@ -982,6 +983,15 @@ class Trainer(TrainerBase):
         bsz = batch['passage']['tokens'].size(0)
         if method in {'a', 'b'}:
             return torch.tensor([method == 'a'] * bsz).to(batch['passage']['tokens'])
+        elif method in {'e'}:
+            assert self._mc, 'Only Multiple Choice datasets support debate_mode ' + method
+            stance = torch.zeros_like(batch['options']['tokens'][:, :, 0])
+            for i in range(bsz):
+                sample_debate_mode = batch['metadata'][i]['debate_mode']
+                # NB: Multi-turn debate_mode not yet supported here
+                assert (len(sample_debate_mode) == 1) and (len(sample_debate_mode[0]) == 1)
+                stance[i, self._method_to_stance_idx[sample_debate_mode[0][0]]] = 1
+            return stance
         elif method in {'l', 'w'}:
             assert self._mc, 'Only Multiple Choice datasets support debate_mode ' + method
             possible_stances = torch.ones_like(batch['options']['tokens'][:, :, 0])
@@ -1031,8 +1041,8 @@ class Trainer(TrainerBase):
                 batch['metadata'][i]['[SEP]'] = self.get_token_index('[SEP]')
 
         # Precomputation for all rounds
-        required_text_mask, judge_answer_mask = self._judge_text_masks(batch)  # TODO: Verify for span-based, span-based with Q in P
-        debate_choice_mask = self._debater_text_masks(batch, required_text_mask)  # TODO: Verify for span-based, span-based with Q in P
+        required_text_mask, judge_answer_mask = self._judge_text_masks(batch)  # NB: Verify for span-based, span-based with Q in P
+        debate_choice_mask = self._debater_text_masks(batch, required_text_mask)  # NB: Verify for span-based, span-based with Q in P
         num_sents = self._get_num_sents(debate_choice_mask)
         sent_idxs = {
             'output': self._get_sent_idxs(required_text_mask, debate_choice_mask, num_sents, 'output'),
@@ -1128,7 +1138,7 @@ class Trainer(TrainerBase):
                     self._update_trainer_metrics('judge_em' + turn_str, ver_dict['em'].mean())
                 if 'prob' in ver_dict:
                     self._update_trainer_metrics('judge_prob' + turn_str, ver_dict['prob'].mean())
-                if method.lower() in {'l', 'w', 'ⅰ', 'ⅱ', 'ⅲ', 'ⅳ'}:  # Log statistics based on if stance-conditioned debater was defending correct stance
+                if method.lower() in {'e', 'l', 'w', 'ⅰ', 'ⅱ', 'ⅲ', 'ⅳ'}:  # Log statistics based on if stance-conditioned debater was defending correct stance
                     stance_was_correct = stances[method].gather(1, judge_batch['answer_index']).squeeze(1).float()
                     self._update_trainer_metrics('stance_was_correct' + turn_str, stance_was_correct.mean())
                     stance_was_correct = stance_was_correct.tolist()
@@ -1144,7 +1154,7 @@ class Trainer(TrainerBase):
                     prev_round_rewards = self._get_reward(prev_round_ver_dict, stances[method], method, reward_to_track)
                     rewards = rewards - prev_round_rewards
                     self._update_trainer_metrics('influence_reward' + turn_str, rewards.mean())
-                    if method.lower() in {'l', 'w', 'ⅰ', 'ⅱ', 'ⅲ', 'ⅳ'}:  # Log statistics based on if stance-conditioned debater was defending correct stance
+                    if method.lower() in {'e', 'l', 'w', 'ⅰ', 'ⅱ', 'ⅲ', 'ⅳ'}:  # Log statistics based on if stance-conditioned debater was defending correct stance
                         for i in range(bsz):
                             self._update_trainer_metrics('influence_reward' + turn_str + correctness_str[stance_was_correct[i]], rewards[i])
 
@@ -1165,7 +1175,7 @@ class Trainer(TrainerBase):
                 self._update_trainer_metrics('baseline_std' + turn_str, (baselines - self._trainer_metrics['baseline' + turn_str].get_metric()).abs().mean())  # Should be high
                 self._update_trainer_metrics('advantage' + turn_str, (rewards - baselines).mean())
                 self._update_trainer_metrics('advantage_abs' + turn_str, (rewards - baselines).abs().mean())  # Should have low variance
-                if method in {'l', 'w', 'ⅰ', 'ⅱ', 'ⅲ', 'ⅳ'}:  # Log stats based on if stance-conditioned debater was defending correct stance
+                if method in {'e', 'l', 'w', 'ⅰ', 'ⅱ', 'ⅲ', 'ⅳ'}:  # Log stats based on if stance-conditioned debater was defending correct stance
                     for i in range(bsz):
                         self._update_trainer_metrics('policy_loss' + turn_str + correctness_str[stance_was_correct[i]], policy_losses[i])
                         self._update_trainer_metrics('baseline' + turn_str + correctness_str[stance_was_correct[i]], baselines[i])
