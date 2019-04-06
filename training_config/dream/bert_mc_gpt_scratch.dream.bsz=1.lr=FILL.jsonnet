@@ -37,7 +37,7 @@
 
   "trainer": {
     "num_epochs": 20,
-    "patience": 3,
+    "patience": 10,
     "validation_metric": "+start_acc",
     "cuda_device": 0,
     "learning_rate_scheduler": {
@@ -47,7 +47,7 @@
       "patience": 1
     },
     "optimizer": {
-      "lr": 0.00001,
+      "lr": 0.00005,
       "type": "bert_adam"
     }
   }
