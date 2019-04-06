@@ -32,9 +32,9 @@ BEST_CONFIG = '/private/home/siddk/allennlp/training_config/dream/dream.best.jso
 
 BEST_TRAIN_CONFIG = '/private/home/siddk/allennlp/training_config/dream/dream.best.train.jsonnet'
 
-BEST_CKPT_PATH = '/checkpoint/siddk/debate/dream/dream.bert_mc_gpt.bsz=32.lr=2.0e-05.f'
+BEST_CKPT_PATH = '/checkpoint/siddk/debate/runs/dream/dream.bert_mc_gpt.bsz=32.lr=2.0e-05.f'
 
-DEBATE_MODES = ["ⅰ", "ⅱ", "ⅰ ⅱ", "ⅰ ⅱ ⅰ ⅱ", "ⅰ ⅱ ⅰ ⅱ ⅰ ⅱ"]
+DEBATE_MODES = ['Ⅰ', 'Ⅱ', 'Ⅲ']
 
 
 def parse_args():

@@ -3,15 +3,15 @@
 
 ## Job Metadata
 #SBATCH --job-name=Oracle_Eval_Debate
-#SBATCH --output=/checkpoint/%u/debate_out/Oracle-Eval-%j.out
-#SBATCH --error=/checkpoint/%u/debate_out/Oracle-Eval-%j.err
+#SBATCH --output=/checkpoint/%u/debate/logs/Oracle-Eval-%j.out
+#SBATCH --error=/checkpoint/%u/debate/logs/Oracle-Eval-%j.err
 
 ## Partition
-#SBATCH --partition=uninterrupted
-#SBATCH --comment="Meeting later today!"
+#SBATCH --partition=priority
+#SBATCH --comment="Meeting on Monday 4/8!"
 
 ## Number of Nodes (Number of Tasks to run)
-#SBATCH --nodes=2
+#SBATCH --nodes=4
 
 ## Tasks per Node
 #SBATCH --ntasks-per-node=1
