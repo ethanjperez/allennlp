@@ -26,7 +26,7 @@ MODE_CONFIGS = {m: '/private/home/siddk/allennlp/training_config/dream/bert_mc_%
                 for m in ['pq2a', 'a', 'q2a']}
 MODE_CONFIGS['gpt'] = '/private/home/siddk/allennlp/training_config/dream/bert_mc_gpt.dream.bsz=1.lr=FILL.jsonnet'
 
-CKPT_PATH = "/checkpoint/siddk/debate/dream/dream.bert_mc_%s.bsz=%d.lr=%.1e.f"
+CKPT_PATH = "/checkpoint/siddk/debate/runs/dream/dream.bert_mc_%s.bsz=%d.lr=%.1e.f"
 
 BEST_CONFIG = '/private/home/siddk/allennlp/training_config/dream/dream.best.jsonnet'
 
@@ -65,12 +65,11 @@ if __name__ == "__main__":
         )
 
     elif args.mode in ['gpt']:
-        run_command = '%s %s train %s -s %s -d f -a 32 -o "%s"' % (
+        run_command = '%s %s train %s -s %s -d f -a 32' % (
             PYTHON_PATH,
             PROGRAM_PATH,
-            MODE_CONFIGS[args.mode],
-            CKPT_PATH % (args.mode, 32, LR[s_id % len(LR)]),
-            TRAIN_CONFIG % LR[s_id % len(LR)]
+            BEST_CONFIG,
+            CKPT_PATH % (args.mode, 32, LR[1])
         )
 
     elif args.mode in ['oracle']:

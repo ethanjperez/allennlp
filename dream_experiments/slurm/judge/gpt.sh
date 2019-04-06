@@ -2,15 +2,16 @@
 ## SLURM scripts for running Dream Debate Jobs
 
 ## Job Metadata
-#SBATCH --job-name=GPT_Sweep_Debate
-#SBATCH --output=/checkpoint/%u/debate_out/GPT-Sweep-%j.out
-#SBATCH --error=/checkpoint/%u/debate_out/GPT-Sweep-%j.err
+#SBATCH --job-name=GPT-Oracle
+#SBATCH --output=/checkpoint/%u/debate/logs/GPT-Judge-%j.out
+#SBATCH --error=/checkpoint/%u/debate/logs/GPT-Judge-%j.err
 
 ## Partition
-#SBATCH --partition=uninterrupted
+#SBATCH --partition=priority
+#SBATCH --comment="Running for meeting Monday, 4/8"
 
 ## Number of Nodes (Number of Tasks to run)
-#SBATCH --nodes=5
+#SBATCH --nodes=1
 
 ## Tasks per Node
 #SBATCH --ntasks-per-node=1

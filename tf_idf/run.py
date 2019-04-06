@@ -28,6 +28,7 @@ def parse_args():
     p.add_argument("-d", "--debate_option", default=0, type=int, help='Which MC option to support (I, II, III, IV)')
     p.add_argument("-q", "--with_question", default=False, action='store_true', help='TF-IDF with question + option')
 
+    p.add_argument("-s", "--dataset", default='dream', help='Dataset to run on')
     p.add_argument("-p", "--pretrained", default='datasets/bert/uncased_L-12_H-768_A-12/vocab.txt')
 
     return p.parse_args()
@@ -101,6 +102,63 @@ def parse_data(args, tokenizer):
     return keys, p_a
 
 
+def parse_dream_data(args, tokenizer):
+    # Create Tracking Variables
+    keys, p_a = {}, []
+
+    # Iterate through Data
+    for dfile in [args.train, args.val]:
+        # Load, Iterate through Data
+        with open(dfile, 'rb') as f:
+            data = json.load(f)
+
+        for i, article in enumerate(data):
+            passage_idx = []
+            context = " ".join(article[0])
+
+            # Split on ./!/?
+            ctx_split = re.split(EOS_TOKENS, context)[:-1]
+            ctx_sentences = [(ctx_split[i] + ctx_split[i + 1]).strip() for i in range(0, len(ctx_split), 2)]
+
+            # Error Handling
+            if len(ctx_sentences) == 0:
+                ctx_sentences = [context]
+
+            # Tokenize and Add Each Sentence to P_A
+            ctx_sentence_tokens = [tokenizer.tokenize(x) for x in ctx_sentences]
+            for sent in ctx_sentence_tokens:
+                passage_idx.append(len(p_a))
+                p_a.append(sent)
+
+            # Iterate through each Question
+            for idx in range(len(article[1])):
+                # Create Specific Example Key
+                key = os.path.join(article[2], str(idx))
+
+                # Fetch
+                q, ans, options = article[1][idx]['question'], article[1][idx]['answer'], article[1][idx]['choice']
+
+                # Create State Variables
+                option_idx = []
+
+                # Tokenize Options (Q + Option if specified) and add to dict
+                for o_idx in range(len(options)):
+                    if args.with_question:
+                        option = q + " " + options[o_idx]
+                    else:
+                        option = options[o_idx]
+
+                    option_tokens = tokenizer.tokenize(option)
+                    option_idx.append(len(p_a))
+                    p_a.append(option_tokens)
+
+                # Create Dictionary Entry
+                keys[key] = {'passage': ctx_sentences, 'passage_idx': passage_idx, 'question': q, 'answer': ans,
+                             'options': options, 'option_idx': option_idx}
+
+    return keys, p_a
+
+
 def compute_tf(p_a):
     """Given tensor of [ndoc, words], compute Term Frequence (BoW) Representation [ndoc, voc_sz]"""
 
@@ -124,7 +182,7 @@ def compute_tf(p_a):
 def dump_debates(args, idf, keys):
     """Run Single-Turn Debates on validation set, dump to file"""
     levels = [os.path.join(args.val, x) for x in os.listdir(args.val)]
-    dump_dict = {}
+    dump_dicts = [{} for _ in range(len(DEBATE2STR))]
     for level in levels:
         passages = [os.path.join(level, x) for x in os.listdir(level)]
         print('\nRunning Debates for %s...' % level)
@@ -135,33 +193,68 @@ def dump_debates(args, idf, keys):
                 key = os.path.join(k, str(cur_question))
                 d = keys[key]
 
-                # Search over passage for best sentence given debate mode
-                opt_idx, passage_idx = d['option_idx'][args.debate_option], d['passage_idx']
+                for oidx in range(len(DEBATE2STR)):
+                    # Search over passage for best sentence given debate mode
+                    opt_idx, passage_idx = d['option_idx'][oidx], d['passage_idx']
 
-                if (idf[passage_idx].shape[0] == 0) or (idf[opt_idx].shape[0] == 0):
-                    import IPython
-                    IPython.embed()
+                    if (idf[passage_idx].shape[0] == 0) or (idf[opt_idx].shape[0] == 0):
+                        import IPython
+                        IPython.embed()
 
-                # Compute Scores
-                sent_scores = cosine_similarity(idf[passage_idx], idf[opt_idx]).flatten()
-                best_sent, best_score = np.argmax(sent_scores), max(sent_scores)
+                    # Compute Scores
+                    sent_scores = cosine_similarity(idf[passage_idx], idf[opt_idx]).flatten()
+                    best_sent, best_score = np.argmax(sent_scores), max(sent_scores)
 
-                # Assemble Example Dict
-                example_dict = {"passage": " ".join(d['passage']), "question": d['question'], "advantage": 0,
-                                "debate_mode": [DEBATE2STR[args.debate_option]], "stances": [], "em": 0,
-                                "sentences_chosen": [d['passage'][best_sent]], "answer_index": d['answer'],
-                                "prob": best_score, "options": d['options']}
+                    # Assemble Example Dict
+                    example_dict = {"passage": " ".join(d['passage']), "question": d['question'], "advantage": 0,
+                                    "debate_mode": [DEBATE2STR[args.debate_option]], "stances": [], "em": 0,
+                                    "sentences_chosen": [d['passage'][best_sent]], "answer_index": d['answer'],
+                                    "prob": best_score, "options": d['options']}
 
-                dump_dict[os.path.join('dev', key)] = example_dict
+                    dump_dicts[oidx][os.path.join('dev', key)] = example_dict
                 cur_question += 1
 
     # Dump to file
-    file_stub = 'dev_tfidf_%s' % DEBATE2STR[args.debate_option]
-    if args.with_question:
-        file_stub += "_wq"
+    for i, mode in enumerate(DEBATE2STR):
+        file_stub = 'tf_idf/race_test_tfidf_%s' % mode
+        if args.with_question:
+            file_stub += "_wq"
 
-    with open(file_stub + ".json", 'w') as f:
-        json.dump(dump_dict, f)
+        with open(file_stub + ".json", 'w') as f:
+            json.dump(dump_dicts[i], f)
+
+
+def dump_dream_debates(args, idf, keys):
+    dump_dicts = [{} for _ in range(len(DEBATE2STR))]
+    for key in keys:
+        d = keys[key]
+
+        # Iterate over different option indices
+        for oidx in range(len(DEBATE2STR)):
+            opt_idx, passage_idx = d['option_idx'][oidx], d['passage_idx']
+            if (idf[passage_idx].shape[0] == 0) or (idf[opt_idx].shape[0] == 0):
+                import IPython
+                IPython.embed()
+
+            # Compute Scores
+            sent_scores = cosine_similarity(idf[passage_idx], idf[opt_idx]).flatten()
+            best_sent, best_score = np.argmax(sent_scores), max(sent_scores)
+
+            # Assemble Example Dict
+            example_dict = {"passage": " ".join(d['passage']), "question": d['question'], "advantage": 0,
+                            "debate_mode": [DEBATE2STR[oidx]], "stances": [], "em": 0,
+                            "sentences_chosen": [d['passage'][best_sent]], "answer_index": d['answer'],
+                            "prob": best_score, "options": d['options']}
+
+            dump_dicts[oidx][os.path.join('dev', key)] = example_dict
+
+    for i, mode in enumerate(DEBATE2STR):
+        file_stub = 'tf_idf/dream_test_tfidf_%s' % mode
+        if args.with_question:
+            file_stub += '_wq'
+
+        with open(file_stub + '.json', 'w') as f:
+            json.dump(dump_dicts[i], f)
 
 
 if __name__ == '__main__':
@@ -172,19 +265,37 @@ if __name__ == '__main__':
     bert_tokenizer = BertTokenizer.from_pretrained(arguments.pretrained, do_lower_case=True)
 
     # Create Dataset
-    D, PA = parse_data(arguments, bert_tokenizer)
+    if arguments.dataset == 'race':
+        D, PA = parse_data(arguments, bert_tokenizer)
 
-    # Compute TF Matrix
-    TF = compute_tf(PA)
+        # Compute TF Matrix
+        TF = compute_tf(PA)
 
-    # Compute TF-IDF Matrix
-    print('\nComputing TF-IDF Matrix...')
-    transformer = TfidfTransformer()
-    TF_IDF = transformer.fit_transform(TF)
-    assert(TF_IDF.shape[0] == len(PA) == len(TF))
+        # Compute TF-IDF Matrix
+        print('\nComputing TF-IDF Matrix...')
+        transformer = TfidfTransformer()
+        TF_IDF = transformer.fit_transform(TF)
+        assert(TF_IDF.shape[0] == len(PA) == len(TF))
 
-    # Compute Scoring Matrix
-    print('\nScoring Matrix...')
+        # Compute Scoring Matrix
+        print('\nScoring Matrix...')
 
-    # Dump Debates
-    dump_debates(arguments, TF_IDF, D)
+        # Dump Debates
+        dump_debates(arguments, TF_IDF, D)
+    else:
+        D, PA = parse_dream_data(arguments, bert_tokenizer)
+
+        # Compute TF Matrix
+        TF = compute_tf(PA)
+
+        # Compute TF-IDF Matrix
+        print('\nComputing TF-IDF Matrix...')
+        transformer = TfidfTransformer()
+        TF_IDF = transformer.fit_transform(TF)
+        assert (TF_IDF.shape[0] == len(PA) == len(TF))
+
+        # Compute Scoring Matrix
+        print('\nScoring Matrix...')
+
+        # Dump Debates
+        dump_dream_debates(arguments, TF_IDF, D)

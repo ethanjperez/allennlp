@@ -16,21 +16,85 @@ import re
 EOS_TOKENS = "(\.|\!|\?)"
 
 ANS2IDX = {'A': 0, 'B': 1, 'C': 2, 'D': 3}
-DEBATE2STR = ['Ⅰ', 'Ⅱ', 'Ⅲ', 'Ⅳ']
+DEBATE2STR = ['Ⅰ', 'Ⅱ', 'Ⅲ', 'Ⅳ'][:3]
 
 
 def parse_args():
     p = argparse.ArgumentParser(description='FastText Runner')
 
-    p.add_argument("-v", "--val", required=True, help='Path to raw valid data to compute TF-IDF')
-    p.add_argument("-q", "--with_question", default=False, action='store_true', help='TF-IDF with question + option')
+    p.add_argument("-v", "--val", required=True, help='Path to raw valid data to compute Fastext')
+    p.add_argument("-q", "--with_question", default=False, action='store_true', help='Fastext with question + option')
 
+    p.add_argument("-d", "--dataset", default="dream", help='Which dataset to run on - dream/race.')
     p.add_argument("-p", "--pretrained", default='datasets/fasttext')
 
     return p.parse_args()
 
 
-def parse_data(args, spcy):
+def parse_dream_data(args, spcy):
+    # Create Tracking Variables
+    keys = {}
+
+    # Load, Iterate through Data
+    with open(args.val, 'rb') as f:
+        data = json.load(f)
+
+    for i, article in enumerate(data):
+        context = " ".join(article[0])
+
+        # Split on ./!/?
+        ctx_split = re.split(EOS_TOKENS, context)[:-1]
+        ctx_sentences = [(ctx_split[i] + ctx_split[i + 1]).strip() for i in range(0, len(ctx_split), 2)]
+
+        # Error Handling
+        if len(ctx_sentences) == 0:
+            ctx_sentences = [context]
+
+        # Tokenize and Vectorize each Sentence
+        vec_sentences = []
+        for c in ctx_sentences:
+            tok_sent = spcy(c)
+            if tok_sent.has_vector:
+                vec_sentences.append(tok_sent)
+            else:
+                print('Oops')
+                import IPython
+                IPython.embed()
+
+        # Iterate through each question
+        for idx in range(len(article[1])):
+            # Create Specific Example Key
+            key = os.path.join(article[2], str(idx))
+
+            # Fetch
+            q, ans, options = article[1][idx]['question'], article[1][idx]['answer'], article[1][idx]['choice']
+
+            # Create State Variables
+            option_vecs = []
+
+            # Tokenize Options (Q + Option if specified) and add to dict
+            for o_idx in range(len(options)):
+                if args.with_question:
+                    option = q + " " + options[o_idx]
+                else:
+                    option = options[o_idx]
+
+                option_tokens = spcy(option)
+                if option_tokens.has_vector:
+                    option_vecs.append(option_tokens)
+                else:
+                    print('Oops')
+                    import IPython
+                    IPython.embed()
+
+            # Create Dictionary Entry
+            keys[key] = {'passage': ctx_sentences, 'passage_vecs': vec_sentences, 'question': q, 'answer': ans,
+                         'options': options, 'option_vecs': option_vecs}
+
+    return keys
+
+
+def parse_race_data(args, spcy):
     # Create Tracking Variables
     keys = {}
 
@@ -102,7 +166,7 @@ def parse_data(args, spcy):
     return keys
 
 
-def dump_debates(args, keys):
+def dump_race_debates(args, keys):
     """Run Single-Turn Debates on validation set, dump to files"""
     levels = [os.path.join(args.val, x) for x in os.listdir(args.val)]
     dump_dicts = [{} for _ in range(len(DEBATE2STR))]
@@ -136,7 +200,37 @@ def dump_debates(args, keys):
 
     # Dump to Files
     for i, mode in enumerate(DEBATE2STR):
-        file_stub = 'dev_fasttext_%s' % mode
+        file_stub = 'fasttext/race_dev_fasttext_%s' % mode
+        if args.with_question:
+            file_stub += '_wq'
+
+        with open(file_stub + '.json', 'w') as f:
+            json.dump(dump_dicts[i], f)
+
+
+def dump_dream_debates(args, keys):
+    dump_dicts = [{} for _ in range(len(DEBATE2STR))]
+    for key in keys:
+        d = keys[key]
+
+        # Iterate over different option indices
+        for oidx in range(len(DEBATE2STR)):
+            option_vec = d['option_vecs'][oidx]
+
+            # Compute Scores
+            sent_scores = [option_vec.similarity(sent_vec) for sent_vec in d['passage_vecs']]
+            best_sent, best_score = np.argmax(sent_scores), max(sent_scores)
+
+            # Assemble Example Dict
+            example_dict = {"passage": " ".join(d['passage']), "question": d['question'], "advantage": 0,
+                            "debate_mode": [DEBATE2STR[oidx]], "stances": [], "em": 0,
+                            "sentences_chosen": [d['passage'][best_sent]], "answer_index": d['answer'],
+                            "prob": best_score, "options": d['options']}
+            dump_dicts[oidx][os.path.join('dev', key)] = example_dict
+
+    # Dump to Files
+    for i, mode in enumerate(DEBATE2STR):
+        file_stub = 'fasttext/dream_test_fasttext_%s' % mode
         if args.with_question:
             file_stub += '_wq'
 
@@ -174,7 +268,9 @@ if __name__ == "__main__":
             nlp.vocab.set_vector(word, vector)
 
     # Parse Data - parses passage, question, answers and formulates vector representation
-    D = parse_data(arguments, nlp)
-
-    # Dump Debates
-    dump_debates(arguments, D)
+    if arguments.dataset == 'race':
+        D = parse_race_data(arguments, nlp)
+        dump_race_debates(arguments, D)
+    else:
+        D = parse_dream_data(arguments, nlp)
+        dump_dream_debates(arguments, D)
