@@ -40,11 +40,16 @@ class DreamMCReader(DatasetReader):
     def __init__(self,
                  tokenizer: Tokenizer = None,
                  token_indexers: Dict[str, TokenIndexer] = None,
-                 lazy: bool = False) -> None:
+                 lazy: bool = False,
+                 debate_mode: List[str] = None) -> None:
         super().__init__(lazy)
         self._tokenizer = tokenizer or WordTokenizer()
         self._token_indexers = token_indexers or {'tokens': SingleIdTokenIndexer()}
         self._letter_to_answer_idx = {'A': 0, 'B': 1, 'C': 2}  # NB: Dream Only Has 3 Answers
+        self._debate_modes = {
+            ('e',): [['ⅰ'], ['ⅱ'], ['ⅲ']],
+            ('E',): [['Ⅰ'], ['Ⅱ'], ['Ⅲ']],
+        }.get(tuple(debate_mode), [None])
 
     @overrides
     def _read(self, file_path: str):
@@ -72,7 +77,9 @@ class DreamMCReader(DatasetReader):
                 qid = diag_id + "-q%d" % idx
 
                 # Yield!!!
-                yield self.text_to_instance(question, passage_text, choices, qid, tokenized_passage, answer_index)
+                for debate_mode in self._debate_modes:
+                    yield self.text_to_instance(question, passage_text, choices, qid, tokenized_passage, answer_index,
+                                                debate_mode)
 
     @overrides
     def text_to_instance(self,  # type: ignore
@@ -81,9 +88,10 @@ class DreamMCReader(DatasetReader):
                          options_text: List[str],
                          qa_id: str,
                          passage_tokens: List[Token] = None,
-                         answer_index: int = None) -> Instance:
+                         answer_index: int = None,
+                         debate_mode: List[str] = None) -> Instance:
         # pylint: disable=arguments-differ
-        additional_metadata = {'id': qa_id}
+        additional_metadata = {'id': qa_id, 'debate_mode': debate_mode}
         fields: Dict[str, Field] = {}
 
         # Tokenize and calculate token offsets (i.e., for wordpiece)
