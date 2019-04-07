@@ -5,7 +5,7 @@ Mode - sl
 	LR: 3e-05	BSZ: 8	Best Epoch: 9	Best Reward: 0.47261
 	LR: 5e-05	BSZ: 8	Best Epoch: 8	Best Reward: 0.33435
 	LR: 5e-06	BSZ: 8	Best Epoch: 4	Best Reward: 0.53599
-	LR: 1e-05	BSZ: 12	Best Epoch: 3	Best Reward: 0.54673
+	LR: 1e-05	BSZ: 12	Best Epoch: 3	Best Reward: 0.54673  *
 	LR: 2e-05	BSZ: 12	Best Epoch: 2	Best Reward: 0.53324
 	LR: 3e-05	BSZ: 12	Best Epoch: 0	Best Reward: 0.33313
 	LR: 5e-05	BSZ: 12	Best Epoch: 9	Best Reward: 0.33212
@@ -23,7 +23,7 @@ Mode - sl
 
 Mode - sl-sents
 ------------------------------
-	LR: 1e-05	BSZ: 8	Best Epoch: 8	Best Reward: 0.55022
+	LR: 1e-05	BSZ: 8	Best Epoch: 8	Best Reward: 0.55022  *
 	LR: 2e-05	BSZ: 8	Best Epoch: 3	Best Reward: 0.54994
 	LR: 3e-05	BSZ: 8	Best Epoch: 4	Best Reward: 0.54743
 	LR: 5e-05	BSZ: 8	Best Epoch: 3	Best Reward: 0.33112
@@ -52,7 +52,7 @@ Mode - i-sl-sents
 	LR: 5e-05	BSZ: 8	Best Epoch: 3	Best Reward: 0.33432
 	LR: 5e-06	BSZ: 8	Best Epoch: 7	Best Reward: 0.33902
 	LR: 1e-05	BSZ: 12	Best Epoch: 9	Best Reward: 0.54194
-	LR: 2e-05	BSZ: 12	Best Epoch: 4	Best Reward: 0.56050
+	LR: 2e-05	BSZ: 12	Best Epoch: 4	Best Reward: 0.56050  *
 	LR: 3e-05	BSZ: 12	Best Epoch: 4	Best Reward: 0.55302
 	LR: 5e-05	BSZ: 12	Best Epoch: 7	Best Reward: 0.33367
 	LR: 5e-06	BSZ: 12	Best Epoch: 9	Best Reward: 0.34079

@@ -47,7 +47,7 @@
       "patience": 1
     },
     "optimizer": {
-      "lr": 0.00002,
+      "lr": 0.00001,
       "type": "bert_adam"
     }
   }
