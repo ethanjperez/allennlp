@@ -2,16 +2,16 @@
 ## SLURM scripts for running Dream Debate Jobs
 
 ## Job Metadata
-#SBATCH --job-name=Supervised_II_Debate
-#SBATCH --output=/checkpoint/%u/debate_out/Supervised-II-%j.out
-#SBATCH --error=/checkpoint/%u/debate_out/Supervised-II-%j.err
+#SBATCH --job-name=SL-Sents-Sweep
+#SBATCH --output=/checkpoint/%u/debate/logs/SL-Sents-Sweep-%j.out
+#SBATCH --error=/checkpoint/%u/debate/logs/SL-Sents-Sweep-%j.err
 
 ## Partition
-#SBATCH --partition=uninterrupted
-#SBATCH --comment="Meeting later today!"
+#SBATCH --partition=priority
+#SBATCH --comment="Meeting on Monday 4/8!"
 
 ## Number of Nodes (Number of Tasks to run)
-#SBATCH --nodes=10
+#SBATCH --nodes=20
 
 ## Tasks per Node
 #SBATCH --ntasks-per-node=1
@@ -20,7 +20,7 @@
 #SBATCH --cpus-per-task=8
 
 ## Time Limit - 1 Day
-#SBATCH --time=1440
+#SBATCH --time=720
 
 ## GPUS - One per Task
 #SBATCH --gres=gpu:1
