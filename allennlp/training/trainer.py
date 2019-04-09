@@ -433,7 +433,7 @@ class Trainer(TrainerBase):
             self._update_trainer_metrics('j_chose_no_debater_sents', j_chose_no_debater_sents.mean())
         return
 
-    def _log_debate(self, batch: TensorDict, sent_idxs: TensorDict, output_dict: TensorDict,
+    def _log_debate(self, batch: TensorDict, sent_idxs: TensorDict, ver_dicts: List[TensorDict],
                     sent_choice_idxs: List[torch.Tensor], debate_mode: List[str],
                     stances: List[torch.Tensor], num_sents: torch.Tensor, advantage: torch.Tensor = None) -> None:
         """
@@ -446,7 +446,10 @@ class Trainer(TrainerBase):
             passage = ' '.join(batch['metadata'][i]['passage_tokens'])
             question = ' '.join(batch['metadata'][i]['question_tokens'])
             self._debate_logs[qid] = {'passage': passage, 'question': question, 'debate_mode': debate_mode,
-                                      'sentences_chosen': [], 'stances': [], 'num_sents': int(num_sents[i])}
+                                      'sentences_chosen': [], 'stances': [], 'num_sents': int(num_sents[i]),
+                                      'prob_dist': [ver_dict['prob_dist'][i].tolist() for ver_dict in ver_dicts]}
+            if 'option_logits' in ver_dicts[-1]:
+                self._debate_logs[qid]['option_logits'] = [ver_dict['option_logits'][i].tolist() for ver_dict in ver_dicts]
             print('\n**ID**\n', qid)
             print('\n**Passage**\n', passage)
             print('\n**Question**\n', question)
@@ -458,14 +461,15 @@ class Trainer(TrainerBase):
                 true_answer_index = batch['answer_index'][i]
                 self._debate_logs[qid]['answer_index'] = true_answer_index.item()
                 print('\n**True Answer**\n', true_answer_index.item(), ' '.join(batch['metadata'][i]['options_tokens'][true_answer_index]))
-                best_answer_index = output_dict['best_answer_index'][i]
-                print('\n**Predicted Answer**\n', best_answer_index.item(), ' '.join(batch['metadata'][i]['options_tokens'][best_answer_index]))
+                final_pred_answer_index = ver_dicts[-1]['best_answer_index'][i]
+                self._debate_logs[qid]['final_pred_answer_index'] = final_pred_answer_index.item()
+                print('\n**Final Predicted Answer**\n', final_pred_answer_index.item(), ' '.join(batch['metadata'][i]['options_tokens'][final_pred_answer_index]))
             else:
                 print('\n**Answers**\n', [answer if isinstance(answer, str) else ' '.join(answer) for answer in batch['metadata'][i]['answer_texts']])
-                if 'best_span' in output_dict:
-                    print(' '.join(toks[output_dict['best_span'][i][0]:output_dict['best_span'][i][1] + 1]))
+                if 'best_span' in ver_dicts[-1]:
+                    print(' '.join(toks[ver_dicts[-1]['best_span'][i][0]: ver_dicts[-1]['best_span'][i][1] + 1]))
             turns_completed = 0
-            for round_methods in debate_mode:
+            for round_no, round_methods in enumerate(debate_mode):
                 for round_turn_no, method in enumerate(round_methods):
                     turn_no = turns_completed + round_turn_no
                     turn_sent_idxs = {'output': sent_choice_output_masks[turn_no][i].nonzero().squeeze(-1)}
@@ -473,19 +477,20 @@ class Trainer(TrainerBase):
                     if len(turn_sent_idxs['output']) > 0:
                         sent_str = ' '.join(toks[turn_sent_idxs['output'].min(): turn_sent_idxs['output'].max() + 1])
                     self._debate_logs[qid]['sentences_chosen'].append(sent_str)
-                    stance_str = str(stances[method][i].nonzero().tolist()) if method.lower() in {'e', 'l', 'w'} else method
+                    stance_str = str(stances[method][i].nonzero().item()) if method.lower() in {'e', 'l', 'w'} else method
                     self._debate_logs[qid]['stances'].append(stance_str)
                     print('\n**' + method + '**', '*(Stance: ' + stance_str + ')*',
                           ': Sentence', int(sent_choice_idxs[turn_no][i]), '\n', sent_str)
+                print('\n**J**:')
+                if advantage is not None:
+                    self._debate_logs[qid]['advantage'] = float(advantage[i])
+                    print('*ADVANTAGE*:', round(float(advantage[i]), 4))
+                for k in ['prob', 'em', 'f1']:
+                    if ver_dicts[round_no].get(k) is not None:
+                        self._debate_logs[qid][k] = ver_dicts[round_no][k][i].item()
+                        print('*' + k.upper() + '*:', round(ver_dicts[round_no][k].item(), 4))
                 turns_completed += len(round_methods)
-            print('\n**J**:')
-            if advantage is not None:
-                self._debate_logs[qid]['advantage'] = float(advantage[i])
-                print('*ADVANTAGE*:', round(float(advantage[i]), 4))
-            for k in ['prob', 'em', 'f1']:
-                if output_dict.get(k) is not None:
-                    self._debate_logs[qid][k] = output_dict[k].item()
-                    print('*' + k.upper() + '*:', round(output_dict[k].item(), 4))
+        print(self._debate_logs[qid])
         return
 
     def _print_tokens(self, tokens) -> None:
@@ -1086,6 +1091,7 @@ class Trainer(TrainerBase):
         loss = torch.Tensor([0]).cuda() if torch.cuda.is_available() else torch.Tensor([0])
         sent_choice_idxs, sent_choice_probs, values, advantage = [], [], [], None
         turns_completed = 0
+        ver_dicts = []
         stances = self._get_all_stances(batch, debate_mode)
         for round_no in range(len(debate_mode)):
             round_sent_choice_idxs, round_sent_choice_probs, round_values = [], [], []
@@ -1117,6 +1123,7 @@ class Trainer(TrainerBase):
                 judge_batch['valid_output_mask'] = judge_answer_mask['output']  # TODO: Verify value
             choice_start_time = time.time()
             ver_dict = self._forward([judge_batch], judge)
+            ver_dicts.append(ver_dict)
             self._update_trainer_metrics('time_j', torch.Tensor([time.time() - choice_start_time]))
             if self._span_model:
                 judge_batch['valid_output_mask'] = None
@@ -1188,7 +1195,7 @@ class Trainer(TrainerBase):
             turns_completed += len(debate_mode[round_no])
 
         if self._eval_mode:
-            self._log_debate(batch, sent_idxs, ver_dict, sent_choice_idxs, debate_mode, stances, num_sents, advantage)
+            self._log_debate(batch, sent_idxs, ver_dicts, sent_choice_idxs, debate_mode, stances, num_sents, advantage)
 
         self._add_debate_metrics(ver_dict, sent_idxs, sent_choice_idxs, debate_mode)
         return loss.cpu()  # NB: Necessary to move loss to CPU?
