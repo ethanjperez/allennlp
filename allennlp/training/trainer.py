@@ -435,21 +435,31 @@ class Trainer(TrainerBase):
 
     def _log_debate(self, batch: TensorDict, sent_idxs: TensorDict, ver_dicts: List[TensorDict],
                     sent_choice_idxs: List[torch.Tensor], debate_mode: List[str],
-                    stances: List[torch.Tensor], num_sents: torch.Tensor, advantage: torch.Tensor = None) -> None:
+                    stances: List[torch.Tensor], num_sents: torch.Tensor, advantage: torch.Tensor = None,
+                    ver_dict_prior: TensorDict = None) -> None:
         """
         Neatly prints and logs all debates from a batch.
         """
         bsz = batch['passage']['tokens'].size(0)
         sent_choice_output_masks = [(sent_idxs['output'] == sent_choice_idx) for sent_choice_idx in sent_choice_idxs]
         for i in range(bsz):
+            # Set up useful variables
             qid = batch['metadata'][i]['id']
             passage = ' '.join(batch['metadata'][i]['passage_tokens'])
             question = ' '.join(batch['metadata'][i]['question_tokens'])
+
+            # Initialize and store values in debate logs
             self._debate_logs[qid] = {'passage': passage, 'question': question, 'debate_mode': debate_mode,
                                       'sentences_chosen': [], 'stances': [], 'num_sents': int(num_sents[i]),
                                       'prob_dist': [ver_dict['prob_dist'][i].tolist() for ver_dict in ver_dicts]}
             if 'option_logits' in ver_dicts[-1]:
                 self._debate_logs[qid]['option_logits'] = [ver_dict['option_logits'][i].tolist() for ver_dict in ver_dicts]
+            if ver_dict_prior is not None:
+                self._debate_logs[qid]['prior'] = {'prob_dist': ver_dict_prior['prob_dist'][i].tolist()}
+                if 'option_logits' in ver_dict_prior:
+                    self._debate_logs[qid]['prior']['option_logits'] = ver_dict_prior['option_logits'][i].tolist()
+
+            # Pretty print initial debate info
             print('\n**ID**\n', qid)
             print('\n**Passage**\n', passage)
             print('\n**Question**\n', question)
@@ -468,6 +478,13 @@ class Trainer(TrainerBase):
                 print('\n**Answers**\n', [answer if isinstance(answer, str) else ' '.join(answer) for answer in batch['metadata'][i]['answer_texts']])
                 if 'best_span' in ver_dicts[-1]:
                     print(' '.join(toks[ver_dicts[-1]['best_span'][i][0]: ver_dicts[-1]['best_span'][i][1] + 1]))
+
+            # Pretty print prior (if applicable)
+            if ver_dict_prior is not None:
+                if 'prob_dist' in ver_dict_prior:
+                    print('\n**J**')
+                    print('*PROB DIST PRIOR*:', ver_dict_prior['prob_dist'][i])
+            # Pretty print each debate round
             turns_completed = 0
             for round_no, round_methods in enumerate(debate_mode):
                 for round_turn_no, method in enumerate(round_methods):
@@ -485,10 +502,12 @@ class Trainer(TrainerBase):
                 if advantage is not None:
                     self._debate_logs[qid]['advantage'] = float(advantage[i])
                     print('*ADVANTAGE*:', round(float(advantage[i]), 4))
+                if 'prob_dist' in ver_dicts[round_no]:
+                    print('*PROB DIST*:', ver_dicts[round_no]['prob_dist'][i])
                 for k in ['prob', 'em', 'f1']:
                     if ver_dicts[round_no].get(k) is not None:
-                        self._debate_logs[qid][k] = ver_dicts[round_no][k][i].item()
-                        print('*' + k.upper() + '*:', round(ver_dicts[round_no][k].item(), 4))
+                        self._debate_logs[qid][k] = ver_dicts[round_no][k][i].item()  # NB: May need to be .tolist() for F1
+                        # print('*' + k.upper() + '*:', round(ver_dicts[round_no][k].item(), 4))
                 turns_completed += len(round_methods)
         print(self._debate_logs[qid])
         return
@@ -1062,6 +1081,7 @@ class Trainer(TrainerBase):
 
         # Get Judge baseline opinion
         prev_round_ver_dict = None
+        ver_dict_prior = None
         if (debater is not None) and (debater.influence_reward or debater.theory_of_mind):
             # Copy and modify Judge's input
             no_rounds_batch = self._slice_or_copy_batch(batch, copy=True)
@@ -1072,7 +1092,8 @@ class Trainer(TrainerBase):
             if self._span_model:
                 no_rounds_batch['valid_output_mask'] = judge_answer_mask['output']
             choice_start_time = time.time()
-            prev_round_ver_dict = self._forward([no_rounds_batch], judge)
+            ver_dict_prior = self._forward([no_rounds_batch], judge)
+            prev_round_ver_dict = ver_dict_prior
             self._update_trainer_metrics('time_j_baseline', torch.Tensor([time.time() - choice_start_time]))
             # NOTE: Optional: if self.model.update_judge: loss += prev_round_ver_dict['loss']
             if self._span_model:
@@ -1195,7 +1216,7 @@ class Trainer(TrainerBase):
             turns_completed += len(debate_mode[round_no])
 
         if self._eval_mode:
-            self._log_debate(batch, sent_idxs, ver_dicts, sent_choice_idxs, debate_mode, stances, num_sents, advantage)
+            self._log_debate(batch, sent_idxs, ver_dicts, sent_choice_idxs, debate_mode, stances, num_sents, advantage, ver_dict_prior)
 
         self._add_debate_metrics(ver_dict, sent_idxs, sent_choice_idxs, debate_mode)
         return loss.cpu()  # NB: Necessary to move loss to CPU?
