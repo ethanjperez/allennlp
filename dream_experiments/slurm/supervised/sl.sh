@@ -7,7 +7,7 @@
 #SBATCH --error=/checkpoint/%u/debate/logs/SL-Sweep-%j.err
 
 ## Partition
-#SBATCH --partition=priority
+#SBATCH --partition=uninterrupted
 #SBATCH --comment="Meeting on Monday 4/8!"
 
 ## Number of Nodes (Number of Tasks to run)

@@ -105,17 +105,17 @@ if __name__ == "__main__":
         config = '/private/home/siddk/allennlp/training_config/dream/sl.dream.gpt.bsz=1.lr=FILL.jsonnet'
 
         if sl_mode[0] == 'i':
-            ckpt_path = '/checkpoint/siddk/debate/runs/dream/dream.sl_gpt.lr=%.1e.bsz=%d.m=sl-sents.i' % (atom_lr,
+            ckpt_path = '/checkpoint/siddk/debate/runs/dream/dream.sl_gpt.lr=%.1e.bsz=%d.m=sl-sents.i+theory' % (atom_lr,
                                                                                                           atom_bsz)
         else:
-            ckpt_path = '/checkpoint/siddk/debate/runs/dream/dream.sl_gpt.lr=%.1e.bsz=%d.m=%s' % (atom_lr, atom_bsz,
+            ckpt_path = '/checkpoint/siddk/debate/runs/dream/dream.sl_gpt.lr=%.1e.bsz=%d.m=%s+theory' % (atom_lr, atom_bsz,
                                                                                                   sl_mode)
 
         judge_path = '/checkpoint/siddk/debate/runs/dream/dream.bert_mc_gpt.bsz=32.lr=2.0e-05.f/model.tar.gz'
         oracle_path = '/checkpoint/siddk/debate/runs/dream/dream.bert_mc_gpt.bsz=32.lr=2.0e-05.f/oracle_outputs.d=I.all.pkl'
 
         if sl_mode[0] == 'i':
-            run_command = '%s %s train %s -s %s -j %s -d e -m sl-sents -i -p %s -a %d -c concat' % (
+            run_command = '%s %s train %s -s %s -j %s -d e -m sl-sents -i -p %s -a %d -c concat -t' % (
                 PYTHON_PATH,
                 PROGRAM_PATH,
                 config,
@@ -126,7 +126,7 @@ if __name__ == "__main__":
             )
 
         else:
-            run_command = '%s %s train %s -s %s -j %s -d e -m %s -p %s -a %d -c concat' % (
+            run_command = '%s %s train %s -s %s -j %s -d e -m %s -p %s -a %d -c concat -t' % (
                 PYTHON_PATH,
                 PROGRAM_PATH,
                 config,

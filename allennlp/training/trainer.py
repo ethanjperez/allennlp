@@ -484,8 +484,8 @@ class Trainer(TrainerBase):
                 print('*ADVANTAGE*:', round(float(advantage[i]), 4))
             for k in ['prob', 'em', 'f1']:
                 if output_dict.get(k) is not None:
-                    self._debate_logs[qid][k] = output_dict[k].item()
-                    print('*' + k.upper() + '*:', round(output_dict[k].item(), 4))
+                    self._debate_logs[qid][k] = output_dict[k][i].item()
+                    print('*' + k.upper() + '*:', round(output_dict[k][i].item(), 4))
         return
 
     def _print_tokens(self, tokens) -> None:
