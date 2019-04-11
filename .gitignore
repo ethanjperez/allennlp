@@ -24,7 +24,7 @@ dist/
 allennlp/tools/EVALB/evalb.dSYM/
 doc/_build/
 *.swp
-
+scratch.txt
 
 # python
 

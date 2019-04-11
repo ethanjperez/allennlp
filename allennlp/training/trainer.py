@@ -576,12 +576,12 @@ class Trainer(TrainerBase):
                         print('post_processing_answer_text =', post_processing_answer_text)
 
         # Set output_dict['loss'] to do gradient descent on.
-        if debate_mode[0] == "f":  # Full passage training: Normal SL training
-            output_dict = self._forward(batch_group, self.model)
+        if debate_mode[0] == "f":  # Full passage training: Normal SL training on *Judge* always
+            judge = self.model if self.model.is_judge else self.model.judge
+            output_dict = self._forward(batch_group, judge)
 
         else:  # Training on subset of sentence (judge or debate training)
             outputs = []
-            # TODO(Sidd): Distribute this loop across GPUs. See training_util.data_parallel
             for batch in batch_group:
                 outputs.append(self.debate_batch_loss(batch, for_training, debate_mode))
 
