@@ -431,4 +431,4 @@ allennlp train training_config/bert_mc_a.race.lr=3e-5.jsonnet -s tmp/race.num_se
 allennlp train training_config/bert_mc_a.race.lr=5e-5.jsonnet -s tmp/race.num_sents_leq_8.bert_mc_a.bsz=16.lr=5e-5.f -d f -a 2 -o \"{'train_data_path': 'datasets/race_raw.num_sents_leq_8/train', 'validation_data_path': 'datasets/race_raw.num_sents_leq_8/dev'}\" -f
 
 ##### Evaluation
-allennlp train race.best.debate.sl.lr=1e-5.jsonnet -s tmp/race.num_sents_leq_12.bert_mc_a.bsz=32.lr=1e-5.f.eval -j tmp/race.num_sents_leq_12.bert_mc_a.bsz=32.lr=1e-5.f/model.tar.gz -d f -c concat -e -f
+allennlp train training_config/race.best.debate.sl.lr=1e-5.jsonnet -s tmp/race.num_sents_leq_12.bert_mc_a.bsz=32.lr=1e-5.f.eval -j tmp/race.num_sents_leq_12.bert_mc_a.bsz=32.lr=1e-5.f/model.tar.gz -d f -o "{'train_data_path': 'datasets/race_raw.num_sents_leq_12/train', 'validation_data_path': 'datasets/race_raw.num_sents_leq_12/dev'}" -c concat -e -f

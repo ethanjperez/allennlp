@@ -924,7 +924,7 @@ rsync -rav -e ssh --include '*/' --exclude='*.th' --exclude='*.pkl' race.num_sen
 watch 'squeue -o "%.18i %.40j %.10u %.8T %.10M %.9l %.16b %.6C %.6D %R" -u $USER'
 
 # Cassio GPUs: {titanxp,1080ti,titanx,k40,k20,k20x,m2090,titanblack} {1,.85,.64}
-srun --pty --mem=20000 -t 1-23:58 --gres=gpu:titanblack bash
+srun --pty --mem=20000 -t 1-23:58 --gres=gpu:1080ti:1 bash
 
 # Cassio CPU
 srun --pty --mem=80000 -t 1-23:58 bash
