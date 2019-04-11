@@ -1096,7 +1096,7 @@ class Trainer(TrainerBase):
                 judge_batch['valid_output_mask'] = None
 
             # Add Loss: Judge
-            if self.model.update_judge:
+            if (debater is None) or self.model.update_judge:
                 loss += ver_dict['loss']
 
             # Add Loss: RL agents

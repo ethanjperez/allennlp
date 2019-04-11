@@ -917,7 +917,7 @@ rsync -rav -e ssh --include '*/' --include 'events.out.tfevents.*' --include '*.
 rsync -rav -e ssh --include '*/' --include 'events.out.tfevents.*' --include '*.json' --include '*.txt' --exclude='*' ejp416@access.cims.nyu.edu:~/research/allennlp/tmp/ ~/research/allennlp/tmp
 
 # Copy folder locally, excluding checkpoints
-rsync -rav -e ssh --include '*/' --exclude='*.th' --exclude='*.pkl' race.num_sents_leq_16.bert_mc_gpt.bsz=12.lr=1e-5.a=12.f/ race.num_sents_leq_16.best.bsz=12.f/
+rsync -rav -e ssh --include '*/' --exclude='*.th' --exclude='*.pkl' race.best.f/ race.best.f.eval/
 
 ### SLURM
 # Live updating dashboard of your jobs:
