@@ -24,11 +24,15 @@ allennlp train training_config/race.best.jsonnet -s tmp/race_m.best.bsz=12.f -e 
 
 
 ### Prior Probabilities
+allennlp train training_config/race.best.jsonnet -s tmp/race_m.bert_mc_a.bsz=32.lr=1e-5.f.eval.influence -d r -e -j tmp/race_m.bert_mc_a.bsz=32.lr=1e-5.f/model.tar.gz -m sl -c concat -i -f -o \"{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw_high/dev'}\" 2>&1 | tee tmp/race_m.bert_mc_a.bsz=32.lr=1e-5.f/d=r.c=concat.i.race_h.dev.txt
+allennlp train training_config/race.best.jsonnet -s tmp/race.num_sents_leq_12.bert_mc_a.bsz=32.lr=2e-5.f.eval.influence -d r -e -j tmp/race.num_sents_leq_12.bert_mc_a.bsz=32.lr=2e-5.f/model.tar.gz -m sl -c concat -i -f -o \"{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw.num_sents_gt_26/dev'}\" 2>&1 | tee tmp/race.num_sents_leq_12.bert_mc_a.bsz=32.lr=2e-5.f/d=r.c=concat.i.race_h.dev.txt
+allennlp train training_config/race.best.jsonnet -s tmp/race.num_sents_leq_16.bert_mc_a.bsz=32.lr=2e-5.f.eval.influence -d r -e -j tmp/race.num_sents_leq_16.bert_mc_a.bsz=32.lr=2e-5.f/model.tar.gz -m sl -c concat -i -f -o \"{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw.num_sents_gt_26/dev'}\" 2>&1 | tee tmp/race.num_sents_leq_16.bert_mc_a.bsz=32.lr=2e-5.f/d=r.c=concat.i.race_h.dev.txt
+
 allennlp train training_config/race.best.jsonnet -s tmp/race_m.best.bsz=12.f.eval.influence -d r -e -j tmp/race_m.best.bsz=12.f/model.tar.gz -m sl -c concat -i -f -o \"{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw_high/dev'}\" 2>&1 | tee tmp/race_m.best.bsz=12.f/d=r.c=concat.i.race_h.dev.txt
 allennlp train training_config/race.best.jsonnet -s tmp/race_m.best.bsz=32.f.eval.influence -d r -e -j tmp/race_m.best.bsz=32.f/model.tar.gz -m sl -c concat -i -f -o \"{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw_high/dev'}\" 2>&1 | tee tmp/race_m.best.bsz=32.f/d=r.c=concat.i.race_h.dev.txt
-allennlp train training_config/race.best.jsonnet -s tmp/race.num_sents_leq_16.best.bsz=12.f.eval.influence -d r -e -j tmp/race.num_sents_leq_16.best.bsz=12.f/model.tar.gz -m sl -c concat -i -f -o \"{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw_high/dev'}\" 2>&1 | tee tmp/race.num_sents_leq_16.best.bsz=12.f/d=r.c=concat.i.race_h.dev.txt
-allennlp train training_config/race.best.jsonnet -s tmp/race.num_sents_leq_16.best.bsz=32.f.eval.influence -d r -e -j tmp/race.num_sents_leq_16.best.bsz=32.f/model.tar.gz -m sl -c concat -i -f -o \"{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw_high/dev'}\" 2>&1 | tee tmp/race.num_sents_leq_16.best.bsz=32.f/d=r.c=concat.i.race_h.dev.txt
-allennlp train training_config/race.best.jsonnet -s tmp/race.num_sents_leq_12.best.f.eval.influence -d r -e -j tmp/race.num_sents_leq_12.best.f/model.tar.gz -m sl -c concat -i -f -o \"{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw_high/dev'}\" 2>&1 | tee tmp/race.num_sents_leq_12.best.f/d=r.c=concat.i.race_h.dev.txt
+allennlp train training_config/race.best.jsonnet -s tmp/race.num_sents_leq_16.best.bsz=12.f.eval.influence -d r -e -j tmp/race.num_sents_leq_16.best.bsz=12.f/model.tar.gz -m sl -c concat -i -f -o \"{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw.num_sents_gt_26/dev'}\" 2>&1 | tee tmp/race.num_sents_leq_16.best.bsz=12.f/d=r.c=concat.i.race_h.dev.txt
+allennlp train training_config/race.best.jsonnet -s tmp/race.num_sents_leq_16.best.bsz=32.f.eval.influence -d r -e -j tmp/race.num_sents_leq_16.best.bsz=32.f/model.tar.gz -m sl -c concat -i -f -o \"{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw.num_sents_gt_26/dev'}\" 2>&1 | tee tmp/race.num_sents_leq_16.best.bsz=32.f/d=r.c=concat.i.race_h.dev.txt
+allennlp train training_config/race.best.jsonnet -s tmp/race.num_sents_leq_12.best.f.eval.influence -d r -e -j tmp/race.num_sents_leq_12.best.f/model.tar.gz -m sl -c concat -i -f -o \"{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw.num_sents_gt_26/dev'}\" 2>&1 | tee tmp/race.num_sents_leq_12.best.f/d=r.c=concat.i.race_h.dev.txt
 
 ### Random Sents 4,8,16
 ##### Concat Sents
@@ -547,6 +551,6 @@ allennlp train training_config/race.best.jsonnet -s tmp/race.best.f.eval.race.nu
 allennlp train training_config/race.best.jsonnet -s tmp/race.best.f.eval.race.num_sents_leq_8 -j tmp/race.best.f/model.tar.gz -d f -o \"{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw.num_sents_leq_8/dev'}\" -c concat -e -f
 
 
-nano tmp/race_m.bert_mc_a.bsz=32.lr=3e-5.f.eval/metrics.eval.d=f.json
+nano tmp/race_m.bert_mc_a.bsz=32.lr=1e-5.f.eval/metrics.eval.d=f.json
 
 nano tmp/race_m.bert_mc_a.bsz=32.lr=3e-5.f/metrics.json
