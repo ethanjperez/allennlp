@@ -71,7 +71,8 @@ class Trainer(TrainerBase):
                  allocation_dict: Dict[str, int] = None,
                  choice_mode: str = None,
                  num_pred_rounds: int = -1,
-                 x_order_prob: float = 0.) -> None:
+                 x_order_prob: float = 0.,
+                 require_action: bool = False) -> None:
         """
         A trainer for doing supervised learning. It just takes a labeled dataset
         and a ``DataIterator``, and uses the supplied ``Optimizer`` to learn the weights
@@ -191,6 +192,7 @@ class Trainer(TrainerBase):
             self.choice_mode = 'concat' if self._mc else 'reveal'
         self._num_pred_rounds = num_pred_rounds
         self._x_order_prob = x_order_prob
+        self._require_action = require_action
 
         # NOTE: 'Ⅰ', 'Ⅱ', 'Ⅲ', 'Ⅳ' are special unicode chars. Copy and paste to use elsewhere (don't type directly).
         self._oracle_debate_methods = {'A', 'B', 'E', 'L', 'W', 'Ⅰ', 'Ⅱ', 'Ⅲ', 'Ⅳ'}
@@ -705,8 +707,18 @@ class Trainer(TrainerBase):
             for sample_no in range(bsz):
                 oracle_output_dict = self._get_oracle_output_dict(batch, sent_idxs, judge_answer_mask,
                     required_text_mask, past_sent_choice_idxs, num_sents, sample_no, debate_mode, round_no)
-                oracle_metrics = self._get_reward(oracle_output_dict, stance[sample_no].unsqueeze(0), method, 'prob').tolist()
-                opt_reward = float(max(oracle_metrics))
+                oracle_metrics = self._get_reward(oracle_output_dict, stance[sample_no].unsqueeze(0), method, 'prob')
+                if self._require_action and (past_sent_choice_idxs is not None):
+                    oracle_metrics_for_valid_actions = oracle_metrics.clone()
+                    oracle_metrics_for_valid_actions[past_sent_choice_idxs[sample_no]] = float('-inf')
+                    oracle_metrics_for_valid_actions = oracle_metrics_for_valid_actions.tolist()
+                    oracle_metrics = oracle_metrics.tolist()
+                    opt_reward = float(max(oracle_metrics_for_valid_actions))
+                    if opt_reward == float('-inf'):  # Full passage revealed, so just give no-action reward
+                        opt_reward = float(max(oracle_metrics))
+                else:
+                    oracle_metrics = oracle_metrics.tolist()
+                    opt_reward = float(max(oracle_metrics))
                 baseline_reward = sum(oracle_metrics) / len(oracle_metrics)
                 opt_sent_idxs.append(oracle_metrics.index(opt_reward))
                 advantage.append(opt_reward - baseline_reward)
@@ -1616,7 +1628,8 @@ class Trainer(TrainerBase):
                     allocation_dict: Dict[str, int] = None,
                     choice_mode: str = None,
                     num_pred_rounds: int = -1,
-                    x_order_prob: float = 0.) -> 'Trainer':
+                    x_order_prob: float = 0.,
+                    require_action: bool = False) -> 'Trainer':
 
         # pylint: disable=arguments-differ
         patience = params.pop_int("patience", None)
@@ -1694,7 +1707,8 @@ class Trainer(TrainerBase):
                    allocation_dict=allocation_dict,
                    choice_mode=choice_mode,
                    num_pred_rounds=num_pred_rounds,
-                   x_order_prob=x_order_prob)
+                   x_order_prob=x_order_prob,
+                   require_action=require_action)
 
 
 class TrainerPieces(NamedTuple):
