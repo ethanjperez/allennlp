@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 
 COMMANDS=(
+"allennlp train training_config/bert_mc_gpt.race.lr=1e-5.bsz=1.jsonnet -s tmp/race_m.bsz=16.lr=1e-5.rrrrrrrr -d rrrrrrrr -a 16 -o \"{'train_data_path': 'datasets/race_raw_middle/train', 'validation_data_path': 'datasets/race_raw_middle/dev'}\" -f"
+"allennlp train training_config/bert_mc_gpt.race.lr=2e-5.bsz=1.jsonnet -s tmp/race_m.bsz=16.lr=2e-5.rrrrrrrr -d rrrrrrrr -a 16 -o \"{'train_data_path': 'datasets/race_raw_middle/train', 'validation_data_path': 'datasets/race_raw_middle/dev'}\" -f"
+"allennlp train training_config/bert_mc_gpt.race.lr=3e-5.bsz=1.jsonnet -s tmp/race_m.bsz=16.lr=3e-5.rrrrrrrr -d rrrrrrrr -a 16 -o \"{'train_data_path': 'datasets/race_raw_middle/train', 'validation_data_path': 'datasets/race_raw_middle/dev'}\" -f"
 "allennlp train training_config/bert_mc_gpt.race.lr=5e-6.bsz=1.jsonnet -s tmp/race_m.bsz=32.lr=5e-6.rrrr -d rrrr -a 32 -o \"{'train_data_path': 'datasets/race_raw_middle/train', 'validation_data_path': 'datasets/race_raw_middle/dev'}\" -f"
 "allennlp train training_config/bert_mc_gpt.race.lr=1e-5.bsz=1.jsonnet -s tmp/race_m.bsz=32.lr=1e-5.rrrr -d rrrr -a 32 -o \"{'train_data_path': 'datasets/race_raw_middle/train', 'validation_data_path': 'datasets/race_raw_middle/dev'}\" -f"
 "allennlp train training_config/bert_mc_gpt.race.lr=2e-5.bsz=1.jsonnet -s tmp/race_m.bsz=32.lr=2e-5.rrrr -d rrrr -a 32 -o \"{'train_data_path': 'datasets/race_raw_middle/train', 'validation_data_path': 'datasets/race_raw_middle/dev'}\" -f"
@@ -14,7 +17,6 @@ for COMMAND in "${COMMANDS[@]}"; do
     sbatch --job-name $SERIALIZATION_DIR --mem=20000 -t 1-23:58 --gres=gpu:1080ti:1 --open-mode append --requeue --wrap "$COMMAND"
     echo -e "\n${CYAN}${SERIALIZATION_DIR}/train.log\n"
 done
-
 
 
 

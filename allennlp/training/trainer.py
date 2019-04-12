@@ -188,7 +188,7 @@ class Trainer(TrainerBase):
         self._accumulation_steps = accumulation_steps
         self.choice_mode = choice_mode
         if self.choice_mode is None:
-            self.choice_mode = 'delete' if self._mc else 'reveal'
+            self.choice_mode = 'concat' if self._mc else 'reveal'
         self._num_pred_rounds = num_pred_rounds
         self._x_order_prob = x_order_prob
 
