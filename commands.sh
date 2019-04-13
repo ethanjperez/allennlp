@@ -931,7 +931,7 @@ srun --pty --mem=80000 -t 1-23:58 bash
 python scripts/oracle_outputs_merge_by_prev_turns_str.py -m
 
 # Prince GPUs: {p40,v100,p100,k80}  {.55,1,.65}
-srun --pty --mem=80000 -t 6-23:58 --gres=gpu:p40:1 bash
+srun --pty --mem=60000 -t 6-23:58 --gres=gpu:p40:1 bash
 srun --pty --mem=20000 -t 0-23:58 --gres=gpu:k80:1 bash
 srun --pty --mem=60000 -t 6-23:58 --gres=gpu:v100:1 bash
 
