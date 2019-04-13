@@ -71,7 +71,8 @@ class Trainer(TrainerBase):
                  allocation_dict: Dict[str, int] = None,
                  choice_mode: str = None,
                  num_pred_rounds: int = -1,
-                 x_order_prob: float = 0.) -> None:
+                 x_order_prob: float = 0.,
+                 require_action: bool = False) -> None:
         """
         A trainer for doing supervised learning. It just takes a labeled dataset
         and a ``DataIterator``, and uses the supplied ``Optimizer`` to learn the weights
@@ -188,9 +189,10 @@ class Trainer(TrainerBase):
         self._accumulation_steps = accumulation_steps
         self.choice_mode = choice_mode
         if self.choice_mode is None:
-            self.choice_mode = 'delete' if self._mc else 'reveal'
+            self.choice_mode = 'concat' if self._mc else 'reveal'
         self._num_pred_rounds = num_pred_rounds
         self._x_order_prob = x_order_prob
+        self._require_action = require_action
 
         # NOTE: 'Ⅰ', 'Ⅱ', 'Ⅲ', 'Ⅳ' are special unicode chars. Copy and paste to use elsewhere (don't type directly).
         self._oracle_debate_methods = {'A', 'B', 'E', 'L', 'W', 'Ⅰ', 'Ⅱ', 'Ⅲ', 'Ⅳ'}
@@ -433,20 +435,33 @@ class Trainer(TrainerBase):
             self._update_trainer_metrics('j_chose_no_debater_sents', j_chose_no_debater_sents.mean())
         return
 
-    def _log_debate(self, batch: TensorDict, sent_idxs: TensorDict, output_dict: TensorDict,
+    def _log_debate(self, batch: TensorDict, sent_idxs: TensorDict, ver_dicts: List[TensorDict],
                     sent_choice_idxs: List[torch.Tensor], debate_mode: List[str],
-                    stances: List[torch.Tensor], num_sents: torch.Tensor, advantage: torch.Tensor = None) -> None:
+                    stances: List[torch.Tensor], num_sents: torch.Tensor, advantage: torch.Tensor = None,
+                    ver_dict_prior: TensorDict = None) -> None:
         """
         Neatly prints and logs all debates from a batch.
         """
         bsz = batch['passage']['tokens'].size(0)
         sent_choice_output_masks = [(sent_idxs['output'] == sent_choice_idx) for sent_choice_idx in sent_choice_idxs]
         for i in range(bsz):
+            # Set up useful variables
             qid = batch['metadata'][i]['id']
             passage = ' '.join(batch['metadata'][i]['passage_tokens'])
             question = ' '.join(batch['metadata'][i]['question_tokens'])
+
+            # Initialize and store values in debate logs
             self._debate_logs[qid] = {'passage': passage, 'question': question, 'debate_mode': debate_mode,
-                                      'sentences_chosen': [], 'stances': [], 'num_sents': int(num_sents[i])}
+                                      'sentences_chosen': [], 'stances': [], 'num_sents': int(num_sents[i]),
+                                      'prob_dist': [ver_dict['prob_dist'][i].tolist() for ver_dict in ver_dicts]}
+            if 'option_logits' in ver_dicts[-1]:
+                self._debate_logs[qid]['option_logits'] = [ver_dict['option_logits'][i].tolist() for ver_dict in ver_dicts]
+            if ver_dict_prior is not None:
+                self._debate_logs[qid]['prior'] = {'prob_dist': ver_dict_prior['prob_dist'][i].tolist()}
+                if 'option_logits' in ver_dict_prior:
+                    self._debate_logs[qid]['prior']['option_logits'] = ver_dict_prior['option_logits'][i].tolist()
+
+            # Pretty print initial debate info
             print('\n**ID**\n', qid)
             print('\n**Passage**\n', passage)
             print('\n**Question**\n', question)
@@ -458,14 +473,22 @@ class Trainer(TrainerBase):
                 true_answer_index = batch['answer_index'][i]
                 self._debate_logs[qid]['answer_index'] = true_answer_index.item()
                 print('\n**True Answer**\n', true_answer_index.item(), ' '.join(batch['metadata'][i]['options_tokens'][true_answer_index]))
-                best_answer_index = output_dict['best_answer_index'][i]
-                print('\n**Predicted Answer**\n', best_answer_index.item(), ' '.join(batch['metadata'][i]['options_tokens'][best_answer_index]))
+                final_pred_answer_index = ver_dicts[-1]['best_answer_index'][i]
+                self._debate_logs[qid]['final_pred_answer_index'] = final_pred_answer_index.item()
+                print('\n**Final Predicted Answer**\n', final_pred_answer_index.item(), ' '.join(batch['metadata'][i]['options_tokens'][final_pred_answer_index]))
             else:
                 print('\n**Answers**\n', [answer if isinstance(answer, str) else ' '.join(answer) for answer in batch['metadata'][i]['answer_texts']])
-                if 'best_span' in output_dict:
-                    print(' '.join(toks[output_dict['best_span'][i][0]:output_dict['best_span'][i][1] + 1]))
+                if 'best_span' in ver_dicts[-1]:
+                    print(' '.join(toks[ver_dicts[-1]['best_span'][i][0]: ver_dicts[-1]['best_span'][i][1] + 1]))
+
+            # Pretty print prior (if applicable)
+            if ver_dict_prior is not None:
+                if 'prob_dist' in ver_dict_prior:
+                    print('\n**J**')
+                    print('*PROB DIST PRIOR*:', ver_dict_prior['prob_dist'][i])
+            # Pretty print each debate round
             turns_completed = 0
-            for round_methods in debate_mode:
+            for round_no, round_methods in enumerate(debate_mode):
                 for round_turn_no, method in enumerate(round_methods):
                     turn_no = turns_completed + round_turn_no
                     turn_sent_idxs = {'output': sent_choice_output_masks[turn_no][i].nonzero().squeeze(-1)}
@@ -473,19 +496,22 @@ class Trainer(TrainerBase):
                     if len(turn_sent_idxs['output']) > 0:
                         sent_str = ' '.join(toks[turn_sent_idxs['output'].min(): turn_sent_idxs['output'].max() + 1])
                     self._debate_logs[qid]['sentences_chosen'].append(sent_str)
-                    stance_str = str(stances[method][i].nonzero().tolist()) if method.lower() in {'e', 'l', 'w'} else method
+                    stance_str = str(stances[method][i].nonzero().item()) if method.lower() in {'e', 'l', 'w'} else method
                     self._debate_logs[qid]['stances'].append(stance_str)
                     print('\n**' + method + '**', '*(Stance: ' + stance_str + ')*',
                           ': Sentence', int(sent_choice_idxs[turn_no][i]), '\n', sent_str)
+                print('\n**J**:')
+                if advantage is not None:
+                    self._debate_logs[qid]['advantage'] = float(advantage[i])
+                    print('*ADVANTAGE*:', round(float(advantage[i]), 4))
+                if 'prob_dist' in ver_dicts[round_no]:
+                    print('*PROB DIST*:', ver_dicts[round_no]['prob_dist'][i])
+                for k in ['prob', 'em', 'f1']:
+                    if ver_dicts[round_no].get(k) is not None:
+                        self._debate_logs[qid][k] = ver_dicts[round_no][k][i].item()  # NB: May need to be .tolist() for F1
+                        # print('*' + k.upper() + '*:', round(ver_dicts[round_no][k].item(), 4))
                 turns_completed += len(round_methods)
-            print('\n**J**:')
-            if advantage is not None:
-                self._debate_logs[qid]['advantage'] = float(advantage[i])
-                print('*ADVANTAGE*:', round(float(advantage[i]), 4))
-            for k in ['prob', 'em', 'f1']:
-                if output_dict.get(k) is not None:
-                    self._debate_logs[qid][k] = output_dict[k][i].item()
-                    print('*' + k.upper() + '*:', round(output_dict[k][i].item(), 4))
+        print(self._debate_logs[qid])
         return
 
     def _print_tokens(self, tokens) -> None:
@@ -520,60 +546,6 @@ class Trainer(TrainerBase):
         """
         output_field = 'tokens-offsets' if 'tokens-offsets' in batch['passage'] else 'tokens'
         return batch['passage'][output_field].size(1)
-
-    def batch_loss(self,
-                   batch_group: List[TensorDict],
-                   for_training: bool,
-                   debate_mode: List[str] = None) -> torch.Tensor:
-        """
-        Does a forward pass on the given batches and returns the ``loss`` value in the result.
-        If ``for_training`` is `True` also applies regularization penalty.
-        """
-        # If overriding default passage choosing method
-        if debate_mode is None:
-            debate_mode = self._debate_mode
-
-        # Optional debugging sanity check
-        if self._breakpoint_level >= 1 and for_training:
-            for batch in batch_group:
-                for i in range(batch['passage']['tokens'].size(0)):
-                    char_span_start = batch['metadata'][i]['token_offsets'][batch['span_start'][i]][0]
-                    char_span_end = batch['metadata'][i]['token_offsets'][batch['span_end'][i]][1]
-                    answer_text = batch['metadata'][i]['answer_texts'][0]
-                    post_processing_answer_text = batch['metadata'][i]['original_passage'][char_span_start:
-                                                                                           char_span_end]
-                    answer_processing_error = not (answer_text in post_processing_answer_text)
-                    if self._dataset_name == 'race':  # TODO: Remove _dataset_name
-                        answer_processing_error = (answer_text != post_processing_answer_text) or \
-                                                  (answer_text not in ['1st', '2nd', '3rd', '4th'])
-                    if answer_processing_error:  # Print: unexpected mismatch with true answer
-                        self._print_tokens(batch['passage']['tokens'][i, :])
-                        print('answer_text =', answer_text)
-                        print('post_processing_answer_text =', post_processing_answer_text)
-
-        # Set output_dict['loss'] to do gradient descent on.
-        if debate_mode[0] == "f":  # Full passage training: Normal SL training
-            output_dict = self._forward(batch_group, self.model)
-
-        else:  # Training on subset of sentence (judge or debate training)
-            outputs = []
-            # TODO(Sidd): Distribute this loop across GPUs. See training_util.data_parallel
-            for batch in batch_group:
-                outputs.append(self.debate_batch_loss(batch, for_training, debate_mode))
-
-            # Taken from training_util.data_parallel
-            losses = torch.cat([output['loss'].unsqueeze(0) for output in outputs], 0)
-            output_dict = {'loss': losses.mean()}
-
-        try:
-            loss = output_dict["loss"]
-            if for_training:
-                loss += self.model.get_regularization_penalty()
-        except KeyError:
-            if for_training:
-                raise RuntimeError("The model you are trying to optimize does not contain a"
-                                   " 'loss' key in the output of model.forward(inputs).")
-            loss = None
 
     @staticmethod
     def _get_last_output_token_idx(batch: TensorDict, sample_no: int) -> int:
@@ -735,8 +707,18 @@ class Trainer(TrainerBase):
             for sample_no in range(bsz):
                 oracle_output_dict = self._get_oracle_output_dict(batch, sent_idxs, judge_answer_mask,
                     required_text_mask, past_sent_choice_idxs, num_sents, sample_no, debate_mode, round_no)
-                oracle_metrics = self._get_reward(oracle_output_dict, stance[sample_no].unsqueeze(0), method, 'prob').tolist()
-                opt_reward = float(max(oracle_metrics))
+                oracle_metrics = self._get_reward(oracle_output_dict, stance[sample_no].unsqueeze(0), method, 'prob')
+                if self._require_action and (past_sent_choice_idxs is not None):
+                    oracle_metrics_for_valid_actions = oracle_metrics.clone()
+                    oracle_metrics_for_valid_actions[past_sent_choice_idxs[sample_no]] = float('-inf')
+                    oracle_metrics_for_valid_actions = oracle_metrics_for_valid_actions.tolist()
+                    oracle_metrics = oracle_metrics.tolist()
+                    opt_reward = float(max(oracle_metrics_for_valid_actions))
+                    if opt_reward == float('-inf'):  # Full passage revealed, so just give no-action reward
+                        opt_reward = float(max(oracle_metrics))
+                else:
+                    oracle_metrics = oracle_metrics.tolist()
+                    opt_reward = float(max(oracle_metrics))
                 baseline_reward = sum(oracle_metrics) / len(oracle_metrics)
                 opt_sent_idxs.append(oracle_metrics.index(opt_reward))
                 advantage.append(opt_reward - baseline_reward)
@@ -1057,6 +1039,7 @@ class Trainer(TrainerBase):
 
         # Get Judge baseline opinion
         prev_round_ver_dict = None
+        ver_dict_prior = None
         if (debater is not None) and (debater.influence_reward or debater.theory_of_mind):
             # Copy and modify Judge's input
             no_rounds_batch = self._slice_or_copy_batch(batch, copy=True)
@@ -1067,7 +1050,8 @@ class Trainer(TrainerBase):
             if self._span_model:
                 no_rounds_batch['valid_output_mask'] = judge_answer_mask['output']
             choice_start_time = time.time()
-            prev_round_ver_dict = self._forward([no_rounds_batch], judge)
+            ver_dict_prior = self._forward([no_rounds_batch], judge)
+            prev_round_ver_dict = ver_dict_prior
             self._update_trainer_metrics('time_j_baseline', torch.Tensor([time.time() - choice_start_time]))
             # NOTE: Optional: if self.model.update_judge: loss += prev_round_ver_dict['loss']
             if self._span_model:
@@ -1086,6 +1070,7 @@ class Trainer(TrainerBase):
         loss = torch.Tensor([0]).cuda() if torch.cuda.is_available() else torch.Tensor([0])
         sent_choice_idxs, sent_choice_probs, values, advantage = [], [], [], None
         turns_completed = 0
+        ver_dicts = []
         stances = self._get_all_stances(batch, debate_mode)
         for round_no in range(len(debate_mode)):
             round_sent_choice_idxs, round_sent_choice_probs, round_values = [], [], []
@@ -1117,12 +1102,13 @@ class Trainer(TrainerBase):
                 judge_batch['valid_output_mask'] = judge_answer_mask['output']  # TODO: Verify value
             choice_start_time = time.time()
             ver_dict = self._forward([judge_batch], judge)
+            ver_dicts.append(ver_dict)
             self._update_trainer_metrics('time_j', torch.Tensor([time.time() - choice_start_time]))
             if self._span_model:
                 judge_batch['valid_output_mask'] = None
 
             # Add Loss: Judge
-            if self.model.update_judge:
+            if (debater is None) or self.model.update_judge:
                 loss += ver_dict['loss']
 
             # Add Loss: RL agents
@@ -1188,7 +1174,7 @@ class Trainer(TrainerBase):
             turns_completed += len(debate_mode[round_no])
 
         if self._eval_mode:
-            self._log_debate(batch, sent_idxs, ver_dict, sent_choice_idxs, debate_mode, stances, num_sents, advantage)
+            self._log_debate(batch, sent_idxs, ver_dicts, sent_choice_idxs, debate_mode, stances, num_sents, advantage, ver_dict_prior)
 
         self._add_debate_metrics(ver_dict, sent_idxs, sent_choice_idxs, debate_mode)
         return loss.cpu()  # NB: Necessary to move loss to CPU?
@@ -1228,8 +1214,9 @@ class Trainer(TrainerBase):
                         print('post_processing_answer_text =', post_processing_answer_text)
 
         # Set output_dict['loss'] to do gradient descent on.
-        if debate_mode[0] == "f":  # Full passage training: Normal SL training
-            output_dict = self._forward(batch_group, self.model)
+        if debate_mode[0] == "f":  # Full passage training: Normal SL training (always on Judge)
+            judge = self.model if self.model.is_judge else self.model.judge
+            output_dict = self._forward(batch_group, judge)
         else:  # Training on subset of sentence (judge or debate training)
             losses = [self.debate_batch_loss(batch, for_training, debate_mode) for batch in batch_group]
             losses = torch.cat([loss.unsqueeze(0) for loss in losses], 0)
@@ -1641,7 +1628,8 @@ class Trainer(TrainerBase):
                     allocation_dict: Dict[str, int] = None,
                     choice_mode: str = None,
                     num_pred_rounds: int = -1,
-                    x_order_prob: float = 0.) -> 'Trainer':
+                    x_order_prob: float = 0.,
+                    require_action: bool = False) -> 'Trainer':
 
         # pylint: disable=arguments-differ
         patience = params.pop_int("patience", None)
@@ -1719,7 +1707,8 @@ class Trainer(TrainerBase):
                    allocation_dict=allocation_dict,
                    choice_mode=choice_mode,
                    num_pred_rounds=num_pred_rounds,
-                   x_order_prob=x_order_prob)
+                   x_order_prob=x_order_prob,
+                   require_action=require_action)
 
 
 class TrainerPieces(NamedTuple):

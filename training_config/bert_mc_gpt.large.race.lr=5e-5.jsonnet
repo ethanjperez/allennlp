@@ -4,7 +4,7 @@
     "token_indexers": {
       "tokens": {
           "type": "bert-pretrained",
-          "pretrained_model": "datasets/bert/uncased_L-12_H-768_A-12/vocab.txt",
+          "pretrained_model": "datasets/bert/uncased_L-24_H-1024_A-16/vocab.txt",
           "do_lowercase": true,
           "use_starting_offsets": true
       }
@@ -22,7 +22,7 @@
       "token_embedders": {
         "tokens": {
           "type": "bert-pretrained",
-          "pretrained_model": "bert-base-uncased",
+          "pretrained_model": "bert-large-uncased",
           "requires_grad": true,
           "top_layer_only": true
         }
@@ -32,12 +32,14 @@
   "iterator": {
     "type": "bucket",
     "sorting_keys": [["passage", "num_tokens"], ["question", "num_tokens"]],
-    "batch_size": 1
+    "batch_size": 1,
+    "biggest_batch_first": true
   },
 
   "trainer": {
     "num_epochs": 20,
-    "validation_metric": "-loss",
+    "patience": 3,
+    "validation_metric": "+start_acc",
     "cuda_device": 0,
     "learning_rate_scheduler": {
       "type": "reduce_on_plateau",
@@ -46,7 +48,7 @@
       "patience": 1
     },
     "optimizer": {
-      "lr": 0.00001,
+      "lr": 0.00005,
       "type": "bert_adam"
     }
   }

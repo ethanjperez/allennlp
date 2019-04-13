@@ -197,6 +197,11 @@ class Train(Subcommand):
                                default=0.,
                                help='Probability of reversing the debate agent ordering.')
 
+        subparser.add_argument('-ra', '--require_action',
+                               action='store_true',
+                               default=False,
+                               help='Whether or not debaters are required to choose a new sentence each turn.')
+
         subparser.set_defaults(func=train_model_from_args)
 
         return subparser
@@ -227,7 +232,8 @@ def train_model_from_args(args: argparse.Namespace):
                           args.influence_reward,
                           args.theory_of_mind,
                           args.num_pred_rounds,
-                          args.x_order_prob)
+                          args.x_order_prob,
+                          args.require_action)
 
 def train_model_from_file(parameter_filename: str,
                           serialization_dir: str,
@@ -250,7 +256,8 @@ def train_model_from_file(parameter_filename: str,
                           influence_reward: bool = False,
                           theory_of_mind: bool = False,
                           num_pred_rounds: int = -1,
-                          x_order_prob: float = 0.) -> Model:
+                          x_order_prob: float = 0.,
+                          require_action: bool = False) -> Model:
     """
     A wrapper around :func:`train_model` which loads the params from a file.
 
@@ -304,7 +311,7 @@ def train_model_from_file(parameter_filename: str,
     return train_model(params, serialization_dir, file_friendly_logging, recover, force, debate_mode, judge_filename,
                        update_judge, eval_mode, reward_method, detach_value_head, breakpoint_level,
                        oracle_outputs_path, accumulation_steps, multi_gpu, choice_mode, qa_loss_weight,
-                       influence_reward, theory_of_mind, num_pred_rounds, x_order_prob)
+                       influence_reward, theory_of_mind, num_pred_rounds, x_order_prob, require_action)
 
 
 def train_model(params: Params,
@@ -327,7 +334,8 @@ def train_model(params: Params,
                 influence_reward: bool = False,
                 theory_of_mind: bool = False,
                 num_pred_rounds: int = -1,
-                x_order_prob: float = 0.) -> Model:
+                x_order_prob: float = 0.,
+                require_action: bool = False) -> Model:
     """
     Trains the model specified in the given :class:`Params` object, using the data and training
     parameters also specified in that object, and saves the results in ``serialization_dir``.
@@ -445,7 +453,8 @@ def train_model(params: Params,
                 allocation_dict=allocation_dict,
                 choice_mode=choice_mode,
                 num_pred_rounds=num_pred_rounds,
-                x_order_prob=x_order_prob)
+                x_order_prob=x_order_prob,
+                require_action=require_action)
         evaluation_iterator = pieces.validation_iterator or pieces.iterator
         evaluation_dataset = pieces.test_dataset
         # TODO: Check you're not modifying variables important for later on, in TrainerPieces
