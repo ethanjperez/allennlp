@@ -37,7 +37,6 @@
 
   "trainer": {
     "num_epochs": 20,
-    "patience": 3,
     "validation_metric": "-loss",
     "cuda_device": 0,
     "learning_rate_scheduler": {
