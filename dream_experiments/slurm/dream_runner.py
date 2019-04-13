@@ -14,12 +14,9 @@ TRAIN_CONFIG = "{'trainer': { 'num_epochs': 20, 'patience': 10, 'validation_metr
                "'learning_rate_scheduler': {'type': 'reduce_on_plateau', 'factor': 0.67, 'mode': 'max', " \
                "'patience': 1}, 'optimizer': {'lr': %.7f, 'type': 'bert_adam'}}}"
 
-
 BASE_BSZ = 8
 
 ACCUMULATION_STEPS = [2, 4]
-
-
 
 MODE_CONFIGS = {m: '/private/home/siddk/allennlp/training_config/dream/bert_mc_%s.dream.bsz=8.lr=FILL.jsonnet' % m
                 for m in ['pq2a', 'a', 'q2a']}
@@ -35,11 +32,19 @@ BEST_CKPT_PATH = '/checkpoint/siddk/debate/runs/dream/dream.bert_mc_gpt.bsz=32.l
 
 
 # SL Search Parameters
-BSZ = [8, 12, 16, 32]
+BSZ = [8, 12, 16]
 
-LR = [1e-5, 2e-5, 3e-5, 5e-5, 5e-6]
+LR = [1e-5, 2e-5, 3e-5, 5e-6]
 
 SL_MODE = ['sl', 'sl-sents', 'i-sl-sents']
+
+# QA Aux Parameters
+AUX = {
+    5e-6: [1, 2, 4, 8],
+    1e-5: [.5, 1, 2, 4],
+    2e-5: [.25, .5, 1, 2],
+    3e-5: [.125, .25, .5, 1]
+}
 
 
 def parse_args():
@@ -47,6 +52,7 @@ def parse_args():
     p.add_argument("-m", "--mode", default='pq2a', help='Default BERT Mode - choices <pq2a | a | q2a | gpt | oracle>')
     p.add_argument("-o", "--oracle_mode", default='eval', help='Oracle Mode for dumping - choices <eval | train>')
     p.add_argument("-s", "--supervised", default=0, type=int, help='Debate mode to run search over for super training')
+    p.add_argument("-b", "--bsz", default=8, type=int, help='Batch size for training')
 
     return p.parse_args()
 
@@ -135,6 +141,51 @@ if __name__ == "__main__":
                 sl_mode,
                 oracle_path,
                 atom_bsz
+            )
+
+        run_command += ' -o "%s"' % (TRAIN_CONFIG % atom_lr)
+
+    elif args.mode in ['qa_aux']:
+        atom_lr = LR[s_id % len(LR)]
+        atom_qa = AUX[LR[s_id % len(LR)]][s_id // len(LR)]
+        atom_bsz = args.bsz
+        sl_mode = SL_MODE[args.supervised]
+
+        config = '/private/home/siddk/allennlp/training_config/dream/sl.dream.gpt.bsz=1.lr=FILL.jsonnet'
+
+        if sl_mode[0] == 'i':
+            ckpt_path = '/checkpoint/siddk/debate/runs/dream/dream.sl_gpt.lr=%.1e.bsz=%d.m=sl-sents.i+qa_%.3f' % (
+                atom_lr, atom_bsz, atom_qa)
+        else:
+            ckpt_path = '/checkpoint/siddk/debate/runs/dream/dream.sl_gpt.lr=%.1e.bsz=%d.m=%s+qa_%.3f' % (
+                atom_lr, atom_bsz, sl_mode, atom_qa)
+
+        judge_path = '/checkpoint/siddk/debate/runs/dream/dream.bert_mc_gpt.bsz=32.lr=2.0e-05.f/model.tar.gz'
+        oracle_path = '/checkpoint/siddk/debate/runs/dream/dream.bert_mc_gpt.bsz=32.lr=2.0e-05.f/oracle_outputs.d=I.all.pkl'
+
+        if sl_mode[0] == 'i':
+            run_command = '%s %s train %s -s %s -j %s -d e -m sl-sents -i -p %s -a %d -c concat -q %.3f' % (
+                PYTHON_PATH,
+                PROGRAM_PATH,
+                config,
+                ckpt_path,
+                judge_path,
+                oracle_path,
+                atom_bsz,
+                atom_qa
+            )
+
+        else:
+            run_command = '%s %s train %s -s %s -j %s -d e -m %s -p %s -a %d -c concat -q %.3f' % (
+                PYTHON_PATH,
+                PROGRAM_PATH,
+                config,
+                ckpt_path,
+                judge_path,
+                sl_mode,
+                oracle_path,
+                atom_bsz,
+                atom_qa
             )
 
         run_command += ' -o "%s"' % (TRAIN_CONFIG % atom_lr)

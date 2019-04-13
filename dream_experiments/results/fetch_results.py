@@ -10,7 +10,7 @@ import os
 
 ROOT_DIR = "/checkpoint/siddk/debate/runs/dream"
 
-BSZ = [8, 12, 16, 32]
+BSZ = [8, 12, 16]
 
 LR = [1e-5, 2e-5, 3e-5, 5e-5, 5e-6]
 
@@ -33,13 +33,15 @@ if __name__ == "__main__":
             for l in LR:
                 # Open Metrics File
                 if m[0] == 'i':
-                    ckpt = os.path.join(ROOT_DIR, 'dream.sl_gpt.lr=%.1e.bsz=%d.m=sl-sents.i' % (l, b))
+                    ckpt = os.path.join(ROOT_DIR, 'dream.sl_gpt.lr=%.1e.bsz=%d.m=sl-sents.i+theory' % (l, b))
                 else:
-                    ckpt = os.path.join(ROOT_DIR, 'dream.sl_gpt.lr=%.1e.bsz=%d.m=%s' % (l, b, m))
+                    ckpt = os.path.join(ROOT_DIR, 'dream.sl_gpt.lr=%.1e.bsz=%d.m=%s+theory' % (l, b, m))
 
                 # if 'model.tar.gz' not in os.listdir(ckpt):
                 #     print("Oops: %s" % ckpt)
                 #     continue
+
+                print(ckpt)
 
                 metric_file = sorted([metrics for metrics in os.listdir(ckpt) if 'metrics_epoch_' in metrics])[-1]
 

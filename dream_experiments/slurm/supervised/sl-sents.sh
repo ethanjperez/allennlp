@@ -7,11 +7,11 @@
 #SBATCH --error=/checkpoint/%u/debate/logs/SL-Sents-Sweep-%j.err
 
 ## Partition
-#SBATCH --partition=uninterrupted
+#SBATCH --partition=dev
 #SBATCH --comment="Meeting on Monday 4/8!"
 
 ## Number of Nodes (Number of Tasks to run)
-#SBATCH --nodes=20
+#SBATCH --nodes=15
 
 ## Tasks per Node
 #SBATCH --ntasks-per-node=1
@@ -20,7 +20,7 @@
 #SBATCH --cpus-per-task=8
 
 ## Time Limit - 1 Day
-#SBATCH --time=720
+#SBATCH --time=360
 
 ## GPUS - One per Task
 #SBATCH --gres=gpu:1

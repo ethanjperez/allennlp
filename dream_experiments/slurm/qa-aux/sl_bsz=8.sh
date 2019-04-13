@@ -2,16 +2,16 @@
 ## SLURM scripts for running Dream Debate Jobs
 
 ## Job Metadata
-#SBATCH --job-name=SL-Sweep
-#SBATCH --output=/checkpoint/%u/debate/logs/SL-Sweep-%j.out
-#SBATCH --error=/checkpoint/%u/debate/logs/SL-Sweep-%j.err
+#SBATCH --job-name=SL-QA-8-Sweep
+#SBATCH --output=/checkpoint/%u/debate/logs/SL-QA-8-Sweep-%j.out
+#SBATCH --error=/checkpoint/%u/debate/logs/SL-QA-8-Sweep-%j.err
 
 ## Partition
-#SBATCH --partition=dev
-#SBATCH --comment="Meeting on Monday 4/8!"
+#SBATCH --partition=priority
+#SBATCH --comment="Meeting on Monday 4/15 & EMNLP ArXiV Deadline 4/20!"
 
 ## Number of Nodes (Number of Tasks to run)
-#SBATCH --nodes=1
+#SBATCH --nodes=16
 
 ## Tasks per Node
 #SBATCH --ntasks-per-node=1
@@ -33,4 +33,4 @@ module load anaconda3
 
 ### Section 3:
 ### Run your job.
-srun --label /private/home/siddk/.conda/envs/allennlp/bin/python3.6 /private/home/siddk/allennlp/dream_experiments/slurm/dream_runner.py -m supervised -s 0
+srun --label /private/home/siddk/.conda/envs/allennlp/bin/python3.6 /private/home/siddk/allennlp/dream_experiments/slurm/dream_runner.py -m qa_aux -s 0
