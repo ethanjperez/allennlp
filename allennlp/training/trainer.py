@@ -1430,7 +1430,6 @@ class Trainer(TrainerBase):
         epochs_trained = 0
         training_start_time = time.time()
 
-        self._metric_tracker._patience = None  # TODO: Remove
         for epoch in range(epoch_counter, self._num_epochs + self._eval_mode):
             if not self._eval_mode:
                 epoch_start_time = time.time()
@@ -1459,8 +1458,7 @@ class Trainer(TrainerBase):
                         this_epoch_val_metric = val_metrics[self._validation_metric]
                         self._metric_tracker.add_metric(this_epoch_val_metric)
 
-                        self._metric_tracker._patience = None  # TODO: Remove
-                        if self._metric_tracker.should_stop_early() and False:  # TODO: Remove "and False"
+                        if self._metric_tracker.should_stop_early():
                             logger.info("Ran out of patience.  Stopping training.")
                             break
 
