@@ -164,7 +164,7 @@ if __name__ == "__main__":
         oracle_path = '/checkpoint/siddk/debate/runs/dream/dream.bert_mc_gpt.bsz=32.lr=2.0e-05.f/oracle_outputs.d=I.all.pkl'
 
         if sl_mode[0] == 'i':
-            run_command = '%s %s train %s -s %s -j %s -d e -m sl-sents -i -p %s -a %d -c concat -q %.3f' % (
+            run_command = '%s %s train %s -s %s -j %s -d e -m sl-sents -i -p %s -a %d -c concat -q %.3f -r' % (
                 PYTHON_PATH,
                 PROGRAM_PATH,
                 config,
@@ -176,7 +176,7 @@ if __name__ == "__main__":
             )
 
         else:
-            run_command = '%s %s train %s -s %s -j %s -d e -m %s -p %s -a %d -c concat -q %.3f' % (
+            run_command = '%s %s train %s -s %s -j %s -d e -m %s -p %s -a %d -c concat -q %.3f -r' % (
                 PYTHON_PATH,
                 PROGRAM_PATH,
                 config,
