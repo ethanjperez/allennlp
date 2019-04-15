@@ -17,8 +17,8 @@ allennlp train training_config/race.best.debate.sl.lr=3e-5.jsonnet -s tmp/race.e
 # ToM
 allennlp train training_config/race.best.debate.sl.lr=5e-6.jsonnet -s tmp/race.e.c=concat.bsz=12.lr=5e-6.m=sl.t -j tmp/race.best.f/model.tar.gz -b 1 -d e -m sl -p tmp/race.best.f/oracle_outputs.c=concat.d=1_ⅠⅡ_turns.all.pkl -a 12 -c concat -t -f # v100.3 (60GB)
 
-# QA Loss TODO
-allennlp train training_config/race.best.debate.sl.lr=5e-6.jsonnet -s tmp/race.e.c=concat.bsz=12.lr=5e-6.m=sl.q=2 -j tmp/race.best.f/model.tar.gz -b 1 -d e -m sl -p tmp/race.best.f/oracle_outputs.c=concat.d=1_ⅠⅡ_turns.all.pkl -a 12 -c concat -q 2 -f
+# QA Loss
+allennlp train training_config/race.best.debate.sl.lr=5e-6.jsonnet -s tmp/race.e.c=concat.bsz=12.lr=5e-6.m=sl.q=2 -j tmp/race.best.f/model.tar.gz -b 1 -d e -m sl -p tmp/race.best.f/oracle_outputs.c=concat.d=1_ⅠⅡ_turns.all.pkl -a 12 -c concat -q 2 -f # p100 (60GB)
 
 # Continued for longer
 allennlp train training_config/race.best.debate.sl.lr=5e-6.jsonnet -s tmp/race.e.c=concat.bsz=12.lr=5e-6.m=sl -j tmp/race.best.f/model.tar.gz -d e -m sl -p tmp/race.best.f/oracle_outputs.c=concat.d=1_ⅠⅡ_turns.all.pkl -a 12 -c concat -r # v100.2 (80GB)
