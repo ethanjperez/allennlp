@@ -12,7 +12,15 @@ ROOT_DIR = "/checkpoint/siddk/debate/runs/dream"
 
 BSZ = [8, 12, 16]
 
-LR = [1e-5, 2e-5, 3e-5, 5e-5, 5e-6]
+LR = [1e-5, 2e-5, 3e-5, 5e-6]
+
+# QA Aux Parameters
+AUX = {
+    5e-6: [1, 2, 4, 8],
+    1e-5: [.5, 1, 2, 4],
+    2e-5: [.25, .5, 1, 2],
+    3e-5: [.125, .25, .5, 1]
+}
 
 SL_MODE = ['sl', 'sl-sents', 'i-sl-sents']
 
@@ -29,29 +37,30 @@ if __name__ == "__main__":
     # Iterate through Full Sweep and Collect Results
     mode_dict = {m: {} for m in SL_MODE}
     for m in SL_MODE:
-        for b in BSZ:
+        for b in BSZ[:1]:
             for l in LR:
-                # Open Metrics File
-                if m[0] == 'i':
-                    ckpt = os.path.join(ROOT_DIR, 'dream.sl_gpt.lr=%.1e.bsz=%d.m=sl-sents.i+theory' % (l, b))
-                else:
-                    ckpt = os.path.join(ROOT_DIR, 'dream.sl_gpt.lr=%.1e.bsz=%d.m=%s+theory' % (l, b, m))
+                for ax in range(4):
+                    # Open Metrics
+                    if m[0] == 'i':
+                        ckpt = os.path.join(ROOT_DIR, 'dream.sl_gpt.lr=%.1e.bsz=%d.m=sl-sents.i+qa_%.3f' % (l, b,
+                                                                                                            AUX[l][ax]))
+                    else:
+                        ckpt = os.path.join(ROOT_DIR, 'dream.sl_gpt.lr=%.1e.bsz=%d.m=%s+qa_%.3f' % (l, b, m,
+                                                                                                    AUX[l][ax]))
 
-                # if 'model.tar.gz' not in os.listdir(ckpt):
-                #     print("Oops: %s" % ckpt)
-                #     continue
+                    if 'model.tar.gz' not in os.listdir(ckpt):
+                        print("Oops: %s" % ckpt)
+                        continue
 
-                print(ckpt)
+                    metric_file = sorted([metrics for metrics in os.listdir(ckpt) if 'metrics_epoch_' in metrics])[-1]
 
-                metric_file = sorted([metrics for metrics in os.listdir(ckpt) if 'metrics_epoch_' in metrics])[-1]
+                    with open(os.path.join(ckpt, metric_file), 'r') as f:
+                        metric_data = json.load(f)
 
-                with open(os.path.join(ckpt, metric_file), 'r') as f:
-                    metric_data = json.load(f)
+                    best_epoch, best_rew = metric_data['best_epoch'], metric_data['best_validation_reward_turn_0_agent_e']
 
-                best_epoch, best_rew = metric_data['best_epoch'], metric_data['best_validation_reward_turn_0_agent_e']
-
-                # Add to mode_dict
-                mode_dict[m][(l, b)] = (best_epoch, best_rew)
+                    # Add to mode_dict
+                    mode_dict[m][(l, b, AUX[l][ax])] = (best_epoch, best_rew)
 
     # Write Report
     with open('graphs/report.md', 'w') as f:
@@ -59,8 +68,8 @@ if __name__ == "__main__":
             f.write("Mode - %s\n" % m)
             f.write("-" * 30 + "\n")
 
-            for lr, bsz in mode_dict[m]:
-                f.write("\tLR: %s\tBSZ: %d\tBest Epoch: %d\tBest Reward: %.5f\n" % (lr, bsz,
-                                                                                      mode_dict[m][(lr, bsz)][0],
-                                                                                      mode_dict[m][(lr, bsz)][1]))
+            for lr, bsz, qw in mode_dict[m]:
+                f.write("\tLR: %s\tBSZ: %d\tQA Weight: %.3f\tBest Epoch: %d\tBest Reward: %.5f\n" % (lr, bsz, qw,
+                                                                                      mode_dict[m][(lr, bsz, qw)][0],
+                                                                                      mode_dict[m][(lr, bsz, qw)][1]))
             f.write("\n")
