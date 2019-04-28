@@ -28,7 +28,7 @@ def parse_args():
     p.add_argument("-d", "--debate_option", default=0, type=int, help='Which MC option to support (I, II, III, IV)')
     p.add_argument("-q", "--with_question", default=False, action='store_true', help='TF-IDF with question + option')
 
-    p.add_argument("-s", "--dataset", default='dream', help='Dataset to run on')
+    p.add_argument("-s", "--dataset", default='race', help='Dataset to run on')
     p.add_argument("-p", "--pretrained", default='datasets/bert/uncased_L-12_H-768_A-12/vocab.txt')
 
     return p.parse_args()
@@ -216,7 +216,7 @@ def dump_debates(args, idf, keys):
 
     # Dump to file
     for i, mode in enumerate(DEBATE2STR):
-        file_stub = 'tf_idf/race_test_tfidf_%s' % mode
+        file_stub = 'tf_idf/race_dev_tfidf_%s' % mode
         if args.with_question:
             file_stub += "_wq"
 
