@@ -659,21 +659,19 @@ allennlp train training_config/bert_mc_a.race.lr=2e-5.jsonnet -s tmp/race.bert_m
 allennlp train training_config/bert_mc_a.race.lr=3e-5.jsonnet -s tmp/race.bert_mc_a.bsz=16.lr=3e-5.f -d f -a 2 -f
 allennlp train training_config/bert_mc_a.race.lr=5e-5.jsonnet -s tmp/race.bert_mc_a.bsz=16.lr=5e-5.f -d f -a 2 -f
 
-# PQ2A: 42.7
-allennlp train training_config/bert_mc_pq2a.race.lr=2e-5.jsonnet -s tmp/race.bert_mc_pq2a.bsz=32.lr=2e-5.f -d f -a 4 -f #42.7
-allennlp train training_config/bert_mc_pq2a.race.lr=3e-5.jsonnet -s tmp/race.bert_mc_pq2a.bsz=32.lr=3e-5.f -d f -a 4 -f
-allennlp train training_config/bert_mc_pq2a.race.lr=5e-5.jsonnet -s tmp/race.bert_mc_pq2a.bsz=32.lr=5e-5.f -d f -a 4 -f
-allennlp train training_config/bert_mc_pq2a.race.lr=2e-5.jsonnet -s tmp/race.bert_mc_pq2a.bsz=16.lr=2e-5.f -d f -a 2 -f
-allennlp train training_config/bert_mc_pq2a.race.lr=3e-5.jsonnet -s tmp/race.bert_mc_pq2a.bsz=16.lr=3e-5.f -d f -a 2 -f
-allennlp train training_config/bert_mc_pq2a.race.lr=5e-5.jsonnet -s tmp/race.bert_mc_pq2a.bsz=16.lr=5e-5.f -d f -a 2 -f
-# PQ2A: Smaller forward pass
-allennlp train training_config/bert_mc_pq2a.race.lr=1e-5.bsz=4.jsonnet -s tmp/race.bert_mc_pq2a.bsz=32.lr=1e-5.a=8.f -d f -a 8 -f
-allennlp train training_config/bert_mc_pq2a.race.lr=2e-5.bsz=4.jsonnet -s tmp/race.bert_mc_pq2a.bsz=32.lr=2e-5.a=8.f -d f -a 8 -f
-allennlp train training_config/bert_mc_pq2a.race.lr=3e-5.bsz=4.jsonnet -s tmp/race.bert_mc_pq2a.bsz=32.lr=3e-5.a=8.f -d f -a 8 -f
-allennlp train training_config/bert_mc_pq2a.race.lr=5e-5.bsz=4.jsonnet -s tmp/race.bert_mc_pq2a.bsz=32.lr=5e-5.a=8.f -d f -a 8 -f
-allennlp train training_config/bert_mc_pq2a.race.lr=2e-5.bsz=4.jsonnet -s tmp/race.bert_mc_pq2a.bsz=16.lr=2e-5.a=4.f -d f -a 4 -f
-allennlp train training_config/bert_mc_pq2a.race.lr=3e-5.bsz=4.jsonnet -s tmp/race.bert_mc_pq2a.bsz=16.lr=3e-5.a=4.f -d f -a 4 -f
-allennlp train training_config/bert_mc_pq2a.race.lr=5e-5.bsz=4.jsonnet -s tmp/race.bert_mc_pq2a.bsz=16.lr=5e-5.a=4.f -d f -a 4 -f
+# PQ2A: Smaller forward pass: 43.7
+allennlp train training_config/bert_mc_pq2a.race.lr=5e-6.bsz=4.jsonnet -s tmp/race.bert_mc_pq2a.bsz=32.lr=5e-6.a=8.f -d f -a 8 -f # TODO
+allennlp train training_config/bert_mc_pq2a.race.lr=1e-5.bsz=4.jsonnet -s tmp/race.bert_mc_pq2a.bsz=32.lr=1e-5.a=8.f -d f -a 8 -f #43.7
+allennlp train training_config/bert_mc_pq2a.race.lr=2e-5.bsz=4.jsonnet -s tmp/race.bert_mc_pq2a.bsz=32.lr=2e-5.a=8.f -d f -a 8 -f #42.7
+allennlp train training_config/bert_mc_pq2a.race.lr=3e-5.bsz=4.jsonnet -s tmp/race.bert_mc_pq2a.bsz=32.lr=3e-5.a=8.f -d f -a 8 -f #
+allennlp train training_config/bert_mc_pq2a.race.lr=5e-5.bsz=4.jsonnet -s tmp/race.bert_mc_pq2a.bsz=32.lr=5e-5.a=8.f -d f -a 8 -f #
+allennlp train training_config/bert_mc_pq2a.race.lr=5e-6.bsz=4.jsonnet -s tmp/race.bert_mc_pq2a.bsz=16.lr=5e-6.a=4.f -d f -a 4 -f # TODO
+allennlp train training_config/bert_mc_pq2a.race.lr=1e-5.bsz=4.jsonnet -s tmp/race.bert_mc_pq2a.bsz=16.lr=1e-5.a=4.f -d f -a 4 -f # TODO
+allennlp train training_config/bert_mc_pq2a.race.lr=2e-5.bsz=4.jsonnet -s tmp/race.bert_mc_pq2a.bsz=16.lr=2e-5.a=4.f -d f -a 4 -f #
+allennlp train training_config/bert_mc_pq2a.race.lr=3e-5.bsz=4.jsonnet -s tmp/race.bert_mc_pq2a.bsz=16.lr=3e-5.a=4.f -d f -a 4 -f #
+allennlp train training_config/bert_mc_pq2a.race.lr=5e-5.bsz=4.jsonnet -s tmp/race.bert_mc_pq2a.bsz=16.lr=5e-5.a=4.f -d f -a 4 -f #
+
+tb race.bert_mc_pq2a.bsz=32.lr=2e-5.f:race.bert_mc_pq2a.bsz=32.lr=2e-5.f,race.bert_mc_pq2a.bsz=32.lr=3e-5.f:race.bert_mc_pq2a.bsz=32.lr=3e-5.f,race.bert_mc_pq2a.bsz=32.lr=5e-5.f:race.bert_mc_pq2a.bsz=32.lr=5e-5.f,race.bert_mc_pq2a.bsz=16.lr=2e-5.f:race.bert_mc_pq2a.bsz=16.lr=2e-5.f,race.bert_mc_pq2a.bsz=16.lr=3e-5.f:race.bert_mc_pq2a.bsz=16.lr=3e-5.f,race.bert_mc_pq2a.bsz=16.lr=5e-5.f:race.bert_mc_pq2a.bsz=16.lr=5e-5.f,race.bert_mc_pq2a.bsz=32.lr=1e-5.a=8.f:race.bert_mc_pq2a.bsz=32.lr=1e-5.a=8.f,race.bert_mc_pq2a.bsz=32.lr=2e-5.a=8.f:race.bert_mc_pq2a.bsz=32.lr=2e-5.a=8.f,race.bert_mc_pq2a.bsz=32.lr=3e-5.a=8.f:race.bert_mc_pq2a.bsz=32.lr=3e-5.a=8.f,race.bert_mc_pq2a.bsz=32.lr=5e-5.a=8.f:race.bert_mc_pq2a.bsz=32.lr=5e-5.a=8.f,race.bert_mc_pq2a.bsz=16.lr=2e-5.a=4.f:race.bert_mc_pq2a.bsz=16.lr=2e-5.a=4.f,race.bert_mc_pq2a.bsz=16.lr=3e-5.a=4.f:race.bert_mc_pq2a.bsz=16.lr=3e-5.a=4.f,race.bert_mc_pq2a.bsz=16.lr=5e-5.a=4.f:race.bert_mc_pq2a.bsz=16.lr=5e-5.a=4.f --port 9010
 
 # GPT-style
 allennlp train training_config/bert_mc_gpt.race.lr=2e-5.jsonnet -s tmp/race.bert_mc_gpt.bsz=32.lr=2e-5.f -d f -a 16 -f
