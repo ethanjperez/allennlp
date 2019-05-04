@@ -12,7 +12,6 @@ allennlp train training_config/race.best.debate.sl.lr=1e-5.jsonnet -s tmp/race.e
 allennlp train training_config/race.best.debate.sl.lr=2e-5.jsonnet -s tmp/race.e.num_sents_leq_16.c=concat.bsz=12.lr=2e-5.m=sl -j tmp/race.num_sents_leq_16.bert_mc_gpt.bsz=12.lr=1e-5.a=12.f/model.tar.gz -b 1 -d e -m sl -p tmp/race.num_sents_leq_16.bert_mc_gpt.bsz=12.lr=1e-5.a=12.f/oracle_outputs.c=concat.d=e.all.pkl -a 12 -c concat -o \"{'train_data_path': 'datasets/race_raw.num_sents_leq_16/train', 'validation_data_path': 'datasets/race_raw.num_sents_leq_16/dev'}\" -f
 allennlp train training_config/race.best.debate.sl.lr=3e-5.jsonnet -s tmp/race.e.num_sents_leq_16.c=concat.bsz=12.lr=3e-5.m=sl -j tmp/race.num_sents_leq_16.bert_mc_gpt.bsz=12.lr=1e-5.a=12.f/model.tar.gz -b 1 -d e -m sl -p tmp/race.num_sents_leq_16.bert_mc_gpt.bsz=12.lr=1e-5.a=12.f/oracle_outputs.c=concat.d=e.all.pkl -a 12 -c concat -o \"{'train_data_path': 'datasets/race_raw.num_sents_leq_16/train', 'validation_data_path': 'datasets/race_raw.num_sents_leq_16/dev'}\" -f
 
-
 ### Final SL Debate Runs
 # ToM
 allennlp train training_config/race.best.debate.sl.lr=5e-6.jsonnet -s tmp/race.e.c=concat.bsz=12.lr=5e-6.m=sl.t -j tmp/race.best.f/model.tar.gz -b 1 -d e -m sl -p tmp/race.best.f/oracle_outputs.c=concat.d=1_ⅠⅡ_turns.all.pkl -a 12 -c concat -t -f # v100.3 (60GB)
@@ -66,6 +65,11 @@ allennlp train training_config/race.best.jsonnet -s tmp/race.best.f.eval.test.hu
 allennlp train training_config/race.best.jsonnet -s tmp/race.best.f.eval.test.human_eval.Ⅳ -j tmp/race.best.f/model.tar.gz -e -f -d Ⅳ -c concat -p tmp/race.best.f.eval.test.human_eval.Ⅳ/oracle_outputs.c=concat.d=Ⅳ.pkl -o \"{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/test.human_eval'}\" 2>&1 | tee tmp/race.best.f.eval.test.human_eval.Ⅳ/oracle_outputs.c=concat.d=Ⅳ.txt
 
 # Produce human eval Oracle data using last checkpoint
+allennlp train training_config/race.bert_mc_pq2a.best.jsonnet -s tmp/race.bert_mc_pq2a.best.f -e -r -d Ⅰ -c concat -p tmp/race.bert_mc_pq2a.best.f/oracle_outputs.c=concat.d=Ⅰ.test.pkl -o \"{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/test'}\" 2>&1 | tee tmp/race.bert_mc_pq2a.best.f/d=Ⅰ.c=concat.test.txt
+allennlp train training_config/race.bert_mc_pq2a.best.jsonnet -s tmp/race.bert_mc_pq2a.best.f -e -r -d Ⅱ -c concat -p tmp/race.bert_mc_pq2a.best.f/oracle_outputs.c=concat.d=Ⅱ.test.pkl -o \"{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/test'}\" 2>&1 | tee tmp/race.bert_mc_pq2a.best.f/d=Ⅱ.c=concat.test.txt
+allennlp train training_config/race.bert_mc_pq2a.best.jsonnet -s tmp/race.bert_mc_pq2a.best.f -e -r -d Ⅲ -c concat -p tmp/race.bert_mc_pq2a.best.f/oracle_outputs.c=concat.d=Ⅲ.test.pkl -o \"{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/test'}\" 2>&1 | tee tmp/race.bert_mc_pq2a.best.f/d=Ⅲ.c=concat.test.txt
+allennlp train training_config/race.bert_mc_pq2a.best.jsonnet -s tmp/race.bert_mc_pq2a.best.f -e -r -d Ⅳ -c concat -p tmp/race.bert_mc_pq2a.best.f/oracle_outputs.c=concat.d=Ⅳ.test.pkl -o \"{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/test'}\" 2>&1 | tee tmp/race.bert_mc_pq2a.best.f/d=Ⅳ.c=concat.test.txt
+
 allennlp train training_config/race.best.jsonnet -s tmp/race.best.f -e -r -d Ⅰ -c concat -p tmp/race.best.f/oracle_outputs.c=concat.d=Ⅰ.test.pkl -o \"{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/test'}\" 2>&1 | tee tmp/race.best.f/d=Ⅰ.c=concat.test.txt
 allennlp train training_config/race.best.jsonnet -s tmp/race.best.f -e -r -d Ⅱ -c concat -p tmp/race.best.f/oracle_outputs.c=concat.d=Ⅱ.test.pkl -o \"{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/test'}\" 2>&1 | tee tmp/race.best.f/d=Ⅱ.c=concat.test.txt
 allennlp train training_config/race.best.jsonnet -s tmp/race.best.f -e -r -d Ⅲ -c concat -p tmp/race.best.f/oracle_outputs.c=concat.d=Ⅲ.test.pkl -o \"{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/test'}\" 2>&1 | tee tmp/race.best.f/d=Ⅲ.c=concat.test.txt
@@ -681,16 +685,18 @@ allennlp train training_config/bert_mc_a.race.lr=3e-5.jsonnet -s tmp/race.bert_m
 allennlp train training_config/bert_mc_a.race.lr=5e-5.jsonnet -s tmp/race.bert_mc_a.bsz=16.lr=5e-5.f -d f -a 2 -f
 
 # PQ2A: Smaller forward pass: 43.7
-allennlp train training_config/bert_mc_pq2a.race.lr=5e-6.bsz=4.jsonnet -s tmp/race.bert_mc_pq2a.bsz=32.lr=5e-6.a=8.f -d f -a 8 -f # TODO
+allennlp train training_config/bert_mc_pq2a.race.lr=5e-6.bsz=4.jsonnet -s tmp/race.bert_mc_pq2a.bsz=32.lr=5e-6.a=8.f -d f -a 8 -f #
 allennlp train training_config/bert_mc_pq2a.race.lr=1e-5.bsz=4.jsonnet -s tmp/race.bert_mc_pq2a.bsz=32.lr=1e-5.a=8.f -d f -a 8 -f #43.7
-allennlp train training_config/bert_mc_pq2a.race.lr=2e-5.bsz=4.jsonnet -s tmp/race.bert_mc_pq2a.bsz=32.lr=2e-5.a=8.f -d f -a 8 -f #42.7
+allennlp train training_config/bert_mc_pq2a.race.lr=2e-5.bsz=4.jsonnet -s tmp/race.bert_mc_pq2a.bsz=32.lr=2e-5.a=8.f -d f -a 8 -f #
 allennlp train training_config/bert_mc_pq2a.race.lr=3e-5.bsz=4.jsonnet -s tmp/race.bert_mc_pq2a.bsz=32.lr=3e-5.a=8.f -d f -a 8 -f #
 allennlp train training_config/bert_mc_pq2a.race.lr=5e-5.bsz=4.jsonnet -s tmp/race.bert_mc_pq2a.bsz=32.lr=5e-5.a=8.f -d f -a 8 -f #
-allennlp train training_config/bert_mc_pq2a.race.lr=5e-6.bsz=4.jsonnet -s tmp/race.bert_mc_pq2a.bsz=16.lr=5e-6.a=4.f -d f -a 4 -f # TODO
-allennlp train training_config/bert_mc_pq2a.race.lr=1e-5.bsz=4.jsonnet -s tmp/race.bert_mc_pq2a.bsz=16.lr=1e-5.a=4.f -d f -a 4 -f # TODO
+allennlp train training_config/bert_mc_pq2a.race.lr=5e-6.bsz=4.jsonnet -s tmp/race.bert_mc_pq2a.bsz=16.lr=5e-6.a=4.f -d f -a 4 -f #
+allennlp train training_config/bert_mc_pq2a.race.lr=1e-5.bsz=4.jsonnet -s tmp/race.bert_mc_pq2a.bsz=16.lr=1e-5.a=4.f -d f -a 4 -f #
 allennlp train training_config/bert_mc_pq2a.race.lr=2e-5.bsz=4.jsonnet -s tmp/race.bert_mc_pq2a.bsz=16.lr=2e-5.a=4.f -d f -a 4 -f #
 allennlp train training_config/bert_mc_pq2a.race.lr=3e-5.bsz=4.jsonnet -s tmp/race.bert_mc_pq2a.bsz=16.lr=3e-5.a=4.f -d f -a 4 -f #
 allennlp train training_config/bert_mc_pq2a.race.lr=5e-5.bsz=4.jsonnet -s tmp/race.bert_mc_pq2a.bsz=16.lr=5e-5.a=4.f -d f -a 4 -f #
+
+tb race.bert_mc_pq2a.bsz=32.lr=5e-6.a=8.f:race.bert_mc_pq2a.bsz=32.lr=5e-6.a=8.f,race.bert_mc_pq2a.bsz=32.lr=1e-5.a=8.f:race.bert_mc_pq2a.bsz=32.lr=1e-5.a=8.f,race.bert_mc_pq2a.bsz=32.lr=2e-5.a=8.f:race.bert_mc_pq2a.bsz=32.lr=2e-5.a=8.f,race.bert_mc_pq2a.bsz=32.lr=3e-5.a=8.f:race.bert_mc_pq2a.bsz=32.lr=3e-5.a=8.f,race.bert_mc_pq2a.bsz=32.lr=5e-5.a=8.f:race.bert_mc_pq2a.bsz=32.lr=5e-5.a=8.f,race.bert_mc_pq2a.bsz=16.lr=5e-6.a=4.f:race.bert_mc_pq2a.bsz=16.lr=5e-6.a=4.f,race.bert_mc_pq2a.bsz=16.lr=1e-5.a=4.f:race.bert_mc_pq2a.bsz=16.lr=1e-5.a=4.f,race.bert_mc_pq2a.bsz=16.lr=2e-5.a=4.f:race.bert_mc_pq2a.bsz=16.lr=2e-5.a=4.f,race.bert_mc_pq2a.bsz=16.lr=3e-5.a=4.f:race.bert_mc_pq2a.bsz=16.lr=3e-5.a=4.f,race.bert_mc_pq2a.bsz=16.lr=5e-5.a=4.f:race.bert_mc_pq2a.bsz=16.lr=5e-5.a=4.f --port 9011
 
 tb race.bert_mc_pq2a.bsz=32.lr=2e-5.f:race.bert_mc_pq2a.bsz=32.lr=2e-5.f,race.bert_mc_pq2a.bsz=32.lr=3e-5.f:race.bert_mc_pq2a.bsz=32.lr=3e-5.f,race.bert_mc_pq2a.bsz=32.lr=5e-5.f:race.bert_mc_pq2a.bsz=32.lr=5e-5.f,race.bert_mc_pq2a.bsz=16.lr=2e-5.f:race.bert_mc_pq2a.bsz=16.lr=2e-5.f,race.bert_mc_pq2a.bsz=16.lr=3e-5.f:race.bert_mc_pq2a.bsz=16.lr=3e-5.f,race.bert_mc_pq2a.bsz=16.lr=5e-5.f:race.bert_mc_pq2a.bsz=16.lr=5e-5.f,race.bert_mc_pq2a.bsz=32.lr=1e-5.a=8.f:race.bert_mc_pq2a.bsz=32.lr=1e-5.a=8.f,race.bert_mc_pq2a.bsz=32.lr=2e-5.a=8.f:race.bert_mc_pq2a.bsz=32.lr=2e-5.a=8.f,race.bert_mc_pq2a.bsz=32.lr=3e-5.a=8.f:race.bert_mc_pq2a.bsz=32.lr=3e-5.a=8.f,race.bert_mc_pq2a.bsz=32.lr=5e-5.a=8.f:race.bert_mc_pq2a.bsz=32.lr=5e-5.a=8.f,race.bert_mc_pq2a.bsz=16.lr=2e-5.a=4.f:race.bert_mc_pq2a.bsz=16.lr=2e-5.a=4.f,race.bert_mc_pq2a.bsz=16.lr=3e-5.a=4.f:race.bert_mc_pq2a.bsz=16.lr=3e-5.a=4.f,race.bert_mc_pq2a.bsz=16.lr=5e-5.a=4.f:race.bert_mc_pq2a.bsz=16.lr=5e-5.a=4.f --port 9010
 
@@ -945,6 +951,15 @@ allennlp train training_config/bidaf.patience=None.num_epochs=200.jsonnet -s tmp
 
 # Debug
 allennlp train training_config/bidaf.cpu.mini.debug.jsonnet -s tmp/debug -j training_config/bidaf.cpu.mini.debug.jsonnet -u -d ab
+
+# To copy best checkpoint into new directory
+cd ~/research/allennlp/tmp/
+OLD_DIR=race.best.f
+NEW_DIR=race.best.last_epoch.f
+epoch=5
+mkdir $NEW_DIR
+cp -r $OLD_DIR/config.json $OLD_DIR/log $OLD_DIR/vocabulary $OLD_DIR/metrics_epoch_$epoch.json $OLD_DIR/model_state_epoch_$epoch.th $OLD_DIR/training_state_epoch_$epoch.th $NEW_DIR
+cp $NEW_DIR/model_state_epoch_$epoch.th $NEW_DIR/best.th
 
 # To manually serialize a model via Python from root dir
 python

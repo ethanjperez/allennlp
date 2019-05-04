@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 
 COMMANDS=(
-"allennlp train training_config/race.best.jsonnet -s tmp/race.best.f -e -r -d Ⅰ -c concat -p tmp/race.best.f/oracle_outputs.c=concat.d=Ⅰ.test.pkl -o \"{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/test'}\" 2>&1 | tee tmp/race.best.f/d=Ⅰ.c=concat.test.txt"
-"allennlp train training_config/race.best.jsonnet -s tmp/race.best.f -e -r -d Ⅱ -c concat -p tmp/race.best.f/oracle_outputs.c=concat.d=Ⅱ.test.pkl -o \"{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/test'}\" 2>&1 | tee tmp/race.best.f/d=Ⅱ.c=concat.test.txt"
-"allennlp train training_config/race.best.jsonnet -s tmp/race.best.f -e -r -d Ⅲ -c concat -p tmp/race.best.f/oracle_outputs.c=concat.d=Ⅲ.test.pkl -o \"{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/test'}\" 2>&1 | tee tmp/race.best.f/d=Ⅲ.c=concat.test.txt"
-"allennlp train training_config/race.best.jsonnet -s tmp/race.best.f -e -r -d Ⅳ -c concat -p tmp/race.best.f/oracle_outputs.c=concat.d=Ⅳ.test.pkl -o \"{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/test'}\" 2>&1 | tee tmp/race.best.f/d=Ⅳ.c=concat.test.txt"
+"allennlp train training_config/race.bert_mc_pq2a.best.jsonnet -s tmp/race.bert_mc_pq2a.best.f -e -r -d Ⅰ -c concat -p tmp/race.bert_mc_pq2a.best.f/oracle_outputs.c=concat.d=Ⅰ.test.pkl -o \"{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/test'}\" 2>&1 | tee tmp/race.bert_mc_pq2a.best.f/d=Ⅰ.c=concat.test.txt"
+"allennlp train training_config/race.bert_mc_pq2a.best.jsonnet -s tmp/race.bert_mc_pq2a.best.f -e -r -d Ⅱ -c concat -p tmp/race.bert_mc_pq2a.best.f/oracle_outputs.c=concat.d=Ⅱ.test.pkl -o \"{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/test'}\" 2>&1 | tee tmp/race.bert_mc_pq2a.best.f/d=Ⅱ.c=concat.test.txt"
+"allennlp train training_config/race.bert_mc_pq2a.best.jsonnet -s tmp/race.bert_mc_pq2a.best.f -e -r -d Ⅲ -c concat -p tmp/race.bert_mc_pq2a.best.f/oracle_outputs.c=concat.d=Ⅲ.test.pkl -o \"{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/test'}\" 2>&1 | tee tmp/race.bert_mc_pq2a.best.f/d=Ⅲ.c=concat.test.txt"
+"allennlp train training_config/race.bert_mc_pq2a.best.jsonnet -s tmp/race.bert_mc_pq2a.best.f -e -r -d Ⅳ -c concat -p tmp/race.bert_mc_pq2a.best.f/oracle_outputs.c=concat.d=Ⅳ.test.pkl -o \"{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/test'}\" 2>&1 | tee tmp/race.bert_mc_pq2a.best.f/d=Ⅳ.c=concat.test.txt"
 )
 
 for COMMAND in "${COMMANDS[@]}"; do
