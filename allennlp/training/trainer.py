@@ -973,7 +973,6 @@ class Trainer(TrainerBase):
                 # NB: Multi-turn debate_mode not yet supported here
                 assert (len(sample_debate_mode) == 1) and (len(sample_debate_mode[0]) == 1)
                 stance[i, self._method_to_stance_idx[sample_debate_mode[0][0]]] = 1
-                print(batch['metadata'][0]['id'], sample_debate_mode)  # TODO: Remove!
             return stance
         elif method in {'l', 'w'}:
             assert self._mc, 'Only Multiple Choice datasets support debate_mode ' + method
