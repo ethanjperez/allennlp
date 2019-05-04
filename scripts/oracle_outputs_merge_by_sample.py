@@ -4,7 +4,7 @@ import pickle
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-p", "--prefix",
-                    default='tmp/race_m.best.bsz=12.f/oracle_outputs.c=concat.d=ⅠⅡⅢⅣ_ⅠⅡⅢⅣ_ⅠⅡⅢⅣ_ⅠⅡⅢⅣ',
+                    default='tmp/race.num_sents_leq_12.best.f/oracle_outputs.c=concat.d=ⅠⅡⅢⅣ_ⅠⅡⅢⅣ_ⅠⅡⅢⅣ_ⅠⅡⅢⅣ',
                     type=str,
                     help="The prefix for files to load.")
 args = parser.parse_args()
