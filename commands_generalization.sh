@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 # DREAM
+allennlp train training_config/dream.best.jsonnet -s tmp/dream.best.f -e -r -d f -o "{'train_data_path': 'allennlp/tests/fixtures/data/dream/train.json', 'validation_data_path': 'datasets/dream/test.json'}" 2>&1 | tee tmp/dream.best.f/dream.d=f.test.txt
+
 ### Transfer from RACE-M (Round Robin)
 # NB: Redo with early stopped checkpoint
 allennlp train training_config/race.best.jsonnet -s tmp/race.best.f -e -r -d f -p tmp/race.best.f/dream.oracle_outputs.d=f.test.pkl -o \"{'train_data_path': 'allennlp/tests/fixtures/data/dream/train.json', 'validation_data_path': 'datasets/dream/test.json', 'dataset_reader': {'type': 'dream-mc'}}\" 2>&1 | tee tmp/race.best.f/dream.d=f.test.txt
