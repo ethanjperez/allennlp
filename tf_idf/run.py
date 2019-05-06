@@ -23,6 +23,7 @@ DEBATE2STR = ['Ⅰ', 'Ⅱ', 'Ⅲ', 'Ⅳ']
 def parse_args():
     p = argparse.ArgumentParser(description='TF-IDF Runner')
 
+    p.add_argument("-m", "--mode", default='judge', help='Mode to run as - < judge | debater >')
     p.add_argument("-t", "--train", required=True, help='Path to raw train data to compute TF-IDF')
     p.add_argument("-v", "--val", required=True, help='Path to raw valid data to compute TF-IDF')
     p.add_argument("-d", "--debate_option", default=0, type=int, help='Which MC option to support (I, II, III, IV)')

@@ -50,6 +50,15 @@ round_robin = [
     """train training_config/race/race.large.best.jsonnet -s /checkpoint/siddk/debate/runs/race/race_m.large.best.f.eval.ⅢⅣ_ⅢⅣ_ⅢⅣ_ⅢⅣ_ⅢⅣ_ⅢⅣ.ra -j /checkpoint/siddk/debate/runs/race/race_m.bert_mc_gpt.large.bsz=12.lr=1e-5.f/model.tar.gz -e --require_action -d ⅢⅣ ⅢⅣ ⅢⅣ ⅢⅣ ⅢⅣ ⅢⅣ -c concat -p /checkpoint/siddk/debate/runs/race/race_m.bert_mc_gpt.large.bsz=12.lr=1e-5.f/oracle_outputs.c=concat.d=ⅢⅣ_ⅢⅣ_ⅢⅣ_ⅢⅣ_ⅢⅣ_ⅢⅣ.ra.race_h.dev.pkl -o \"{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw_high/test'}\" 2>&1 | tee /checkpoint/siddk/debate/logs/race/race_m.large.best.f/d=ⅢⅣ_ⅢⅣ_ⅢⅣ_ⅢⅣ_ⅢⅣ_ⅢⅣ.ra.c=concat.race_h.dev.txt"""
 ]
 
+round_robin_dev = [
+    """train training_config/race/race.large.best.jsonnet -s /checkpoint/siddk/debate/runs/race/race_m.large.best.f.eval.ⅠⅡ_ⅠⅡ_ⅠⅡ_ⅠⅡ_ⅠⅡ_ⅠⅡ.ra.dev -j /checkpoint/siddk/debate/runs/race/race_m.bert_mc_gpt.large.bsz=12.lr=1e-5.f/model.tar.gz -e --require_action -d ⅠⅡ ⅠⅡ ⅠⅡ ⅠⅡ ⅠⅡ ⅠⅡ -c concat -p /checkpoint/siddk/debate/runs/race/race_m.bert_mc_gpt.large.bsz=12.lr=1e-5.f/oracle_outputs.c=concat.d=ⅠⅡ_ⅠⅡ_ⅠⅡ_ⅠⅡ_ⅠⅡ_ⅠⅡ.ra.race_h.test.pkl -o \"{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw_high/dev'}\" 2>&1 | tee /checkpoint/siddk/debate/logs/race/race_m.large.best.f/d=ⅠⅡ_ⅠⅡ_ⅠⅡ_ⅠⅡ_ⅠⅡ_ⅠⅡ.ra.c=concat.race_h.test.txt""",
+    """train training_config/race/race.large.best.jsonnet -s /checkpoint/siddk/debate/runs/race/race_m.large.best.f.eval.ⅠⅢ_ⅠⅢ_ⅠⅢ_ⅠⅢ_ⅠⅢ_ⅠⅢ.ra.dev -j /checkpoint/siddk/debate/runs/race/race_m.bert_mc_gpt.large.bsz=12.lr=1e-5.f/model.tar.gz -e --require_action -d ⅠⅢ ⅠⅢ ⅠⅢ ⅠⅢ ⅠⅢ ⅠⅢ -c concat -p /checkpoint/siddk/debate/runs/race/race_m.bert_mc_gpt.large.bsz=12.lr=1e-5.f/oracle_outputs.c=concat.d=ⅠⅢ_ⅠⅢ_ⅠⅢ_ⅠⅢ_ⅠⅢ_ⅠⅢ.ra.race_h.test.pkl -o \"{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw_high/dev'}\" 2>&1 | tee /checkpoint/siddk/debate/logs/race/race_m.large.best.f/d=ⅠⅢ_ⅠⅢ_ⅠⅢ_ⅠⅢ_ⅠⅢ_ⅠⅢ.ra.c=concat.race_h.test.txt""",
+    """train training_config/race/race.large.best.jsonnet -s /checkpoint/siddk/debate/runs/race/race_m.large.best.f.eval.ⅠⅣ_ⅠⅣ_ⅠⅣ_ⅠⅣ_ⅠⅣ_ⅠⅣ.ra.dev -j /checkpoint/siddk/debate/runs/race/race_m.bert_mc_gpt.large.bsz=12.lr=1e-5.f/model.tar.gz -e --require_action -d ⅠⅣ ⅠⅣ ⅠⅣ ⅠⅣ ⅠⅣ ⅠⅣ -c concat -p /checkpoint/siddk/debate/runs/race/race_m.bert_mc_gpt.large.bsz=12.lr=1e-5.f/oracle_outputs.c=concat.d=ⅠⅣ_ⅠⅣ_ⅠⅣ_ⅠⅣ_ⅠⅣ_ⅠⅣ.ra.race_h.test.pkl -o \"{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw_high/dev'}\" 2>&1 | tee /checkpoint/siddk/debate/logs/race/race_m.large.best.f/d=ⅠⅣ_ⅠⅣ_ⅠⅣ_ⅠⅣ_ⅠⅣ_ⅠⅣ.ra.c=concat.race_h.test.txt""",
+    """train training_config/race/race.large.best.jsonnet -s /checkpoint/siddk/debate/runs/race/race_m.large.best.f.eval.ⅡⅢ_ⅡⅢ_ⅡⅢ_ⅡⅢ_ⅡⅢ_ⅡⅢ.ra.dev -j /checkpoint/siddk/debate/runs/race/race_m.bert_mc_gpt.large.bsz=12.lr=1e-5.f/model.tar.gz -e --require_action -d ⅡⅢ ⅡⅢ ⅡⅢ ⅡⅢ ⅡⅢ ⅡⅢ -c concat -p /checkpoint/siddk/debate/runs/race/race_m.bert_mc_gpt.large.bsz=12.lr=1e-5.f/oracle_outputs.c=concat.d=ⅡⅢ_ⅡⅢ_ⅡⅢ_ⅡⅢ_ⅡⅢ_ⅡⅢ.ra.race_h.test.pkl -o \"{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw_high/dev'}\" 2>&1 | tee /checkpoint/siddk/debate/logs/race/race_m.large.best.f/d=ⅡⅢ_ⅡⅢ_ⅡⅢ_ⅡⅢ_ⅡⅢ_ⅡⅢ.ra.c=concat.race_h.test.txt""",
+    """train training_config/race/race.large.best.jsonnet -s /checkpoint/siddk/debate/runs/race/race_m.large.best.f.eval.ⅡⅣ_ⅡⅣ_ⅡⅣ_ⅡⅣ_ⅡⅣ_ⅡⅣ.ra.dev -j /checkpoint/siddk/debate/runs/race/race_m.bert_mc_gpt.large.bsz=12.lr=1e-5.f/model.tar.gz -e --require_action -d ⅡⅣ ⅡⅣ ⅡⅣ ⅡⅣ ⅡⅣ ⅡⅣ -c concat -p /checkpoint/siddk/debate/runs/race/race_m.bert_mc_gpt.large.bsz=12.lr=1e-5.f/oracle_outputs.c=concat.d=ⅡⅣ_ⅡⅣ_ⅡⅣ_ⅡⅣ_ⅡⅣ_ⅡⅣ.ra.race_h.test.pkl -o \"{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw_high/dev'}\" 2>&1 | tee /checkpoint/siddk/debate/logs/race/race_m.large.best.f/d=ⅡⅣ_ⅡⅣ_ⅡⅣ_ⅡⅣ_ⅡⅣ_ⅡⅣ.ra.c=concat.race_h.test.txt""",
+    """train training_config/race/race.large.best.jsonnet -s /checkpoint/siddk/debate/runs/race/race_m.large.best.f.eval.ⅢⅣ_ⅢⅣ_ⅢⅣ_ⅢⅣ_ⅢⅣ_ⅢⅣ.ra.dev -j /checkpoint/siddk/debate/runs/race/race_m.bert_mc_gpt.large.bsz=12.lr=1e-5.f/model.tar.gz -e --require_action -d ⅢⅣ ⅢⅣ ⅢⅣ ⅢⅣ ⅢⅣ ⅢⅣ -c concat -p /checkpoint/siddk/debate/runs/race/race_m.bert_mc_gpt.large.bsz=12.lr=1e-5.f/oracle_outputs.c=concat.d=ⅢⅣ_ⅢⅣ_ⅢⅣ_ⅢⅣ_ⅢⅣ_ⅢⅣ.ra.race_h.test.pkl -o \"{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw_high/dev'}\" 2>&1 | tee /checkpoint/siddk/debate/logs/race/race_m.large.best.f/d=ⅢⅣ_ⅢⅣ_ⅢⅣ_ⅢⅣ_ⅢⅣ_ⅢⅣ.ra.c=concat.race_h.test.txt"""
+]
+
 
 def parse_args():
     p = argparse.ArgumentParser("RACE SLURM Runner")
@@ -80,6 +89,12 @@ if __name__ == "__main__":
 
     elif args.mode == 'rr':
         run_command = "%s %s %s" % (PYTHON_PATH, PROGRAM_PATH, round_robin[s_id])
+
+        print('Running %s!' % run_command)
+        os.system(run_command)
+
+    elif args.mode == 'rd':
+        run_command = "%s %s %s" % (PYTHON_PATH, PROGRAM_PATH, round_robin_dev[s_id])
 
         print('Running %s!' % run_command)
         os.system(run_command)
