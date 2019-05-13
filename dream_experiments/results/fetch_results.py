@@ -63,7 +63,7 @@ if __name__ == "__main__":
                     mode_dict[m][(l, b, AUX[l][ax])] = (best_epoch, best_rew)
 
     # Write Report
-    with open('graphs/report.md', 'w') as f:
+    with open('graphs-5-12/report.md', 'w') as f:
         for m in SL_MODE:
             f.write("Mode - %s\n" % m)
             f.write("-" * 30 + "\n")

@@ -17,7 +17,7 @@ DEBATE2IDX = {'Ⅰ': 0, 'Ⅱ': 1, 'Ⅲ': 2, 'Ⅳ': 3}
 
 
 def parse_args():
-    p = argparse.ArgumentParser(description='FastTexppt Judge')
+    p = argparse.ArgumentParser(description='FastText Judge')
     p.add_argument("-m", "--mode", default='cross-model', help='Mode to run in < judge | cross-model >')
     p.add_argument("-d", "--dataset", default='race', help='Dataset to run on < race | dream >')
 

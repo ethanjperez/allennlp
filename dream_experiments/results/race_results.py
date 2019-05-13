@@ -43,7 +43,7 @@ if __name__ == "__main__":
             mode_dict[(l, b)] = (best_epoch, best_rew)
 
     # Write Report
-    with open('graphs/report.md', 'w') as f:
+    with open('graphs-5-12/report.md', 'w') as f:
         for lr, bsz in mode_dict:
             f.write("\tLR: %s\tBSZ: %d\tBest Epoch: %d\tBest Validation: %.5f\n" % (lr, bsz,
                                                                                     mode_dict[(lr, bsz)][0],

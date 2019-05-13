@@ -3,6 +3,8 @@ create_annotateable
 
 Creates debate logs from raw files, with prepended sentence ID tokens.
 """
+from pytorch_pretrained_bert.tokenization import BasicTokenizer
+
 import argparse
 import json
 import os
@@ -63,7 +65,7 @@ def parse_race_data(args):
     return keys
 
 
-def parse_dream_data(args):
+def parse_dream_data(args, basic):
     # Create Tracking Variables
     keys = {}
 
@@ -73,10 +75,24 @@ def parse_dream_data(args):
 
     for i, article in enumerate(data):
         context = " ".join(article[0])
+        ctx_tokens = basic.tokenize(context)
 
-        # Split
-        ctx_split = re.split(EOS_TOKENS, context)[:-1]
-        ctx_sentences = [(ctx_split[i] + ctx_split[i + 1]).strip() for i in range(0, len(ctx_split), 2)]
+        # Iterate through tokens and create new sentence every EOS token
+        ctx_sentence_tokens = [[]]
+        for t in ctx_tokens:
+            if t in EOS_TOKENS:
+                ctx_sentence_tokens[-1].append(t)
+                ctx_sentence_tokens.append([])
+            else:
+                ctx_sentence_tokens[-1].append(t)
+
+        # Pop off last empty sentence if necessary
+        if len(ctx_sentence_tokens[-1]) == 0:
+            ctx_sentence_tokens = ctx_sentence_tokens[:-1]
+
+        # Create Context Sentences by joining each sentence
+        ctx_sentences = [" ".join(x) for x in ctx_sentence_tokens]
+
 
         # Iterate through each Question
         for idx in range(len(article[1])):
@@ -124,21 +140,21 @@ def dump_race_debates(args, keys):
 
 
 def dump_dream_debates(args, keys):
-    dump_dicts = [{} for _ in range(len(DEBATE2STR))]
+    dump_dicts = [{} for _ in range(3)]
     for key in keys:
         d = keys[key]
 
         # Create Annotated Passage
         annotated_passage = [("%d: " % i) + x for i, x in enumerate(d['passage'])]
 
-        for oidx in range(len(DEBATE2STR)):
+        for oidx in range(3):
             example_dict = {"passage": " ".join(d['passage']), "annotated_passage": "\n".join(annotated_passage),
                             "passage_sentences": d['passage'], "question": d['question'], "options": d['options'],
                             "debate_mode": [DEBATE2STR[oidx]]}
 
             dump_dicts[oidx][os.path.join('test', key)] = example_dict
 
-    for i, mode in enumerate(DEBATE2STR):
+    for i, mode in enumerate(DEBATE2STR[:3]):
         file_stub = 'tf_idf/dream_annotated_%s' % mode
         with open(file_stub + '.json', 'w') as f:
             json.dump(dump_dicts[i], f)
@@ -148,11 +164,13 @@ if __name__ == '__main__':
     # Parse Args
     arguments = parse_args()
 
+    basic_tokenizer = BasicTokenizer(do_lower_case=False)
+
     # Create Dataset
     if arguments.dataset == 'race':
         D = parse_race_data(arguments)
         dump_race_debates(arguments, D)
 
     elif arguments.dataset == 'dream':
-        D = parse_dream_data(arguments)
+        D = parse_dream_data(arguments, basic_tokenizer)
         dump_dream_debates(arguments, D)
