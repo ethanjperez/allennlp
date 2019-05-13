@@ -47,7 +47,7 @@ which to write the results.
      -c, --choice_mode     String type of action debating agents take
      -q, --qa_loss_weight  Float weight of auxiliary QA supervised loss to give RL agents
      -i, --influence       Boolean whether or not to use delta in judge opinion (vs. raw reward)
-     Available flags: klwxyz (v?)
+     Available flags: klwyz (v?)
 """
 from typing import List
 import argparse
@@ -189,7 +189,7 @@ class Train(Subcommand):
         subparser.add_argument('-n', '--num_pred_rounds',
                                type=int,
                                default=-1,
-                               help='Number of rounds debaters make predictions while training (vs. using Oracle).'
+                               help='Number of rounds debaters make predictions while training (vs. using oracle).'
                                     'If <1, debaters make prediction every round.')
 
         subparser.add_argument('-x', '--x_order_prob',
@@ -201,6 +201,12 @@ class Train(Subcommand):
                                action='store_true',
                                default=False,
                                help='Whether or not debaters are required to choose a new sentence each turn.')
+
+        subparser.add_argument('-ss', '--single_shot',
+                               action='store_true',
+                               default=False,
+                               help='Debaters predict all turns\' sentence choices in a single shot.'
+                                    'Only relevant for learned agents. Use only with -e (evaluation mode)')
 
         subparser.set_defaults(func=train_model_from_args)
 
@@ -233,7 +239,8 @@ def train_model_from_args(args: argparse.Namespace):
                           args.theory_of_mind,
                           args.num_pred_rounds,
                           args.x_order_prob,
-                          args.require_action)
+                          args.require_action,
+                          args.single_shot)
 
 def train_model_from_file(parameter_filename: str,
                           serialization_dir: str,
@@ -257,7 +264,8 @@ def train_model_from_file(parameter_filename: str,
                           theory_of_mind: bool = False,
                           num_pred_rounds: int = -1,
                           x_order_prob: float = 0.,
-                          require_action: bool = False) -> Model:
+                          require_action: bool = False,
+                          single_shot: bool = False) -> Model:
     """
     A wrapper around :func:`train_model` which loads the params from a file.
 
@@ -311,7 +319,7 @@ def train_model_from_file(parameter_filename: str,
     return train_model(params, serialization_dir, file_friendly_logging, recover, force, debate_mode, judge_filename,
                        update_judge, eval_mode, reward_method, detach_value_head, breakpoint_level,
                        oracle_outputs_path, accumulation_steps, multi_gpu, choice_mode, qa_loss_weight,
-                       influence_reward, theory_of_mind, num_pred_rounds, x_order_prob, require_action)
+                       influence_reward, theory_of_mind, num_pred_rounds, x_order_prob, require_action, single_shot)
 
 
 def train_model(params: Params,
@@ -335,7 +343,8 @@ def train_model(params: Params,
                 theory_of_mind: bool = False,
                 num_pred_rounds: int = -1,
                 x_order_prob: float = 0.,
-                require_action: bool = False) -> Model:
+                require_action: bool = False,
+                single_shot: bool = False) -> Model:
     """
     Trains the model specified in the given :class:`Params` object, using the data and training
     parameters also specified in that object, and saves the results in ``serialization_dir``.
@@ -387,6 +396,8 @@ def train_model(params: Params,
     best_model: ``Model``
         The model with the best epoch weights.
     """
+    assert (not single_shot) or eval_mode, 'Using single shot prediction outside eval_mode not yet supported.'
+    assert (not single_shot) or (num_pred_rounds == -1), 'Using single shot prediction for a specific number of rounds is not yet supported.'
     # Get number of debate turns, and assert that not performing judge-only training
     num_no_qa_turns = sum([(('l' in debate_turn) or ('w' in debate_turn)) for debate_turn in debate_mode])
     if (qa_loss_weight > 0) and (num_no_qa_turns == 0):
@@ -454,7 +465,8 @@ def train_model(params: Params,
                 choice_mode=choice_mode,
                 num_pred_rounds=num_pred_rounds,
                 x_order_prob=x_order_prob,
-                require_action=require_action)
+                require_action=require_action,
+                single_shot=single_shot)
         evaluation_iterator = pieces.validation_iterator or pieces.iterator
         evaluation_dataset = pieces.test_dataset
         # TODO: Check you're not modifying variables important for later on, in TrainerPieces
