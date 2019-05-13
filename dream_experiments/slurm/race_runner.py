@@ -18,6 +18,26 @@ mh_commands = [
     """train training_config/bert_mc_gpt.large.race.lr=1e-5.jsonnet -s /checkpoint/siddk/debate/runs/race/race_m.bert_mc_gpt.large.bsz=8.lr=1e-5.f -d f -a 8 -f -o "{'train_data_path': 'datasets/race_raw_middle/train', 'validation_data_path': 'datasets/race_raw_middle/dev'}" """,
 ]
 
+# Race FULL Large Training
+full_commands = [
+    """train training_config/bert_mc_gpt.large.race.lr=5e-6.jsonnet -s /checkpoint/siddk/debate/runs/race/race.f.bert_mc_gpt.large.bsz=32.lr=5e-6.f -d f -a 32 -o "{'train_data_path': 'datasets/race_raw/train', 'validation_data_path': 'datasets/race_raw/dev'}" -r """
+    """train training_config/bert_mc_gpt.large.race.lr=1e-5.jsonnet -s /checkpoint/siddk/debate/runs/race/race.f.bert_mc_gpt.large.bsz=32.lr=1e-5.f -d f -a 32 -o "{'train_data_path': 'datasets/race_raw/train', 'validation_data_path': 'datasets/race_raw/dev'}" -r """,
+    """train training_config/bert_mc_gpt.large.race.lr=2e-5.jsonnet -s /checkpoint/siddk/debate/runs/race/race.f.bert_mc_gpt.large.bsz=32.lr=2e-5.f -d f -a 32 -o "{'train_data_path': 'datasets/race_raw/train', 'validation_data_path': 'datasets/race_raw/dev'}" -r """,
+    """train training_config/bert_mc_gpt.large.race.lr=3e-5.jsonnet -s /checkpoint/siddk/debate/runs/race/race.f.bert_mc_gpt.large.bsz=32.lr=3e-5.f -d f -a 32 -o "{'train_data_path': 'datasets/race_raw/train', 'validation_data_path': 'datasets/race_raw/dev'}" -r """,
+    """train training_config/bert_mc_gpt.large.race.lr=5e-6.jsonnet -s /checkpoint/siddk/debate/runs/race/race.f.bert_mc_gpt.large.bsz=16.lr=5e-6.f -d f -a 16 -o "{'train_data_path': 'datasets/race_raw/train', 'validation_data_path': 'datasets/race_raw/dev'}" -r """,
+    """train training_config/bert_mc_gpt.large.race.lr=1e-5.jsonnet -s /checkpoint/siddk/debate/runs/race/race.f.bert_mc_gpt.large.bsz=16.lr=1e-5.f -d f -a 16 -o "{'train_data_path': 'datasets/race_raw/train', 'validation_data_path': 'datasets/race_raw/dev'}" -r """,
+    """train training_config/bert_mc_gpt.large.race.lr=2e-5.jsonnet -s /checkpoint/siddk/debate/runs/race/race.f.bert_mc_gpt.large.bsz=16.lr=2e-5.f -d f -a 16 -o "{'train_data_path': 'datasets/race_raw/train', 'validation_data_path': 'datasets/race_raw/dev'}" -r """,
+    """train training_config/bert_mc_gpt.large.race.lr=3e-5.jsonnet -s /checkpoint/siddk/debate/runs/race/race.f.bert_mc_gpt.large.bsz=16.lr=3e-5.f -d f -a 16 -o "{'train_data_path': 'datasets/race_raw/train', 'validation_data_path': 'datasets/race_raw/dev'}" -r """,
+    """train training_config/bert_mc_gpt.large.race.lr=5e-6.jsonnet -s /checkpoint/siddk/debate/runs/race/race.f.bert_mc_gpt.large.bsz=12.lr=5e-6.f -d f -a 12 -o "{'train_data_path': 'datasets/race_raw/train', 'validation_data_path': 'datasets/race_raw/dev'}" -r """,
+    """train training_config/bert_mc_gpt.large.race.lr=1e-5.jsonnet -s /checkpoint/siddk/debate/runs/race/race.f.bert_mc_gpt.large.bsz=12.lr=1e-5.f -d f -a 12 -o "{'train_data_path': 'datasets/race_raw/train', 'validation_data_path': 'datasets/race_raw/dev'}" -r """,
+    """train training_config/bert_mc_gpt.large.race.lr=2e-5.jsonnet -s /checkpoint/siddk/debate/runs/race/race.f.bert_mc_gpt.large.bsz=12.lr=2e-5.f -d f -a 12 -o "{'train_data_path': 'datasets/race_raw/train', 'validation_data_path': 'datasets/race_raw/dev'}" -r """,
+    """train training_config/bert_mc_gpt.large.race.lr=3e-5.jsonnet -s /checkpoint/siddk/debate/runs/race/race.f.bert_mc_gpt.large.bsz=12.lr=3e-5.f -d f -a 12 -o "{'train_data_path': 'datasets/race_raw/train', 'validation_data_path': 'datasets/race_raw/dev'}" -r """,
+    """train training_config/bert_mc_gpt.large.race.lr=5e-6.jsonnet -s /checkpoint/siddk/debate/runs/race/race.f.bert_mc_gpt.large.bsz=8.lr=5e-6.f -d f -a 8 -o "{'train_data_path': 'datasets/race_raw/train', 'validation_data_path': 'datasets/race_raw/dev'}" -r """,
+    """train training_config/bert_mc_gpt.large.race.lr=1e-5.jsonnet -s /checkpoint/siddk/debate/runs/race/race.f.bert_mc_gpt.large.bsz=8.lr=1e-5.f -d f -a 8 -o "{'train_data_path': 'datasets/race_raw/train', 'validation_data_path': 'datasets/race_raw/dev'}" -r """,
+    """train training_config/bert_mc_gpt.large.race.lr=2e-5.jsonnet -s /checkpoint/siddk/debate/runs/race/race.f.bert_mc_gpt.large.bsz=8.lr=2e-5.f -d f -a 8 -o "{'train_data_path': 'datasets/race_raw/train', 'validation_data_path': 'datasets/race_raw/dev'}" -r """,
+    """train training_config/bert_mc_gpt.large.race.lr=3e-5.jsonnet -s /checkpoint/siddk/debate/runs/race/race.f.bert_mc_gpt.large.bsz=8.lr=3e-5.f -d f -a 8 -o "{'train_data_path': 'datasets/race_raw/train', 'validation_data_path': 'datasets/race_raw/dev'}" -r """
+]
+
 # Length Training Commands
 len_commands = [
     """train training_config/bert_mc_gpt.large.race.lr=5e-6.jsonnet -s /checkpoint/siddk/debate/runs/race/race.num_sents_leq_12.bert_mc_gpt.large.bsz=32.lr=5e-6.f -d f -a 32 -o "{'train_data_path': 'datasets/num_sents_leq_12/train', 'validation_data_path': 'datasets/num_sents_leq_12/dev'}" -f """
@@ -96,5 +116,12 @@ if __name__ == "__main__":
     elif args.mode == 'rd':
         run_command = "%s %s %s" % (PYTHON_PATH, PROGRAM_PATH, round_robin_dev[s_id])
 
+        print('Running %s!' % run_command)
+        os.system(run_command)
+
+    elif args.mode == 'full':
+        n_id = int(os.environ['SLURM_ARRAY_TASK_ID']) % 16
+
+        run_command = "%s %s %s" % (PYTHON_PATH, PROGRAM_PATH, full_commands[n_id])
         print('Running %s!' % run_command)
         os.system(run_command)

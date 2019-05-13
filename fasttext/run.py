@@ -3,6 +3,7 @@ run.py
 
 Run FastText Debater and generate debater data for the given debate option.
 """
+from pytorch_pretrained_bert.tokenization import BasicTokenizer
 from spacy.language import Language
 from tqdm import tqdm
 
@@ -16,7 +17,7 @@ import re
 EOS_TOKENS = "(\.|\!|\?)"
 
 ANS2IDX = {'A': 0, 'B': 1, 'C': 2, 'D': 3}
-DEBATE2STR = ['Ⅰ', 'Ⅱ', 'Ⅲ', 'Ⅳ'][:3]
+DEBATE2STR = ['Ⅰ', 'Ⅱ', 'Ⅲ', 'Ⅳ']
 
 
 def parse_args():
@@ -25,7 +26,7 @@ def parse_args():
     p.add_argument("-v", "--val", required=True, help='Path to raw valid data to compute Fastext')
     p.add_argument("-q", "--with_question", default=False, action='store_true', help='Fastext with question + option')
 
-    p.add_argument("-d", "--dataset", default="dream", help='Which dataset to run on - dream/race.')
+    p.add_argument("-d", "--dataset", default="race", help='Which dataset to run on - dream/race.')
     p.add_argument("-p", "--pretrained", default='datasets/fasttext')
 
     return p.parse_args()
@@ -94,7 +95,7 @@ def parse_dream_data(args, spcy):
     return keys
 
 
-def parse_race_data(args, spcy):
+def parse_race_data(args, spcy, basic):
     # Create Tracking Variables
     keys = {}
 
@@ -113,16 +114,25 @@ def parse_race_data(args, spcy):
                 with open(p, 'rb') as f:
                     data = json.load(f)
 
-                # Tokenize Passage => Split into Sentences, then Tokenize each Sentence
+                # Tokenize Passage => Tokenize Passage, then Perform Sentence Split
                 context = data['article']
+                ctx_tokens = basic.tokenize(context)
 
-                # Split on ./!/?
-                ctx_split = re.split(EOS_TOKENS, context)[:-1]
-                ctx_sentences = [(ctx_split[i] + ctx_split[i + 1]).strip() for i in range(0, len(ctx_split), 2)]
+                # Iterate through tokens and create new sentence every EOS token
+                ctx_sentence_tokens = [[]]
+                for t in ctx_tokens:
+                    if t in EOS_TOKENS:
+                        ctx_sentence_tokens[-1].append(t)
+                        ctx_sentence_tokens.append([])
+                    else:
+                        ctx_sentence_tokens[-1].append(t)
 
-                # Error Handling
-                if len(ctx_sentences) == 0:
-                    ctx_sentences = [context]
+                # Pop off last empty sentence if necessary
+                if len(ctx_sentence_tokens[-1]) == 0:
+                    ctx_sentence_tokens = ctx_sentence_tokens[:-1]
+
+                # Create Context Sentences by joining each sentence
+                ctx_sentences = [" ".join(x) for x in ctx_sentence_tokens]
 
                 # Tokenize and Vectorize each Sentence
                 vec_sentences = []
@@ -194,13 +204,13 @@ def dump_race_debates(args, keys):
                                     "sentences_chosen": [d['passage'][best_sent]], "answer_index": d['answer'],
                                     "prob": best_score, "options": d['options']}
 
-                    dump_dicts[oidx][os.path.join('dev', key)] = example_dict
+                    dump_dicts[oidx][os.path.join('test', key)] = example_dict
 
                 cur_question += 1
 
     # Dump to Files
     for i, mode in enumerate(DEBATE2STR):
-        file_stub = 'fasttext/race_dev_fasttext_%s' % mode
+        file_stub = 'fasttext/race_test_fasttext_%s' % mode
         if args.with_question:
             file_stub += '_wq'
 
@@ -242,6 +252,9 @@ if __name__ == "__main__":
     # Parse Args
     arguments = parse_args()
 
+    # Load Basic Tokenizer
+    basic_tokenizer = BasicTokenizer(do_lower_case=False)
+
     # Get FastText Data if it doesn't exist
     if not os.path.exists(os.path.join(arguments.pretrained, 'crawl-300d-2M.vec')):
         os.system('wget https://dl.fbaipublicfiles.com/fasttext/vectors-english/crawl-300d-2M.vec.zip')
@@ -269,7 +282,7 @@ if __name__ == "__main__":
 
     # Parse Data - parses passage, question, answers and formulates vector representation
     if arguments.dataset == 'race':
-        D = parse_race_data(arguments, nlp)
+        D = parse_race_data(arguments, nlp, basic_tokenizer)
         dump_race_debates(arguments, D)
     else:
         D = parse_dream_data(arguments, nlp)
