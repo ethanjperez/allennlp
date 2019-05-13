@@ -11,7 +11,6 @@ import argparse
 import json
 import numpy as np
 import os
-import re
 
 
 EOS_TOKENS = "(\.|\!|\?)"
@@ -32,7 +31,7 @@ def parse_args():
     return p.parse_args()
 
 
-def parse_dream_data(args, spcy):
+def parse_dream_data(args, spcy, basic):
     # Create Tracking Variables
     keys = {}
 
@@ -43,13 +42,24 @@ def parse_dream_data(args, spcy):
     for i, article in enumerate(data):
         context = " ".join(article[0])
 
-        # Split on ./!/?
-        ctx_split = re.split(EOS_TOKENS, context)[:-1]
-        ctx_sentences = [(ctx_split[i] + ctx_split[i + 1]).strip() for i in range(0, len(ctx_split), 2)]
+        # Tokenize Passage, then Perform Sentence Split
+        ctx_tokens = basic.tokenize(context)
 
-        # Error Handling
-        if len(ctx_sentences) == 0:
-            ctx_sentences = [context]
+        # Iterate through tokens and create new sentence every EOS token
+        ctx_sentence_tokens = [[]]
+        for t in ctx_tokens:
+            if t in EOS_TOKENS:
+                ctx_sentence_tokens[-1].append(t)
+                ctx_sentence_tokens.append([])
+            else:
+                ctx_sentence_tokens[-1].append(t)
+
+        # Pop off last empty sentence if necessary
+        if len(ctx_sentence_tokens[-1]) == 0:
+            ctx_sentence_tokens = ctx_sentence_tokens[:-1]
+
+        # Create Context Sentences by joining each sentence
+        ctx_sentences = [" ".join(x) for x in ctx_sentence_tokens]
 
         # Tokenize and Vectorize each Sentence
         vec_sentences = []
@@ -219,27 +229,34 @@ def dump_race_debates(args, keys):
 
 
 def dump_dream_debates(args, keys):
-    dump_dicts = [{} for _ in range(len(DEBATE2STR))]
-    for key in keys:
-        d = keys[key]
+    dump_dicts = [{} for _ in range(3)]
 
-        # Iterate over different option indices
-        for oidx in range(len(DEBATE2STR)):
-            option_vec = d['option_vecs'][oidx]
+    with open(args.val, 'rb') as f:
+        data = json.load(f)
 
-            # Compute Scores
-            sent_scores = [option_vec.similarity(sent_vec) for sent_vec in d['passage_vecs']]
-            best_sent, best_score = np.argmax(sent_scores), max(sent_scores)
+    for i, article in enumerate(data):
+        for idx in range(len(article[1])):
+            # Get Key
+            key = os.path.join(article[2], str(idx))
+            d = keys[key]
 
-            # Assemble Example Dict
-            example_dict = {"passage": " ".join(d['passage']), "question": d['question'], "advantage": 0,
-                            "debate_mode": [DEBATE2STR[oidx]], "stances": [], "em": 0,
-                            "sentences_chosen": [d['passage'][best_sent]], "answer_index": d['answer'],
-                            "prob": best_score, "options": d['options']}
-            dump_dicts[oidx][os.path.join('dev', key)] = example_dict
+            # Iterate over different option indices
+            for oidx in range(3):
+                option_vec = d['option_vecs'][oidx]
+
+                # Compute Scores
+                sent_scores = [option_vec.similarity(sent_vec) for sent_vec in d['passage_vecs']]
+                best_sent, best_score = np.argmax(sent_scores), max(sent_scores)
+
+                # Assemble Example Dict
+                example_dict = {"passage": " ".join(d['passage']), "question": d['question'], "advantage": 0,
+                                "debate_mode": [DEBATE2STR[oidx]], "stances": [], "em": 0,
+                                "sentences_chosen": [d['passage'][best_sent]], "answer_index": d['answer'],
+                                "prob": best_score, "options": d['options']}
+                dump_dicts[oidx][os.path.join('test', key)] = example_dict
 
     # Dump to Files
-    for i, mode in enumerate(DEBATE2STR):
+    for i, mode in enumerate(DEBATE2STR[:3]):
         file_stub = 'fasttext/dream_test_fasttext_%s' % mode
         if args.with_question:
             file_stub += '_wq'
@@ -285,5 +302,5 @@ if __name__ == "__main__":
         D = parse_race_data(arguments, nlp, basic_tokenizer)
         dump_race_debates(arguments, D)
     else:
-        D = parse_dream_data(arguments, nlp)
+        D = parse_dream_data(arguments, nlp, basic_tokenizer)
         dump_dream_debates(arguments, D)

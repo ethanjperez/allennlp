@@ -103,6 +103,37 @@ def race_judge(args, idf, keys):
         print("\nPersuasion Accuracy: %.5f out of %d Total Examples" % (correct / total, total))
 
 
+def dream_judge(args, idf, keys):
+    """Run and Compute Accuracy on Baseline QA Model"""
+    if args.mode == 'judge':
+        # Load and Iterate through Data
+        with open(args.val[0], 'rb') as f:
+            data = json.load(f)
+
+        correct, total = 0, 0
+        for i, article in enumerate(data):
+            for idx in range(len(article[1])):
+                # Get Key
+                key = os.path.join(article[2], str(idx))
+
+                d = keys[key]
+
+                # Compute Scores
+                passage_idx = d['passage_idx'][0]
+                opt_idxs = d['option_idx']
+
+                opt_scores = cosine_similarity(idf[opt_idxs], idf[passage_idx]).flatten()
+                best_opt = np.argmax(opt_scores)
+
+                # Score
+                if best_opt == d['answer']:
+                    correct += 1
+
+                total += 1
+
+        print("\nJudge Accuracy: %.5f out of %d Total Examples" % (correct / total, total))
+
+
 def parse_race_data(args, tokenizer):
     # Create Tracking Variables
     keys, p_a = {}, []
@@ -246,6 +277,58 @@ def parse_race_data(args, tokenizer):
         return keys, p_a
 
 
+def parse_dream_data(args, tokenizer):
+    # Create Tracking Variables
+    keys, p_a = {}, []
+
+    if args.mode == 'judge':
+        # Iterate through Data
+        for dfile in [args.train, args.val[0]]:
+            # Load, Iterate through Data
+            with open(dfile, 'rb') as f:
+                data = json.load(f)
+
+            for i, article in enumerate(data):
+                passage_idx = []
+
+                # Tokenize Passage
+                context = " ".join(article[0])
+
+                # Tokenize and Add to P_A
+                tokens = tokenizer.tokenize(context)
+                passage_idx.append(len(p_a))
+                p_a.append(tokens)
+
+                # Iterate through each Question
+                for idx in range(len(article[1])):
+                    # Create Specific Example Key
+                    key = os.path.join(article[2], str(idx))
+
+                    # Fetch
+                    q, options = article[1][idx]['question'], article[1][idx]['choice']
+                    ans = options.index(article[1][idx]['answer'])
+
+                    # Create State Variables
+                    option_idx = []
+
+                    # Tokenize Options (Q + Option if specified) and add to dict
+                    for o_idx in range(len(options)):
+                        if args.with_question:
+                            option = q + " " + options[o_idx]
+                        else:
+                            option = options[o_idx]
+
+                        option_tokens = tokenizer.tokenize(option)
+                        option_idx.append(len(p_a))
+                        p_a.append(option_tokens)
+
+                    # Create Dictionary Entry
+                    keys[key] = {'passage_idx': passage_idx, 'question': q, 'answer': ans, 'options': options,
+                                 'option_idx': option_idx}
+
+        return keys, p_a
+
+
 if __name__ == "__main__":
     # Parse Args
     arguments = parse_args()
@@ -268,3 +351,18 @@ if __name__ == "__main__":
 
         # Run Appropriate Accuracy Scorer
         race_judge(arguments, TF_IDF, D)
+
+    elif arguments.dataset == 'dream':
+        D, PA = parse_dream_data(arguments, bert_tokenizer)
+
+        # Compute TF Matrix
+        TF = compute_tf(PA)
+
+        # Compute TF-IDF Matrix
+        print('\nComputing TF-IDF Matrix...')
+        transformer = TfidfTransformer()
+        TF_IDF = transformer.fit_transform(TF)
+        assert (TF_IDF.shape[0] == len(PA) == len(TF))
+
+        # Run Appropriate Accuracy Scorer
+        dream_judge(arguments, TF_IDF, D)
