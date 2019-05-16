@@ -47,7 +47,7 @@ def translate(d, log, stance_idx):
         questions = [data[key]['question']]
 
         # Create article
-        article = data[key]['passage']
+        article = data[key]['sentences_chosen'][0]
 
         # Create id
         id_str = 'd%d-q%s-%s' % (stance_idx, q_num, text_id)
