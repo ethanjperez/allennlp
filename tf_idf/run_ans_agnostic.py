@@ -288,7 +288,7 @@ def dump_dream_debates(args, idf, keys):
                 sent_scores = cosine_similarity(idf[passage_idx], idf[q_idx]).flatten()
                 k_max_ind = sent_scores.argsort()[::-1]
 
-                for oidx in range(len(DEBATE2STR)):
+                for oidx in range(3):
                     # Get Chosen Sentence
                     if oidx < len(k_max_ind):
                         chosen = d['passage'][k_max_ind[oidx]]
