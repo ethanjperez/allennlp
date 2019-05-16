@@ -204,6 +204,7 @@ class Trainer(TrainerBase):
                                            for method in self._oracle_debate_methods
                                            if method in self._method_to_stance_idx.keys()})
 
+        self._single_shot_debater_output_dict_by_method = {}
         self._using_bert = hasattr(self.model, '_text_field_embedder') and \
                    hasattr(self.model._text_field_embedder, 'token_embedder_tokens') and \
                    'bert_token_embedder' in str(type(self.model._text_field_embedder.token_embedder_tokens))
@@ -770,12 +771,12 @@ class Trainer(TrainerBase):
 
             if self._single_shot and (round_no > 0):
                 # Use initial round's predictions
-                debater_output_dict = self._single_shot_debater_output_dict
+                debater_output_dict = self._single_shot_debater_output_dict_by_method[method]
             else:
                 # Debate forward pass
                 debater_output_dict = self._forward([batch], debater)
                 if self._single_shot and (round_no == 0):  # Store result for later use
-                    self._single_shot_debater_output_dict = debater_output_dict
+                    self._single_shot_debater_output_dict_by_method[method] = debater_output_dict
 
             # Set SL / debate-auxiliary losses for SGD
             turn_loss = debater_output_dict.get('loss')
