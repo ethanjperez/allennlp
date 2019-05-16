@@ -10,8 +10,8 @@
       }
     }
   },
-  "train_data_path": "datasets/race_raw/train",
-  "validation_data_path": "datasets/race_raw/dev",
+  "train_data_path": "allennlp/tests/fixtures/data/race_raw/train",
+  "validation_data_path": "datasets/race_raw/test",
   "model": {
     "type": "bert-mc-gpt",
     "text_field_embedder": {
@@ -48,7 +48,7 @@
       "patience": 1
     },
     "optimizer": {
-      "lr": 0.00001,
+      "lr": 0.000005,
       "type": "bert_adam"
     }
   }
