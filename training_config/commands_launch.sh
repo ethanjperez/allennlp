@@ -34,3 +34,7 @@ for QTYPE in "${QTYPES[@]}"; do
     cp -r $QTYPE $QTYPE.middle
     rm -r $QTYPE.middle/high
 done
+
+mv debate_logs.d=Ⅰ.json Ⅰ.json
+mv debate_logs.d=Ⅱ.json Ⅱ.json
+mv debate_logs.d=Ⅲ.json Ⅲ.json
