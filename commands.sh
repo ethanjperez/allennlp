@@ -1,6 +1,19 @@
 #!/usr/bin/env bash
 
-# TODO: Check on eval
+# TODO TODO: Review! SL assisting M->H generalization
+allennlp train training_config/race.best.debate.sl.lr=1e-5.jsonnet -s tmp/race_m.c=concat.bsz=12.lr=1e-5.m=sl-sents.e.best_epoch -j tmp/race_m.best.bsz=12.f/model.tar.gz -d ⅰⅱ ⅰⅱ ⅰⅱ ⅰⅱ ⅰⅱ ⅰⅱ ⅰⅱ ⅰⅱ ⅰⅱ ⅰⅱ -m sl-sents -p tmp/race_m.best.bsz=12.f/oracle_outputs.c=concat.d=ⅠⅡⅢⅣ_ⅠⅡⅢⅣ_ⅠⅡⅢⅣ_ⅠⅡⅢⅣ.all.pkl -a 12 -c concat -o "{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/test'}" -ss -e -r
+allennlp train training_config/race.best.debate.sl.lr=1e-5.jsonnet -s tmp/race_m.c=concat.bsz=12.lr=1e-5.m=sl-sents.e.best_epoch -j tmp/race_m.best.bsz=12.f/model.tar.gz -d ⅰⅲ ⅰⅲ ⅰⅲ ⅰⅲ ⅰⅲ ⅰⅲ ⅰⅲ ⅰⅲ ⅰⅲ ⅰⅲ -m sl-sents -p tmp/race_m.best.bsz=12.f/oracle_outputs.c=concat.d=ⅠⅡⅢⅣ_ⅠⅡⅢⅣ_ⅠⅡⅢⅣ_ⅠⅡⅢⅣ.all.pkl -a 12 -c concat -o "{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/test'}" -ss -e -r
+allennlp train training_config/race.best.debate.sl.lr=1e-5.jsonnet -s tmp/race_m.c=concat.bsz=12.lr=1e-5.m=sl-sents.e.best_epoch -j tmp/race_m.best.bsz=12.f/model.tar.gz -d ⅰⅳ ⅰⅳ ⅰⅳ ⅰⅳ ⅰⅳ ⅰⅳ ⅰⅳ ⅰⅳ ⅰⅳ ⅰⅳ -m sl-sents -p tmp/race_m.best.bsz=12.f/oracle_outputs.c=concat.d=ⅠⅡⅢⅣ_ⅠⅡⅢⅣ_ⅠⅡⅢⅣ_ⅠⅡⅢⅣ.all.pkl -a 12 -c concat -o "{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/test'}" -ss -e -r
+allennlp train training_config/race.best.debate.sl.lr=1e-5.jsonnet -s tmp/race_m.c=concat.bsz=12.lr=1e-5.m=sl-sents.e.best_epoch -j tmp/race_m.best.bsz=12.f/model.tar.gz -d ⅱⅲ ⅱⅲ ⅱⅲ ⅱⅲ ⅱⅲ ⅱⅲ ⅱⅲ ⅱⅲ ⅱⅲ ⅱⅲ -m sl-sents -p tmp/race_m.best.bsz=12.f/oracle_outputs.c=concat.d=ⅠⅡⅢⅣ_ⅠⅡⅢⅣ_ⅠⅡⅢⅣ_ⅠⅡⅢⅣ.all.pkl -a 12 -c concat -o "{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/test'}" -ss -e -r
+allennlp train training_config/race.best.debate.sl.lr=1e-5.jsonnet -s tmp/race_m.c=concat.bsz=12.lr=1e-5.m=sl-sents.e.best_epoch -j tmp/race_m.best.bsz=12.f/model.tar.gz -d ⅱⅳ ⅱⅳ ⅱⅳ ⅱⅳ ⅱⅳ ⅱⅳ ⅱⅳ ⅱⅳ ⅱⅳ ⅱⅳ -m sl-sents -p tmp/race_m.best.bsz=12.f/oracle_outputs.c=concat.d=ⅠⅡⅢⅣ_ⅠⅡⅢⅣ_ⅠⅡⅢⅣ_ⅠⅡⅢⅣ.all.pkl -a 12 -c concat -o "{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/test'}" -ss -e -r
+allennlp train training_config/race.best.debate.sl.lr=1e-5.jsonnet -s tmp/race_m.c=concat.bsz=12.lr=1e-5.m=sl-sents.e.best_epoch -j tmp/race_m.best.bsz=12.f/model.tar.gz -d ⅲⅳ ⅲⅳ ⅲⅳ ⅲⅳ ⅲⅳ ⅲⅳ ⅲⅳ ⅲⅳ ⅲⅳ ⅲⅳ -m sl-sents -p tmp/race_m.best.bsz=12.f/oracle_outputs.c=concat.d=ⅠⅡⅢⅣ_ⅠⅡⅢⅣ_ⅠⅡⅢⅣ_ⅠⅡⅢⅣ.all.pkl -a 12 -c concat -o "{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/test'}" -ss -e -r
+
+# TODO TODO: Review! SL assisting Short->Long generalization (on DREAM)
+allennlp train training_config/race.best.debate.sl.lr=5e-6.jsonnet -s tmp/race.num_sents_leq_12.c=concat.bsz=12.lr=5e-6.m=sl-sents.e.backup -j tmp/race.num_sents_leq_12.best.f/model.tar.gz -d ⅰⅱ ⅰⅱ ⅰⅱ ⅰⅱ ⅰⅱ ⅰⅱ ⅰⅱ ⅰⅱ ⅰⅱ ⅰⅱ -m sl-sents -a 12 -c concat -o "{'train_data_path': 'allennlp/tests/fixtures/data/dream/train.json', 'validation_data_path': 'datasets/dream/test.num_sents_gt_26.json', 'dataset_reader': {'type': 'dream-mc'}}" -ss -e -r
+allennlp train training_config/race.best.debate.sl.lr=5e-6.jsonnet -s tmp/race.num_sents_leq_12.c=concat.bsz=12.lr=5e-6.m=sl-sents.e.backup -j tmp/race.num_sents_leq_12.best.f/model.tar.gz -d ⅰⅲ ⅰⅲ ⅰⅲ ⅰⅲ ⅰⅲ ⅰⅲ ⅰⅲ ⅰⅲ ⅰⅲ ⅰⅲ -m sl-sents -a 12 -c concat -o "{'train_data_path': 'allennlp/tests/fixtures/data/dream/train.json', 'validation_data_path': 'datasets/dream/test.num_sents_gt_26.json', 'dataset_reader': {'type': 'dream-mc'}}" -ss -e -r
+allennlp train training_config/race.best.debate.sl.lr=5e-6.jsonnet -s tmp/race.num_sents_leq_12.c=concat.bsz=12.lr=5e-6.m=sl-sents.e.backup -j tmp/race.num_sents_leq_12.best.f/model.tar.gz -d ⅱⅲ ⅱⅲ ⅱⅲ ⅱⅲ ⅱⅲ ⅱⅲ ⅱⅲ ⅱⅲ ⅱⅲ ⅱⅲ -m sl-sents -a 12 -c concat -o "{'train_data_path': 'allennlp/tests/fixtures/data/dream/train.json', 'validation_data_path': 'datasets/dream/test.num_sents_gt_26.json', 'dataset_reader': {'type': 'dream-mc'}}" -ss -e -r
+
+# SL assisting Short->Long generalization (on RACE)
 allennlp train training_config/race.best.debate.sl.lr=5e-6.jsonnet -s tmp/race.num_sents_leq_12.c=concat.bsz=12.lr=5e-6.m=sl-sents.e.backup -j tmp/race.num_sents_leq_12.best.f/model.tar.gz -d ⅰⅱ ⅰⅱ ⅰⅱ ⅰⅱ ⅰⅱ ⅰⅱ ⅰⅱ ⅰⅱ ⅰⅱ ⅰⅱ -m sl-sents -p tmp/race.num_sents_leq_12.best.f/oracle_outputs.c=concat.d=ⅠⅡⅢⅣ_ⅠⅡⅢⅣ_ⅠⅡⅢⅣ_ⅠⅡⅢⅣ.all.pkl -a 12 -c concat -o "{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/test'}" -ss -e -r
 allennlp train training_config/race.best.debate.sl.lr=5e-6.jsonnet -s tmp/race.num_sents_leq_12.c=concat.bsz=12.lr=5e-6.m=sl-sents.e.backup -j tmp/race.num_sents_leq_12.best.f/model.tar.gz -d ⅰⅲ ⅰⅲ ⅰⅲ ⅰⅲ ⅰⅲ ⅰⅲ ⅰⅲ ⅰⅲ ⅰⅲ ⅰⅲ -m sl-sents -p tmp/race.num_sents_leq_12.best.f/oracle_outputs.c=concat.d=ⅠⅡⅢⅣ_ⅠⅡⅢⅣ_ⅠⅡⅢⅣ_ⅠⅡⅢⅣ.all.pkl -a 12 -c concat -o "{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/test'}" -ss -e -r
 allennlp train training_config/race.best.debate.sl.lr=5e-6.jsonnet -s tmp/race.num_sents_leq_12.c=concat.bsz=12.lr=5e-6.m=sl-sents.e.backup -j tmp/race.num_sents_leq_12.best.f/model.tar.gz -d ⅰⅳ ⅰⅳ ⅰⅳ ⅰⅳ ⅰⅳ ⅰⅳ ⅰⅳ ⅰⅳ ⅰⅳ ⅰⅳ -m sl-sents -p tmp/race.num_sents_leq_12.best.f/oracle_outputs.c=concat.d=ⅠⅡⅢⅣ_ⅠⅡⅢⅣ_ⅠⅡⅢⅣ_ⅠⅡⅢⅣ.all.pkl -a 12 -c concat -o "{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/test'}" -ss -e -r
@@ -22,8 +35,8 @@ allennlp train training_config/race.best.debate.sl.lr=1e-5.jsonnet -s tmp/race.n
 allennlp train training_config/race.best.debate.sl.lr=2e-5.jsonnet -s tmp/race.num_sents_leq_12.c=concat.bsz=12.lr=2e-5.m=sl-sents.e -j tmp/race.num_sents_leq_12.best.f/model.tar.gz -d e -m sl-sents -p tmp/race.num_sents_leq_12.best.f/oracle_outputs.c=concat.d=ⅠⅡⅢⅣ_ⅠⅡⅢⅣ_ⅠⅡⅢⅣ_ⅠⅡⅢⅣ.all.pkl -a 12 -c concat -o "{'train_data_path': 'datasets/race_raw/train', 'validation_data_path': 'datasets/race_raw/dev'}"
 
 # SL on middle school model
-allennlp train training_config/race.best.debate.sl.lr=5e-6.jsonnet -s tmp/race_m.c=concat.bsz=12.lr=5e-6.m=sl-sents.e -j tmp/race_m.best.bsz=12.f/model.tar.gz -d e -m sl-sents -p tmp/race_m.best.bsz=12.f/oracle_outputs.c=concat.d=ⅠⅡⅢⅣ_ⅠⅡⅢⅣ_ⅠⅡⅢⅣ_ⅠⅡⅢⅣ.all.pkl -a 12 -c concat -o "{'train_data_path': 'datasets/race_raw/train', 'validation_data_path': 'datasets/race_raw/dev'}" # Running
-allennlp train training_config/race.best.debate.sl.lr=1e-5.jsonnet -s tmp/race_m.c=concat.bsz=12.lr=1e-5.m=sl-sents.e -j tmp/race_m.best.bsz=12.f/model.tar.gz -d e -m sl-sents -p tmp/race_m.best.bsz=12.f/oracle_outputs.c=concat.d=ⅠⅡⅢⅣ_ⅠⅡⅢⅣ_ⅠⅡⅢⅣ_ⅠⅡⅢⅣ.all.pkl -a 12 -c concat -o "{'train_data_path': 'datasets/race_raw/train', 'validation_data_path': 'datasets/race_raw/dev'}"
+allennlp train training_config/race.best.debate.sl.lr=5e-6.jsonnet -s tmp/race_m.c=concat.bsz=12.lr=5e-6.m=sl-sents.e -j tmp/race_m.best.bsz=12.f/model.tar.gz -d e -m sl-sents -p tmp/race_m.best.bsz=12.f/oracle_outputs.c=concat.d=ⅠⅡⅢⅣ_ⅠⅡⅢⅣ_ⅠⅡⅢⅣ_ⅠⅡⅢⅣ.all.pkl -a 12 -c concat -o "{'train_data_path': 'datasets/race_raw/train', 'validation_data_path': 'datasets/race_raw/dev'}" # Running (better loss at Epoch > 5?)
+allennlp train training_config/race.best.debate.sl.lr=1e-5.jsonnet -s tmp/race_m.c=concat.bsz=12.lr=1e-5.m=sl-sents.e -j tmp/race_m.best.bsz=12.f/model.tar.gz -d e -m sl-sents -p tmp/race_m.best.bsz=12.f/oracle_outputs.c=concat.d=ⅠⅡⅢⅣ_ⅠⅡⅢⅣ_ⅠⅡⅢⅣ_ⅠⅡⅢⅣ.all.pkl -a 12 -c concat -o "{'train_data_path': 'datasets/race_raw/train', 'validation_data_path': 'datasets/race_raw/dev'}" #.8091 loss @ Epoch 5
 allennlp train training_config/race.best.debate.sl.lr=2e-5.jsonnet -s tmp/race_m.c=concat.bsz=12.lr=2e-5.m=sl-sents.e -j tmp/race_m.best.bsz=12.f/model.tar.gz -d e -m sl-sents -p tmp/race_m.best.bsz=12.f/oracle_outputs.c=concat.d=ⅠⅡⅢⅣ_ⅠⅡⅢⅣ_ⅠⅡⅢⅣ_ⅠⅡⅢⅣ.all.pkl -a 12 -c concat -o "{'train_data_path': 'datasets/race_raw/train', 'validation_data_path': 'datasets/race_raw/dev'}" # Running
 
 tb race.num_sents_leq_12.c=concat.bsz=12.lr=5e-6.m=sl-sents.e:race.num_sents_leq_12.c=concat.bsz=12.lr=5e-6.m=sl-sents.e,race.num_sents_leq_12.c=concat.bsz=12.lr=1e-5.m=sl-sents.e:race.num_sents_leq_12.c=concat.bsz=12.lr=1e-5.m=sl-sents.e,race.num_sents_leq_12.c=concat.bsz=12.lr=2e-5.m=sl-sents.e:race.num_sents_leq_12.c=concat.bsz=12.lr=2e-5.m=sl-sents.e --port 9020
@@ -1007,9 +1020,9 @@ allennlp train training_config/bidaf.cpu.mini.debug.jsonnet -s tmp/debug -j trai
 
 # To copy best checkpoint into new directory
 cd ~/research/allennlp/tmp/
-OLD_DIR=race.best.f
-NEW_DIR=race.best.last_epoch.f
-epoch=5
+OLD_DIR=race_m.bert_mc_a.bsz=16.lr=5e-6.f
+NEW_DIR=race_m.bert_mc_a.bsz=16.lr=5e-6.f.epoch=0
+epoch=0
 mkdir $NEW_DIR
 cp -r $OLD_DIR/config.json $OLD_DIR/log $OLD_DIR/vocabulary $OLD_DIR/metrics_epoch_$epoch.json $OLD_DIR/model_state_epoch_$epoch.th $OLD_DIR/training_state_epoch_$epoch.th $NEW_DIR
 cp $NEW_DIR/model_state_epoch_$epoch.th $NEW_DIR/best.th
@@ -1044,6 +1057,9 @@ python scripts/oracle_outputs_merge_by_prev_turns_str.py -m
 srun --pty --mem=60000 -t 6-23:58 --gres=gpu:p40:1 bash
 srun --pty --mem=20000 -t 0-23:58 --gres=gpu:k80:1 bash
 srun --pty --mem=80000 -t 6-23:58 --gres=gpu:v100:1 bash
+srun --pty --mem=20000 -t 0-23:58 --gres=gpu:p100:1 bash
+srun --pty --mem=20000 -t 0-23:58 --gres=gpu:v100:1 bash
+srun --pty --mem=20000 -t 0-23:58 --gres=gpu:p40:1 bash
 
 # SBATCH: NB: Cut memory usage based on plots
 export COMMAND="allennlp train training_config/race.best.debate.lr=1e-5.jsonnet -s tmp/race.ⅰ.m=sl.n=1.x=0.5.lr=1e-5.bsz=32.c=concat -j tmp/race.best.f/model.tar.gz -b 1 -d ⅰ -m sl -p tmp/race.best.f/oracle_outputs.c=concat.d=1_ⅠⅡ_turns.all.pkl -a 32 -c concat -f"
