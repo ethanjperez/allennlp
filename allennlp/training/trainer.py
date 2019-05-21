@@ -72,7 +72,8 @@ class Trainer(TrainerBase):
                  choice_mode: str = None,
                  num_pred_rounds: int = -1,
                  x_order_prob: float = 0.,
-                 require_action: bool = False) -> None:
+                 require_action: bool = False,
+                 single_shot: bool = False) -> None:
         """
         A trainer for doing supervised learning. It just takes a labeled dataset
         and a ``DataIterator``, and uses the supplied ``Optimizer`` to learn the weights
@@ -193,6 +194,7 @@ class Trainer(TrainerBase):
         self._num_pred_rounds = num_pred_rounds
         self._x_order_prob = x_order_prob
         self._require_action = require_action
+        self._single_shot = single_shot
 
         # NOTE: 'Ⅰ', 'Ⅱ', 'Ⅲ', 'Ⅳ' are special unicode chars. Copy and paste to use elsewhere (don't type directly).
         self._oracle_debate_methods = {'A', 'B', 'E', 'L', 'W', 'Ⅰ', 'Ⅱ', 'Ⅲ', 'Ⅳ'}
@@ -202,6 +204,7 @@ class Trainer(TrainerBase):
                                            for method in self._oracle_debate_methods
                                            if method in self._method_to_stance_idx.keys()})
 
+        self._single_shot_debater_output_dict_by_method = {}
         self._using_bert = hasattr(self.model, '_text_field_embedder') and \
                    hasattr(self.model._text_field_embedder, 'token_embedder_tokens') and \
                    'bert_token_embedder' in str(type(self.model._text_field_embedder.token_embedder_tokens))
@@ -744,10 +747,13 @@ class Trainer(TrainerBase):
             batch['all_past_sent_choice_mask'] = self._get_all_sent_choice_input_mask(sent_idxs, past_sent_choice_idxs)
 
             if debater.reward_method.startswith('sl'):
-                # Get Oracle results
+                oracle_round_no = round_no
+                if self._single_shot and (round_no > 0):
+                    oracle_round_no = 0
+                # Get Oracle results # TODO: Verify this looks up previous result
                 oracle_sent_choice_idx, _, _, _, oracle_advantage, all_values = self._get_sent_choice_prob_value(
                     batch, sent_idxs, judge_answer_mask, debate_choice_mask, required_text_mask, past_sent_choice_idxs,
-                    stance, sent_answer_idx, num_sents, turn_str, for_training, method.upper(), debate_mode, round_no)
+                    stance, sent_answer_idx, num_sents, turn_str, for_training, method.upper(), debate_mode, oracle_round_no)
                 if debater.reward_method == 'sl':
                     answer_token_mask_input = ((oracle_sent_choice_idx == sent_idxs['input']).long() * batch['valid_output_mask'])
                     batch['sent_targets'] = answer_token_mask_input.nonzero()[:, 1].unsqueeze(-1)
@@ -763,8 +769,14 @@ class Trainer(TrainerBase):
                     oracle_token_values = nn_util.replace_masked_values(oracle_token_values, batch['valid_output_mask'], -1e7)
                     batch['sent_targets'] = oracle_token_values
 
-            # Debate forward pass
-            debater_output_dict = self._forward([batch], debater)
+            if self._single_shot and (round_no > 0):
+                # Use initial round's predictions
+                debater_output_dict = self._single_shot_debater_output_dict_by_method[method]
+            else:
+                # Debate forward pass
+                debater_output_dict = self._forward([batch], debater)
+                if self._single_shot and (round_no == 0):  # Store result for later use
+                    self._single_shot_debater_output_dict_by_method[method] = debater_output_dict
 
             # Set SL / debate-auxiliary losses for SGD
             turn_loss = debater_output_dict.get('loss')
@@ -782,6 +794,11 @@ class Trainer(TrainerBase):
             if debater.reward_method.startswith('sl'):  # SL: Add predictions and loss
                 # Get SL results
                 word_choice_idx = torch.argmax(debater_output_dict['prob_dist'], dim=1, keepdim=True)
+                if self._single_shot and (round_no > 0):
+                    sorted_word_choice_idxs = torch.sort(debater_output_dict['prob_dist'], descending=True)  # TODO: Check you're sorting across right dim
+                    for i in range(bsz):
+                        if sorted_word_choice_idxs[0][i, round_no] > 0:
+                            word_choice_idx[i, 0] = sorted_word_choice_idxs[1][i, round_no]
                 sent_choice_idx = sent_idxs['input'].gather(1, word_choice_idx.to(sent_idxs['input'].device))
                 sent_choice_prob = self._get_sent_choice_prob_from_dist(  # Not required but good for logging/debugging
                     batch, sent_idxs, sent_choice_idx, debater_output_dict['prob_dist'])
@@ -1628,7 +1645,8 @@ class Trainer(TrainerBase):
                     choice_mode: str = None,
                     num_pred_rounds: int = -1,
                     x_order_prob: float = 0.,
-                    require_action: bool = False) -> 'Trainer':
+                    require_action: bool = False,
+                    single_shot: bool = False) -> 'Trainer':
 
         # pylint: disable=arguments-differ
         patience = params.pop_int("patience", None)
@@ -1707,7 +1725,8 @@ class Trainer(TrainerBase):
                    choice_mode=choice_mode,
                    num_pred_rounds=num_pred_rounds,
                    x_order_prob=x_order_prob,
-                   require_action=require_action)
+                   require_action=require_action,
+                   single_shot=single_shot)
 
 
 class TrainerPieces(NamedTuple):
