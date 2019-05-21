@@ -11,3 +11,7 @@ allennlp train race.best.last_epoch.f/config.json -s race.best.last_epoch.f -e -
 allennlp train race.best.last_epoch.f/config.json -s race.best.last_epoch.f -e -d f -o "{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/test_bert_large'}" -r 2>&1 | tee cross_base_large.txt
 
 allennlp train race.best.last_epoch.f/config.json -s race.best.last_epoch.f -e -d f -o "{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/test_human'}" -r 2>&1 | tee cross_base_human.txt
+
+allennlp train race.best.last_epoch.f/config.json -s race.best.last_epoch.f -e -d f -o "{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/test_human2'}" -r 2>&1 | tee cross_base_human2.txt
+
+allennlp train race.best.last_epoch.f/config.json -s race.best.last_epoch.f -e -d f -o "{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/test_human3'}" -r 2>&1 | tee cross_base_human3.txt

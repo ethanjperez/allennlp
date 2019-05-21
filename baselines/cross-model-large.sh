@@ -11,3 +11,7 @@ allennlp train training_config/race/race.large.best.jsonnet -s tmp/cross.large_b
 allennlp train training_config/race/race.large.best.jsonnet -s tmp/cross.large_large -j /checkpoint/siddk/debate/runs/race/race.f.bert_mc_gpt.large.bsz=12.lr=5e-6.f/model.tar.gz -e -d f -o "{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/test_bert_large'}" 2>&1 | tee cross_large_large.txt
 
 allennlp train training_config/race/race.large.best.jsonnet -s tmp/cross.large_human -j /checkpoint/siddk/debate/runs/race/race.f.bert_mc_gpt.large.bsz=12.lr=5e-6.f/model.tar.gz -e -d f -o "{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/test_human'}" 2>&1 | tee cross_large_human.txt
+
+allennlp train training_config/race/race.large.best.jsonnet -s tmp/cross.large_human2 -j /checkpoint/siddk/debate/runs/race/race.f.bert_mc_gpt.large.bsz=12.lr=5e-6.f/model.tar.gz -e -d f -o "{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/test_human2'}" 2>&1 | tee cross_large_human2.txt
+
+allennlp train training_config/race/race.large.best.jsonnet -s tmp/cross.large_human3 -j /checkpoint/siddk/debate/runs/race/race.f.bert_mc_gpt.large.bsz=12.lr=5e-6.f/model.tar.gz -e -d f -o "{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/test_human3'}" 2>&1 | tee cross_large_human3.txt
