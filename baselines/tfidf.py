@@ -21,7 +21,7 @@ DEBATE2IDX = {'Ⅰ': 0, 'Ⅱ': 1, 'Ⅲ': 2, 'Ⅳ': 3}
 def parse_args():
     p = argparse.ArgumentParser(description='TF-IDF Judge')
     p.add_argument("-m", "--mode", default='cross-model', help='Mode to run in < judge | cross-model >')
-    p.add_argument("-d", "--dataset", default='race', help='Dataset to run on < race | dream >')
+    p.add_argument("-d", "--dataset", default='dream', help='Dataset to run on < race | dream >')
 
     p.add_argument("-t", "--train", required=True, help='Path to raw train data to compute TF-IDF')
     p.add_argument("-v", "--val", nargs='+', required=True, help='Paths to debate logs for each agent.')
@@ -132,6 +132,24 @@ def dream_judge(args, idf, keys):
                 total += 1
 
         print("\nJudge Accuracy: %.5f out of %d Total Examples" % (correct / total, total))
+    else:
+        correct, total = 0, 0
+        for key in keys:
+            d = keys[key]
+
+            # Compute Scores
+            passage_idx = d['passage_idx'][0]
+            opt_idxs = d['option_idx']
+
+            opt_scores = cosine_similarity(idf[opt_idxs], idf[passage_idx]).flatten()
+            best_opt = np.argmax(opt_scores)
+
+            # Score
+            if best_opt == d['answer']:
+                correct += 1
+            total += 1
+
+        print("\nPersuasion Accuracy: %.5f out of %d Total Examples" % (correct / total, total))
 
 
 def parse_race_data(args, tokenizer):
@@ -325,6 +343,80 @@ def parse_dream_data(args, tokenizer):
                     # Create Dictionary Entry
                     keys[key] = {'passage_idx': passage_idx, 'question': q, 'answer': ans, 'options': options,
                                  'option_idx': option_idx}
+
+        return keys, p_a
+    else:
+        # Iterate through Train Data First!
+        with open(args.train, 'rb') as f:
+            data = json.load(f)
+
+        for i, article in enumerate(data):
+            passage_idx = []
+
+            # Tokenize Passage
+            context = " ".join(article[0])
+
+            # Tokenize and Add to P_A
+            tokens = tokenizer.tokenize(context)
+            passage_idx.append(len(p_a))
+            p_a.append(tokens)
+
+            # Iterate through each Question
+            for idx in range(len(article[1])):
+                # Fetch
+                q, options = article[1][idx]['question'], article[1][idx]['choice']
+
+                # Create State Variables
+                option_idx = []
+
+                # Tokenize Options (Q + Option if specified) and add to dict
+                for o_idx in range(len(options)):
+                    if args.with_question:
+                        option = q + " " + options[o_idx]
+                    else:
+                        option = options[o_idx]
+
+                    option_tokens = tokenizer.tokenize(option)
+                    option_idx.append(len(p_a))
+                    p_a.append(option_tokens)
+
+        # Iterate through all Validation Debate Logs
+        for deb_mode, val in enumerate(args.val):
+            with open(val, 'rb') as f:
+                logs = json.load(f)
+
+            for key in logs:
+                # Fetch Data
+                data = logs[key]
+
+                # Create State Variables
+                passage_idx = []
+
+                # Tokenize Passage
+                context = data['sentences_chosen'][0]
+
+                # Tokenize and Add to P_A
+                tokens = tokenizer.tokenize(context)
+                passage_idx.append(len(p_a))
+                p_a.append(tokens)
+
+                # Create Question/Answer State Variables
+                q, ans, options = data['question'], deb_mode, data['options']
+                option_idx = []
+
+                for o_idx in range(len(options)):
+                    if args.with_question:
+                        option = q + " " + options[o_idx]
+                    else:
+                        option = options[o_idx]
+
+                    option_tokens = tokenizer.tokenize(option)
+                    option_idx.append(len(p_a))
+                    p_a.append(option_tokens)
+
+                # Create Dictionary Entry
+                keys[key + "_%d_mode" % deb_mode] = {'passage_idx': passage_idx, 'question': q, 'answer': ans,
+                                                     'options': options, 'option_idx': option_idx}
 
         return keys, p_a
 

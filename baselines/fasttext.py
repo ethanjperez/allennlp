@@ -19,7 +19,7 @@ DEBATE2IDX = {'Ⅰ': 0, 'Ⅱ': 1, 'Ⅲ': 2, 'Ⅳ': 3}
 def parse_args():
     p = argparse.ArgumentParser(description='FastText Judge')
     p.add_argument("-m", "--mode", default='cross-model', help='Mode to run in < judge | cross-model >')
-    p.add_argument("-d", "--dataset", default='race', help='Dataset to run on < race | dream >')
+    p.add_argument("-d", "--dataset", default='dream', help='Dataset to run on < race | dream >')
 
     p.add_argument("-v", "--val", nargs='+', required=True, help='Paths to debate logs for each agent.')
 
@@ -104,6 +104,25 @@ def dream_judge(args, keys):
 
                 total += 1
         print("\nJudge Accuracy: %.5f out of %d Total Examples" % (correct / total, total))
+    else:
+        correct, total = 0, 0
+        for key in keys:
+            d = keys[key]
+
+            # Compute Scores
+            passage_vec = np.array([d['passage'].vector])
+            option_vecs = np.array([x.vector for x in d['option_vecs']])
+
+            opt_scores = cosine_similarity(option_vecs, passage_vec).flatten()
+            best_opt = np.argmax(opt_scores)
+
+            # Score
+            if best_opt == d['answer']:
+                correct += 1
+
+            total += 1
+
+        print("\nPersuasion Accuracy: %.5f out of %d Total Examples" % (correct / total, total))
 
 
 def parse_race_data(args, spcy):
@@ -244,6 +263,44 @@ def parse_dream_data(args, spcy):
                 # Create Dictionary Entry
                 keys[key] = {'passage': tok_context, 'question': q, 'answer': ans, 'options': options,
                              'option_vecs': option_vecs}
+
+        return keys
+
+    else:
+        # Iterate through all Validation Debate Logs
+        for deb_mode, val in enumerate(args.val):
+            with open(val, 'rb') as f:
+                logs = json.load(f)
+
+            for key in logs:
+                # Fetch Data
+                data = logs[key]
+
+                # Tokenize Passage
+                context = data['sentences_chosen'][0]
+
+                # Get Context Vector
+                tok_context = spcy(context)
+                if not tok_context.has_vector:
+                    import IPython
+                    IPython.embed()
+
+                # Create Question/Answer State Variables
+                q, ans, options = data['question'], deb_mode, data['options']
+                option_vecs = []
+
+                for o_idx in range(len(options)):
+                    option = options[o_idx]
+
+                    option_tokens = spcy(option)
+                    if not option_tokens.has_vector:
+                        import IPython
+                        IPython.embed()
+                    option_vecs.append(option_tokens)
+
+                # Create Dictionary Entry
+                keys[key + "_%d_mode" % deb_mode] = {'passage': tok_context, 'question': q, 'answer': ans,
+                                                     'options': options, 'option_vecs': option_vecs}
 
         return keys
 
