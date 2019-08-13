@@ -26,6 +26,7 @@ def parse_args():
 
     p.add_argument("-d", "--dataset", default="race", help='Which dataset to run on - dream/race.')
     p.add_argument("-p", "--pretrained", default='datasets/fasttext')
+    p.add_argument("-x", "--sort", default=False, help='Return all sentences in sorted order.')
 
     return p.parse_args()
 
@@ -180,26 +181,45 @@ def dump_race_debates(args, keys):
                 sent_scores = np.array([d['question_vec'].similarity(sent_vec) for sent_vec in d['passage_vecs']])
                 k_max_ind = sent_scores.argsort()[::-1]
 
-                for oidx in range(len(DEBATE2STR)):
-                    # Get Chosen Sentence
-                    if oidx < len(k_max_ind):
-                        chosen = d['passage'][k_max_ind[oidx]]
-                    else:
-                        chosen = ""
+                if not args.sort:
+                    for oidx in range(len(DEBATE2STR)):
+                        # Get Chosen Sentence
+                        if oidx < len(k_max_ind):
+                            chosen = d['passage'][k_max_ind[oidx]]
+                        else:
+                            chosen = ""
+
+                        # Assemble Example Dict
+                        example_dict = {"passage": " ".join(d['passage']), "question": d['question'], "advantage": 0,
+                                        "debate_mode": [DEBATE2STR[oidx]], "stances": [], "em": 0,
+                                        "sentences_chosen": [chosen], "answer_index": d['answer'],
+                                        "prob": 0.0, "options": d['options']}
+                        dump_dicts[oidx][os.path.join('test', key)] = example_dict
+                    cur_question += 1
+
+                else:
+                    # Return all sentence choices sorted
+                    chosen = [d['passage'][k] for k in k_max_ind]
 
                     # Assemble Example Dict
                     example_dict = {"passage": " ".join(d['passage']), "question": d['question'], "advantage": 0,
-                                    "debate_mode": [DEBATE2STR[oidx]], "stances": [], "em": 0,
-                                    "sentences_chosen": [chosen], "answer_index": d['answer'],
+                                    "debate_mode": [DEBATE2STR[0]], "stances": [], "em": 0,
+                                    "sentences_chosen": chosen, "answer_index": d['answer'],
                                     "prob": 0.0, "options": d['options']}
-                    dump_dicts[oidx][os.path.join('test', key)] = example_dict
-                cur_question += 1
+                    dump_dicts[0][os.path.join('test', key)] = example_dict
+
+                    cur_question += 1
 
     # Dump to Files
-    for i, mode in enumerate(DEBATE2STR):
-        file_stub = 'fasttext/race_test_fast_agnostic_%s' % mode
+    if not args.sort:
+        for i, mode in enumerate(DEBATE2STR):
+            file_stub = 'fasttext/race_test_fast_agnostic_%s' % mode
+            with open(file_stub + '.json', 'w') as f:
+                json.dump(dump_dicts[i], f)
+    else:
+        file_stub = 'fasttext/race_test_fast_agnostic_all_sorted'
         with open(file_stub + '.json', 'w') as f:
-            json.dump(dump_dicts[i], f)
+            json.dump(dump_dicts[0], f)
 
 
 def dump_dream_debates(args, keys):
