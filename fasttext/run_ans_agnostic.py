@@ -27,6 +27,7 @@ def parse_args():
     p.add_argument("-d", "--dataset", default="race", help='Which dataset to run on - dream/race.')
     p.add_argument("-p", "--pretrained", default='datasets/fasttext')
     p.add_argument("-x", "--sort", default=False, help='Return all sentences in sorted order.')
+    p.add_argument("-r", "--prefix", required=True, help='Prefix for file')
 
     return p.parse_args()
 
@@ -217,7 +218,7 @@ def dump_race_debates(args, keys):
             with open(file_stub + '.json', 'w') as f:
                 json.dump(dump_dicts[i], f)
     else:
-        file_stub = 'fasttext/race_test_fast_agnostic_all_sorted'
+        file_stub = 'fasttext/%s_race_test_fast_agnostic_all_sorted' % args.prefix
         with open(file_stub + '.json', 'w') as f:
             json.dump(dump_dicts[0], f)
 
@@ -271,7 +272,7 @@ def dump_dream_debates(args, keys):
             with open(file_stub + '.json', 'w') as f:
                 json.dump(dump_dicts[i], f)
     else:
-        file_stub = 'fasttext/dream_test_fast_agnostic_all_sorted'
+        file_stub = 'fasttext/%s_dream_test_fast_agnostic_all_sorted' % args.prefix
         with open(file_stub + '.json', 'w') as f:
             json.dump(dump_dicts[0], f)
 

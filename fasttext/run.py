@@ -28,6 +28,7 @@ def parse_args():
     p.add_argument("-d", "--dataset", default="race", help='Which dataset to run on - dream/race.')
     p.add_argument("-p", "--pretrained", default='datasets/fasttext')
     p.add_argument("-x", "--sort", default=False, help='Return all sentences in sorted order.')
+    p.add_argument("-r", "--prefix", required=True, help='Prefix for file')
 
     return p.parse_args()
 
@@ -242,7 +243,7 @@ def dump_race_debates(args, keys):
 
     # Dump to Files
     for i, mode in enumerate(DEBATE2STR):
-        file_stub = 'fasttext/race_test_fasttext_%s' % mode
+        file_stub = 'fasttext/%s_race_test_fasttext_%s' % (args.prefix, mode)
         if args.with_question:
             file_stub += '_wq'
 
@@ -297,7 +298,7 @@ def dump_dream_debates(args, keys):
 
     # Dump to Files
     for i, mode in enumerate(DEBATE2STR[:3]):
-        file_stub = 'fasttext/dream_test_fasttext_%s' % mode
+        file_stub = 'fasttext/%s_dream_test_fasttext_%s' % (args.prefix, mode)
         if args.with_question:
             file_stub += '_wq'
 

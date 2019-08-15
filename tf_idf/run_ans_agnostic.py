@@ -30,6 +30,7 @@ def parse_args():
     p.add_argument("-s", "--dataset", default='race', help='Dataset to run on')
     p.add_argument("-p", "--pretrained", default='datasets/bert/uncased_L-12_H-768_A-12/vocab.txt')
     p.add_argument("-x", "--sort", default=False, help='Whether or not to return all sentences sorted by choice.')
+    p.add_argument("-r", "--prefix", required=True, help='Prefix for file')
 
     return p.parse_args()
 
@@ -262,7 +263,7 @@ def dump_debates(args, idf, keys):
             with open(file_stub + ".json", 'w') as f:
                 json.dump(dump_dicts[i], f)
     else:
-        file_stub = 'tf_idf/race_test_tfidf_agnostic_all_sorted'
+        file_stub = 'tf_idf/%s_race_test_tfidf_agnostic_all_sorted' % args.prefix
         with open(file_stub + '.json', 'w') as f:
             json.dump(dump_dicts[0], f)
 
@@ -341,7 +342,7 @@ def dump_dream_debates(args, idf, keys):
                 json.dump(dump_dicts[i], f)
 
     else:
-        file_stub = 'tf_idf/dream_test_tfidf_agnostic_all_sorted'
+        file_stub = 'tf_idf/%s_dream_test_tfidf_agnostic_all_sorted' % args.prefix
         with open(file_stub + '.json', 'w') as f:
             json.dump(dump_dicts[0], f)
 
