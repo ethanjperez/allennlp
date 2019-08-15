@@ -11,7 +11,7 @@
     }
   },
   "train_data_path": "/private/home/siddk/allennlp/datasets/dream/train.json",
-  "validation_data_path": "/private/home/siddk/allennlp/datasets/dream/dev.json",
+  "validation_data_path": "/private/home/siddk/allennlp/datasets/dream/test.json",
   "model": {
     "type": "bert-mc-pq2a",
     "text_field_embedder": {
@@ -39,7 +39,7 @@
     "num_epochs": 20,
     "patience": 3,
     "validation_metric": "+start_acc",
-    "cuda_device": 0,
+    "cuda_device": 1,
     "learning_rate_scheduler": {
       "type": "reduce_on_plateau",
       "factor": 0.67,
@@ -47,7 +47,7 @@
       "patience": 1
     },
     "optimizer": {
-      "lr": 0.00001,
+      "lr": 0.000005,
       "type": "bert_adam"
     }
   }

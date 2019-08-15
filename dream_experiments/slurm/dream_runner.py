@@ -10,31 +10,41 @@ PYTHON_PATH = '/private/home/siddk/.conda/envs/allennlp/bin/python3.6'
 
 PROGRAM_PATH = '/private/home/siddk/allennlp/allennlp/run.py'
 
-TRAIN_CONFIG = "{'trainer': { 'num_epochs': 20, 'patience': 10, 'validation_metric': '+start_acc', 'cuda_device': 0, " \
+TRAIN_CONFIG = "{'trainer': { 'num_epochs': 20, 'patience': 10, 'validation_metric': '-loss', 'cuda_device': 0, " \
                "'learning_rate_scheduler': {'type': 'reduce_on_plateau', 'factor': 0.67, 'mode': 'max', " \
                "'patience': 1}, 'optimizer': {'lr': %.7f, 'type': 'bert_adam'}}}"
-
-LR = [1e-5, 2e-5, 3e-5, 5e-5, 5e-6]
 
 BASE_BSZ = 8
 
 ACCUMULATION_STEPS = [2, 4]
 
-GPT_ACCUMULATION_STEPS = [16, 32]
-
 MODE_CONFIGS = {m: '/private/home/siddk/allennlp/training_config/dream/bert_mc_%s.dream.bsz=8.lr=FILL.jsonnet' % m
                 for m in ['pq2a', 'a', 'q2a']}
 MODE_CONFIGS['gpt'] = '/private/home/siddk/allennlp/training_config/dream/bert_mc_gpt.dream.bsz=1.lr=FILL.jsonnet'
 
-CKPT_PATH = "/checkpoint/siddk/debate/dream/dream.bert_mc_%s.bsz=%d.lr=%.1e.f"
+CKPT_PATH = "/checkpoint/siddk/debate/runs/dream/dream.bert_mc_%s.bsz=%d.lr=%.1e.f"
 
 BEST_CONFIG = '/private/home/siddk/allennlp/training_config/dream/dream.best.jsonnet'
 
 BEST_TRAIN_CONFIG = '/private/home/siddk/allennlp/training_config/dream/dream.best.train.jsonnet'
 
-BEST_CKPT_PATH = '/checkpoint/siddk/debate/dream/dream.bert_mc_gpt.bsz=32.lr=2.0e-05.f'
+BEST_CKPT_PATH = '/checkpoint/siddk/debate/runs/dream/dream.bert_mc_gpt.bsz=32.lr=2.0e-05.f'
 
-DEBATE_MODES = ["ⅰ", "ⅱ", "ⅰ ⅱ", "ⅰ ⅱ ⅰ ⅱ", "ⅰ ⅱ ⅰ ⅱ ⅰ ⅱ"]
+
+# SL Search Parameters
+BSZ = [8, 12, 16]
+
+LR = [1e-5, 2e-5, 3e-5, 5e-6]
+
+SL_MODE = ['sl', 'sl-sents', 'i-sl-sents']
+
+# QA Aux Parameters
+AUX = {
+    5e-6: [1, 2, 4, 8],
+    1e-5: [.5, 1, 2, 4],
+    2e-5: [.25, .5, 1, 2],
+    3e-5: [.125, .25, .5, 1]
+}
 
 
 def parse_args():
@@ -42,6 +52,7 @@ def parse_args():
     p.add_argument("-m", "--mode", default='pq2a', help='Default BERT Mode - choices <pq2a | a | q2a | gpt | oracle>')
     p.add_argument("-o", "--oracle_mode", default='eval', help='Oracle Mode for dumping - choices <eval | train>')
     p.add_argument("-s", "--supervised", default=0, type=int, help='Debate mode to run search over for super training')
+    p.add_argument("-b", "--bsz", default=8, type=int, help='Batch size for training')
 
     return p.parse_args()
 
@@ -65,12 +76,11 @@ if __name__ == "__main__":
         )
 
     elif args.mode in ['gpt']:
-        run_command = '%s %s train %s -s %s -d f -a 32 -o "%s"' % (
+        run_command = '%s %s train %s -s %s -d f -a 32' % (
             PYTHON_PATH,
             PROGRAM_PATH,
-            MODE_CONFIGS[args.mode],
-            CKPT_PATH % (args.mode, 32, LR[s_id % len(LR)]),
-            TRAIN_CONFIG % LR[s_id % len(LR)]
+            BEST_CONFIG,
+            CKPT_PATH % (args.mode, 32, LR[1])
         )
 
     elif args.mode in ['oracle']:
@@ -94,28 +104,89 @@ if __name__ == "__main__":
             )
 
     elif args.mode in ['supervised']:
-        debate_mode = DEBATE_MODES[args.supervised]
         atom_lr = LR[s_id % len(LR)]
-        atom_bsz = GPT_ACCUMULATION_STEPS[s_id % len(GPT_ACCUMULATION_STEPS)]
+        atom_bsz = BSZ[s_id % len(BSZ)]
+        sl_mode = SL_MODE[args.supervised]
 
-        ckpt_path = '/checkpoint/siddk/debate/dream/dream.%s.m=sl.n=1.x=0.5.lr=%.1e.bsz=%d.c=concat' % \
-                    ("".join(debate_mode.split()), atom_lr, atom_bsz)
-        judge_path = '/checkpoint/siddk/debate/dream/dream.bert_mc_gpt.bsz=32.lr=2.0e-05.f/model.tar.gz'
-        oracle_path = '/checkpoint/siddk/debate/dream/dream.bert_mc_gpt.bsz=32.lr=2.0e-05.f/oracle_outputs.d=6_ⅠⅡ_turns.all.pkl'
+        config = '/private/home/siddk/allennlp/training_config/dream/sl.dream.gpt.bsz=1.lr=FILL.jsonnet'
 
-        run_command = '%s %s train %s -s %s -j %s -b 1 -d %s -m sl -p %s -a %d -c concat' % (
-            PYTHON_PATH,
-            PROGRAM_PATH,
-            MODE_CONFIGS['gpt'],
-            ckpt_path,
-            judge_path,
-            debate_mode,
-            oracle_path,
-            atom_bsz
-        )
+        if sl_mode[0] == 'i':
+            ckpt_path = '/checkpoint/siddk/debate/runs/dream/dream.sl_gpt.lr=%.1e.bsz=%d.m=sl-sents.i+theory' % (atom_lr,
+                                                                                                          atom_bsz)
+        else:
+            ckpt_path = '/checkpoint/siddk/debate/runs/dream/dream.sl_gpt.lr=%.1e.bsz=%d.m=%s+theory' % (atom_lr, atom_bsz,
+                                                                                                  sl_mode)
 
-        if len(debate_mode.split()) > 1:
-            run_command += ' -n 1 -x 0.5'
+        judge_path = '/checkpoint/siddk/debate/runs/dream/dream.bert_mc_gpt.bsz=32.lr=2.0e-05.f/model.tar.gz'
+        oracle_path = '/checkpoint/siddk/debate/runs/dream/dream.bert_mc_gpt.bsz=32.lr=2.0e-05.f/oracle_outputs.d=I.all.pkl'
+
+        if sl_mode[0] == 'i':
+            run_command = '%s %s train %s -s %s -j %s -d e -m sl-sents -i -p %s -a %d -c concat -t' % (
+                PYTHON_PATH,
+                PROGRAM_PATH,
+                config,
+                ckpt_path,
+                judge_path,
+                oracle_path,
+                atom_bsz
+            )
+
+        else:
+            run_command = '%s %s train %s -s %s -j %s -d e -m %s -p %s -a %d -c concat -t' % (
+                PYTHON_PATH,
+                PROGRAM_PATH,
+                config,
+                ckpt_path,
+                judge_path,
+                sl_mode,
+                oracle_path,
+                atom_bsz
+            )
+
+        run_command += ' -o "%s"' % (TRAIN_CONFIG % atom_lr)
+
+    elif args.mode in ['qa_aux']:
+        atom_lr = LR[s_id % len(LR)]
+        atom_qa = AUX[LR[s_id % len(LR)]][s_id // len(LR)]
+        atom_bsz = args.bsz
+        sl_mode = SL_MODE[args.supervised]
+
+        config = '/private/home/siddk/allennlp/training_config/dream/sl.dream.gpt.bsz=1.lr=FILL.jsonnet'
+
+        if sl_mode[0] == 'i':
+            ckpt_path = '/checkpoint/siddk/debate/runs/dream/dream.sl_gpt.lr=%.1e.bsz=%d.m=sl-sents.i+qa_%.3f' % (
+                atom_lr, atom_bsz, atom_qa)
+        else:
+            ckpt_path = '/checkpoint/siddk/debate/runs/dream/dream.sl_gpt.lr=%.1e.bsz=%d.m=%s+qa_%.3f' % (
+                atom_lr, atom_bsz, sl_mode, atom_qa)
+
+        judge_path = '/checkpoint/siddk/debate/runs/dream/dream.bert_mc_gpt.bsz=32.lr=2.0e-05.f/model.tar.gz'
+        oracle_path = '/checkpoint/siddk/debate/runs/dream/dream.bert_mc_gpt.bsz=32.lr=2.0e-05.f/oracle_outputs.d=I.all.pkl'
+
+        if sl_mode[0] == 'i':
+            run_command = '%s %s train %s -s %s -j %s -d e -m sl-sents -i -p %s -a %d -c concat -q %.3f -r' % (
+                PYTHON_PATH,
+                PROGRAM_PATH,
+                config,
+                ckpt_path,
+                judge_path,
+                oracle_path,
+                atom_bsz,
+                atom_qa
+            )
+
+        else:
+            run_command = '%s %s train %s -s %s -j %s -d e -m %s -p %s -a %d -c concat -q %.3f -r' % (
+                PYTHON_PATH,
+                PROGRAM_PATH,
+                config,
+                ckpt_path,
+                judge_path,
+                sl_mode,
+                oracle_path,
+                atom_bsz,
+                atom_qa
+            )
 
         run_command += ' -o "%s"' % (TRAIN_CONFIG % atom_lr)
 
