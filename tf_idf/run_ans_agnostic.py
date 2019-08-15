@@ -29,6 +29,7 @@ def parse_args():
 
     p.add_argument("-s", "--dataset", default='race', help='Dataset to run on')
     p.add_argument("-p", "--pretrained", default='datasets/bert/uncased_L-12_H-768_A-12/vocab.txt')
+    p.add_argument("-x", "--sort", default=False, help='Whether or not to return all sentences sorted by choice.')
 
     return p.parse_args()
 
@@ -224,28 +225,46 @@ def dump_debates(args, idf, keys):
                     sent_scores = cosine_similarity(idf[passage_idx], idf[q_idx]).flatten()
                     k_max_ind = sent_scores.argsort()[::-1]
 
-                    for oidx in range(len(DEBATE2STR)):
-                        # Get Chosen Sentence
-                        if oidx < len(k_max_ind):
-                            chosen = d['passage'][k_max_ind[oidx]]
-                        else:
-                            chosen = ""
+                    if not args.sort:
+                        for oidx in range(len(DEBATE2STR)):
+                            # Get Chosen Sentence
+                            if oidx < len(k_max_ind):
+                                chosen = d['passage'][k_max_ind[oidx]]
+                            else:
+                                chosen = ""
+
+                            # Assemble Example Dict
+                            example_dict = {"passage": " ".join(d['passage']), "question": d['question'],
+                                            "advantage": 0, "debate_mode": [DEBATE2STR[args.debate_option]],
+                                            "stances": [], "em": 0, "sentences_chosen": [chosen],
+                                            "answer_index": d['answer'], "prob": 0.0, "options": d['options']}
+                            dump_dicts[oidx][os.path.join('test', key)] = example_dict
+
+                        cur_question += 1
+
+                    else:
+                        # Return all sentence choices sorted
+                        chosen = [d['passage'][k] for k in k_max_ind]
 
                         # Assemble Example Dict
-                        example_dict = {"passage": " ".join(d['passage']), "question": d['question'], "advantage": 0,
-                                        "debate_mode": [DEBATE2STR[args.debate_option]], "stances": [], "em": 0,
-                                        "sentences_chosen": [chosen], "answer_index": d['answer'],
-                                        "prob": 0.0, "options": d['options']}
-                        dump_dicts[oidx][os.path.join('test', key)] = example_dict
-
-                    cur_question += 1
+                        example_dict = {"passage": " ".join(d['passage']), "question": d['question'],
+                                        "advantage": 0, "debate_mode": [DEBATE2STR[0]],
+                                        "stances": [], "em": 0, "sentences_chosen": chosen,
+                                        "answer_index": d['answer'], "prob": 0.0, "options": d['options']}
+                        dump_dicts[0][os.path.join('test', key)] = example_dict
+                        cur_question += 1
 
     # Dump to file
-    for i, mode in enumerate(DEBATE2STR):
-        file_stub = 'tf_idf/race_test_tfidf_%s_%s' % (args.mode, mode)
+    if not args.sort:
+        for i, mode in enumerate(DEBATE2STR):
+            file_stub = 'tf_idf/race_test_tfidf_%s_%s' % (args.mode, mode)
 
-        with open(file_stub + ".json", 'w') as f:
-            json.dump(dump_dicts[i], f)
+            with open(file_stub + ".json", 'w') as f:
+                json.dump(dump_dicts[i], f)
+    else:
+        file_stub = 'tf_idf/race_test_tfidf_agnostic_all_sorted'
+        with open(file_stub + '.json', 'w') as f:
+            json.dump(dump_dicts[0], f)
 
 
 def dump_dream_debates(args, idf, keys):
@@ -288,25 +307,43 @@ def dump_dream_debates(args, idf, keys):
                 sent_scores = cosine_similarity(idf[passage_idx], idf[q_idx]).flatten()
                 k_max_ind = sent_scores.argsort()[::-1]
 
-                for oidx in range(3):
-                    # Get Chosen Sentence
-                    if oidx < len(k_max_ind):
-                        chosen = d['passage'][k_max_ind[oidx]]
-                    else:
-                        chosen = ""
+                if not args.sort:
+                    for oidx in range(3):
+                        # Get Chosen Sentence
+                        if oidx < len(k_max_ind):
+                            chosen = d['passage'][k_max_ind[oidx]]
+                        else:
+                            chosen = ""
+
+                        # Assemble Example Dict
+                        example_dict = {"passage": " ".join(d['passage']), "question": d['question'], "advantage": 0,
+                                        "debate_mode": [DEBATE2STR[args.debate_option]], "stances": [], "em": 0,
+                                        "sentences_chosen": [chosen], "answer_index": d['answer'],
+                                        "prob": 0.0, "options": d['options']}
+                        dump_dicts[oidx][os.path.join('test', key)] = example_dict
+
+                else:
+                    # Return all sentence choices sorted
+                    chosen = [d['passage'][k] for k in k_max_ind]
 
                     # Assemble Example Dict
                     example_dict = {"passage": " ".join(d['passage']), "question": d['question'], "advantage": 0,
                                     "debate_mode": [DEBATE2STR[args.debate_option]], "stances": [], "em": 0,
-                                    "sentences_chosen": [chosen], "answer_index": d['answer'],
+                                    "sentences_chosen": chosen, "answer_index": d['answer'],
                                     "prob": 0.0, "options": d['options']}
-                    dump_dicts[oidx][os.path.join('test', key)] = example_dict
+                    dump_dicts[0][os.path.join('test', key)] = example_dict
 
-    for i, mode in enumerate(DEBATE2STR[:3]):
-        file_stub = 'tf_idf/dream_test_tfidf_%s_%s' % (args.mode, mode)
+    if not args.sort:
+        for i, mode in enumerate(DEBATE2STR[:3]):
+            file_stub = 'tf_idf/dream_test_tfidf_%s_%s' % (args.mode, mode)
 
+            with open(file_stub + '.json', 'w') as f:
+                json.dump(dump_dicts[i], f)
+
+    else:
+        file_stub = 'tf_idf/dream_test_tfidf_agnostic_all_sorted'
         with open(file_stub + '.json', 'w') as f:
-            json.dump(dump_dicts[i], f)
+            json.dump(dump_dicts[0], f)
 
 
 if __name__ == '__main__':

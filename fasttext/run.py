@@ -262,20 +262,38 @@ def dump_dream_debates(args, keys):
             key = os.path.join(article[2], str(idx))
             d = keys[key]
 
-            # Iterate over different option indices
-            for oidx in range(3):
-                option_vec = d['option_vecs'][oidx]
+            if not args.sort:
+                # Iterate over different option indices
+                for oidx in range(3):
+                    option_vec = d['option_vecs'][oidx]
 
-                # Compute Scores
-                sent_scores = [option_vec.similarity(sent_vec) for sent_vec in d['passage_vecs']]
-                best_sent, best_score = np.argmax(sent_scores), max(sent_scores)
+                    # Compute Scores
+                    sent_scores = [option_vec.similarity(sent_vec) for sent_vec in d['passage_vecs']]
+                    best_sent, best_score = np.argmax(sent_scores), max(sent_scores)
 
-                # Assemble Example Dict
-                example_dict = {"passage": " ".join(d['passage']), "question": d['question'], "advantage": 0,
-                                "debate_mode": [DEBATE2STR[oidx]], "stances": [], "em": 0,
-                                "sentences_chosen": [d['passage'][best_sent]], "answer_index": d['answer'],
-                                "prob": best_score, "options": d['options']}
-                dump_dicts[oidx][os.path.join('test', key)] = example_dict
+                    # Assemble Example Dict
+                    example_dict = {"passage": " ".join(d['passage']), "question": d['question'], "advantage": 0,
+                                    "debate_mode": [DEBATE2STR[oidx]], "stances": [], "em": 0,
+                                    "sentences_chosen": [d['passage'][best_sent]], "answer_index": d['answer'],
+                                    "prob": best_score, "options": d['options']}
+                    dump_dicts[oidx][os.path.join('test', key)] = example_dict
+
+            else:
+                # Return all sentence choices sorted
+                for oidx in range(3):
+                    option_vec = d['option_vecs'][oidx]
+
+                    # Compute Scores
+                    sent_scores = np.array([option_vec.similarity(sent_vec) for sent_vec in d['passage_vecs']])
+                    k_max_ind = sent_scores.argsort()[::-1]
+                    chosen = [d['passage'][k] for k in k_max_ind]
+
+                    # Assemble Example Dict
+                    example_dict = {"passage": " ".join(d['passage']), "question": d['question'], "advantage": 0,
+                                    "debate_mode": [DEBATE2STR[oidx]], "stances": [], "em": 0,
+                                    "sentences_chosen": chosen, "answer_index": d['answer'],
+                                    "prob": 0.0, "options": d['options']}
+                    dump_dicts[oidx][os.path.join('test', key)] = example_dict
 
     # Dump to Files
     for i, mode in enumerate(DEBATE2STR[:3]):

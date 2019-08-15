@@ -27,10 +27,11 @@ def parse_args():
     p.add_argument("-v", "--val", required=True, help='Path to raw valid data to compute TF-IDF')
     p.add_argument("-d", "--debate_option", default=0, type=int, help='Which MC option to support (I, II, III, IV)')
     p.add_argument("-q", "--with_question", default=False, action='store_true', help='TF-IDF with question + option')
-    p.add_argument("-x", "--question_only", default=False, action='store_true', help='TF-IDF with only question')
 
     p.add_argument("-s", "--dataset", default='race', help='Dataset to run on')
     p.add_argument("-p", "--pretrained", default='datasets/bert/uncased_L-12_H-768_A-12/vocab.txt')
+    p.add_argument("-x", "--sort", default=False, help='Whether or not to sort all inputs.')
+    p.add_argument("-r", "--prefix", required=True, help='Prefix for file')
 
     return p.parse_args()
 
@@ -213,30 +214,55 @@ def dump_debates(args, idf, keys):
                 key = os.path.join(k, str(cur_question))
                 d = keys[key]
 
-                for oidx in range(len(DEBATE2STR)):
-                    # Search over passage for best sentence given debate mode
-                    opt_idx, passage_idx = d['option_idx'][oidx], d['passage_idx']
+                if not args.sort:
+                    for oidx in range(len(DEBATE2STR)):
+                        # Search over passage for best sentence given debate mode
+                        opt_idx, passage_idx = d['option_idx'][oidx], d['passage_idx']
 
-                    if (idf[passage_idx].shape[0] == 0) or (idf[opt_idx].shape[0] == 0):
-                        import IPython
-                        IPython.embed()
+                        if (idf[passage_idx].shape[0] == 0) or (idf[opt_idx].shape[0] == 0):
+                            import IPython
+                            IPython.embed()
 
-                    # Compute Scores
-                    sent_scores = cosine_similarity(idf[passage_idx], idf[opt_idx]).flatten()
-                    best_sent, best_score = np.argmax(sent_scores), max(sent_scores)
+                        # Compute Scores
+                        sent_scores = cosine_similarity(idf[passage_idx], idf[opt_idx]).flatten()
+                        best_sent, best_score = np.argmax(sent_scores), max(sent_scores)
 
-                    # Assemble Example Dict
-                    example_dict = {"passage": " ".join(d['passage']), "question": d['question'], "advantage": 0,
-                                    "debate_mode": [DEBATE2STR[args.debate_option]], "stances": [], "em": 0,
-                                    "sentences_chosen": [d['passage'][best_sent]], "answer_index": d['answer'],
-                                    "prob": best_score, "options": d['options']}
+                        # Assemble Example Dict
+                        example_dict = {"passage": " ".join(d['passage']), "question": d['question'], "advantage": 0,
+                                        "debate_mode": [DEBATE2STR[args.debate_option]], "stances": [], "em": 0,
+                                        "sentences_chosen": [d['passage'][best_sent]], "answer_index": d['answer'],
+                                        "prob": best_score, "options": d['options']}
 
-                    dump_dicts[oidx][os.path.join('test', key)] = example_dict
-                cur_question += 1
+                        dump_dicts[oidx][os.path.join('test', key)] = example_dict
+                    cur_question += 1
+
+                else:
+                    for oidx in range(len(DEBATE2STR)):
+                        # Search
+                        opt_idx, passage_idx = d['option_idx'][oidx], d['passage_idx']
+
+                        if (idf[passage_idx].shape[0] == 0) or (idf[opt_idx].shape[0] == 0):
+                            import IPython
+                            IPython.embed()
+
+                        # Compute Scores
+                        sent_scores = cosine_similarity(idf[passage_idx], idf[opt_idx]).flatten()
+                        k_max_ind = sent_scores.argsort()[::-1]
+                        chosen = [d['passage'][k] for k in k_max_ind]
+
+                        # Assemble Example Dict
+                        example_dict = {"passage": " ".join(d['passage']), "question": d['question'], "advantage": 0,
+                                        "debate_mode": [DEBATE2STR[args.debate_option]], "stances": [], "em": 0,
+                                        "sentences_chosen": chosen, "answer_index": d['answer'],
+                                        "prob": 0.0, "options": d['options']}
+
+                        dump_dicts[oidx][os.path.join('test', key)] = example_dict
+
+                    cur_question += 1
 
     # Dump to file
     for i, mode in enumerate(DEBATE2STR):
-        file_stub = 'tf_idf/race_test_tfidf_%s' % mode
+        file_stub = 'tf_idf/%s_race_test_tfidf_%s' % (args.prefix, mode)
         if args.with_question:
             file_stub += "_wq"
 
@@ -257,26 +283,47 @@ def dump_dream_debates(args, idf, keys):
             d = keys[key]
 
             # Iterate over different option indices
-            for oidx in range(3):
-                opt_idx, passage_idx = d['option_idx'][oidx], d['passage_idx']
-                if (idf[passage_idx].shape[0] == 0) or (idf[opt_idx].shape[0] == 0):
-                    import IPython
-                    IPython.embed()
+            if not args.sort:
+                for oidx in range(3):
+                    opt_idx, passage_idx = d['option_idx'][oidx], d['passage_idx']
+                    if (idf[passage_idx].shape[0] == 0) or (idf[opt_idx].shape[0] == 0):
+                        import IPython
+                        IPython.embed()
 
-                # Compute Scores
-                sent_scores = cosine_similarity(idf[passage_idx], idf[opt_idx]).flatten()
-                best_sent, best_score = np.argmax(sent_scores), max(sent_scores)
+                    # Compute Scores
+                    sent_scores = cosine_similarity(idf[passage_idx], idf[opt_idx]).flatten()
+                    best_sent, best_score = np.argmax(sent_scores), max(sent_scores)
 
-                # Assemble Example Dict
-                example_dict = {"passage": " ".join(d['passage']), "question": d['question'], "advantage": 0,
-                                "debate_mode": [DEBATE2STR[oidx]], "stances": [], "em": 0,
-                                "sentences_chosen": [d['passage'][best_sent]], "answer_index": d['answer'],
-                                "prob": best_score, "options": d['options']}
+                    # Assemble Example Dict
+                    example_dict = {"passage": " ".join(d['passage']), "question": d['question'], "advantage": 0,
+                                    "debate_mode": [DEBATE2STR[oidx]], "stances": [], "em": 0,
+                                    "sentences_chosen": [d['passage'][best_sent]], "answer_index": d['answer'],
+                                    "prob": best_score, "options": d['options']}
 
-                dump_dicts[oidx][os.path.join('test', key)] = example_dict
+                    dump_dicts[oidx][os.path.join('test', key)] = example_dict
+
+            else:
+                for oidx in range(3):
+                    opt_idx, passage_idx = d['option_idx'][oidx], d['passage_idx']
+                    if (idf[passage_idx].shape[0] == 0) or (idf[opt_idx].shape[0] == 0):
+                        import IPython
+                        IPython.embed()
+
+                    # Compute Scores
+                    sent_scores = cosine_similarity(idf[passage_idx], idf[opt_idx]).flatten()
+                    k_max_ind = sent_scores.argsort()[::-1]
+                    chosen = [d['passage'][k] for k in k_max_ind]
+
+                    # Assemble Example Dict
+                    example_dict = {"passage": " ".join(d['passage']), "question": d['question'], "advantage": 0,
+                                    "debate_mode": [DEBATE2STR[oidx]], "stances": [], "em": 0,
+                                    "sentences_chosen": chosen, "answer_index": d['answer'],
+                                    "prob": 0.0, "options": d['options']}
+
+                    dump_dicts[oidx][os.path.join('test', key)] = example_dict
 
     for i, mode in enumerate(DEBATE2STR[:3]):
-        file_stub = 'tf_idf/dream_test_tfidf_%s' % mode
+        file_stub = 'tf_idf/%s_dream_test_tfidf_%s' % (args.prefix, mode)
         if args.with_question:
             file_stub += '_wq'
 
