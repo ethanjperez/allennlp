@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 
 COMMANDS=(
+"allennlp train training_config/race.best.jsonnet -s tmp/race.num_sents_leq_12.best.f -e -r -d f -c concat -o \"{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw.num_sents_gt_26.tfidf.o_q.d=Ⅰ-Ⅱ-Ⅰ-Ⅱ-Ⅰ-Ⅱ/test'}\" 2>&1 | tee tmp/race.num_sents_leq_12.best.f/test.num_sents_gt_26.tfidf.o_q.d=Ⅰ-Ⅱ-Ⅰ-Ⅱ-Ⅰ-Ⅱ.txt"
+"allennlp train training_config/race.best.jsonnet -s tmp/race.num_sents_leq_12.best.f -e -r -d f -c concat -o \"{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw.num_sents_gt_26.tfidf.o_q.d=Ⅰ-Ⅲ-Ⅰ-Ⅲ-Ⅰ-Ⅲ/test'}\" 2>&1 | tee tmp/race.num_sents_leq_12.best.f/test.num_sents_gt_26.tfidf.o_q.d=Ⅰ-Ⅲ-Ⅰ-Ⅲ-Ⅰ-Ⅲ.txt"
+"allennlp train training_config/race.best.jsonnet -s tmp/race.num_sents_leq_12.best.f -e -r -d f -c concat -o \"{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw.num_sents_gt_26.tfidf.o_q.d=Ⅰ-Ⅳ-Ⅰ-Ⅳ-Ⅰ-Ⅳ/test'}\" 2>&1 | tee tmp/race.num_sents_leq_12.best.f/test.num_sents_gt_26.tfidf.o_q.d=d=Ⅰ-Ⅳ-Ⅰ-Ⅳ-Ⅰ-Ⅳ.txt"
+"allennlp train training_config/race.best.jsonnet -s tmp/race.num_sents_leq_12.best.f -e -r -d f -c concat -o \"{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw.num_sents_gt_26.tfidf.o_q.d=Ⅱ-Ⅲ-Ⅱ-Ⅲ-Ⅱ-Ⅲ/test'}\" 2>&1 | tee tmp/race.num_sents_leq_12.best.f/test.num_sents_gt_26.tfidf.o_q.d=Ⅱ-Ⅲ-Ⅱ-Ⅲ-Ⅱ-Ⅲ.txt"
+"allennlp train training_config/race.best.jsonnet -s tmp/race.num_sents_leq_12.best.f -e -r -d f -c concat -o \"{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw.num_sents_gt_26.tfidf.o_q.d=Ⅱ-Ⅳ-Ⅱ-Ⅳ-Ⅱ-Ⅳ/test'}\" 2>&1 | tee tmp/race.num_sents_leq_12.best.f/test.num_sents_gt_26.tfidf.o_q.d=Ⅱ-Ⅳ-Ⅱ-Ⅳ-Ⅱ-Ⅳ.txt"
+"allennlp train training_config/race.best.jsonnet -s tmp/race.num_sents_leq_12.best.f -e -r -d f -c concat -o \"{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw.num_sents_gt_26.tfidf.o_q.d=Ⅲ-Ⅳ-Ⅲ-Ⅳ-Ⅲ-Ⅳ/test'}\" 2>&1 | tee tmp/race.num_sents_leq_12.best.f/test.num_sents_gt_26.tfidf.o_q.d=Ⅲ-Ⅳ-Ⅲ-Ⅳ-Ⅲ-Ⅳ.txt"
 )
 
 for COMMAND in "${COMMANDS[@]}"; do
@@ -10,6 +16,7 @@ for COMMAND in "${COMMANDS[@]}"; do
     sbatch --job-name $SERIALIZATION_DIR --mem=20000 -t 1-23:58 --gres=gpu:1080ti:1 --open-mode append --requeue --wrap "$COMMAND"
     echo -e "\n${CYAN}${SERIALIZATION_DIR}/train.log\n"
 done
+
 
 # TODO: Check on this!
 "allennlp train training_config/bert_mc_gpt.race.lr=5e-6.bsz=1.jsonnet -s tmp/race.num_sents_gt_26.bert_mc_gpt.bsz=12.lr=5e-6.a=12.f.dream.test.num_sents_gt_26 -j tmp/race.num_sents_gt_26.bert_mc_gpt.bsz=12.lr=5e-6.a=12.f/model.tar.gz -d f -a 12 -o \"{'train_data_path': 'allennlp/tests/fixtures/data/dream/train.json', 'validation_data_path': 'datasets/dream/test.num_sents_gt_26.json', 'dataset_reader': {'type': 'dream-mc'}}\" -e 2>&1 | tee tmp/race.num_sents_gt_26.bert_mc_gpt.bsz=12.lr=5e-6.a=12.f.dream.test.num_sents_gt_26/dream.d=f.test.num_sents_gt_26.txt"

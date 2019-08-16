@@ -396,7 +396,7 @@ def train_model(params: Params,
     best_model: ``Model``
         The model with the best epoch weights.
     """
-    debate_log_basename = params['validation_data_path'].split('/')[-3] + '.' + params['validation_data_path'].split('/')[-2]
+    debate_log_basename = params['validation_data_path'].split('/')[1]
     assert (not single_shot) or eval_mode, 'Using single shot prediction outside eval_mode not yet supported.'
     assert (not single_shot) or (num_pred_rounds == -1), 'Using single shot prediction for a specific number of rounds is not yet supported.'
     # Get number of debate turns, and assert that not performing judge-only training
