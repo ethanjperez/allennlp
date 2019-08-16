@@ -440,7 +440,7 @@ class Trainer(TrainerBase):
             self._update_trainer_metrics('j_chose_no_debater_sents', j_chose_no_debater_sents.mean())
         return
 
-    def _log_verdicts(self, batch: TensorDict, ver_dicts: List[TensorDict]):
+    def _log_verdicts(self, batch: TensorDict, ver_dicts: List[TensorDict], debate_mode: List[str]):
         """
         Neatly prints and logs all judge predictions from a batch. Used for "f" full passage debate mode only.
         Simplified version of _log_debate.
@@ -453,8 +453,8 @@ class Trainer(TrainerBase):
             question = ' '.join(batch['metadata'][i]['question_tokens'])
 
             # Initialize and store values in debate logs
-            self._debate_logs[qid] = {'passage': passage, 'question': question,
-                                      'sentences_chosen': [], 'stances': [],
+            self._debate_logs[qid] = {'passage': passage, 'question': question, 'debate_mode': debate_mode,
+                                      'sentences_chosen': [], 'stances': [], 'num_sents': [],
                                       'prob_dist': [ver_dict['prob_dist'][i].tolist() for ver_dict in ver_dicts]}
             if 'option_logits' in ver_dicts[-1]:
                 self._debate_logs[qid]['option_logits'] = [ver_dict['option_logits'][i].tolist() for ver_dict in ver_dicts]
@@ -488,7 +488,6 @@ class Trainer(TrainerBase):
                     if ver_dicts[round_no].get(k) is not None:
                         self._debate_logs[qid][k] = ver_dicts[round_no][k][i].item()  # NB: May need to be .tolist() for F1
                         # print('*' + k.upper() + '*:', round(ver_dicts[round_no][k].item(), 4))
-        print(self._debate_logs[qid])
         return
 
     def _log_debate(self, batch: TensorDict, sent_idxs: TensorDict, ver_dicts: List[TensorDict],
@@ -567,7 +566,6 @@ class Trainer(TrainerBase):
                         self._debate_logs[qid][k] = ver_dicts[round_no][k][i].item()  # NB: May need to be .tolist() for F1
                         # print('*' + k.upper() + '*:', round(ver_dicts[round_no][k].item(), 4))
                 turns_completed += len(round_methods)
-        print(self._debate_logs[qid])
         return
 
     def _print_tokens(self, tokens) -> None:
@@ -1287,7 +1285,7 @@ class Trainer(TrainerBase):
             judge = self.model if self.model.is_judge else self.model.judge
             output_dict = self._forward(batch_group, judge)
             if (not for_training) and (len(batch_group) == 1):  # len(batch_group) > 1 not tested for logging
-                self._log_verdicts(batch_group[0], [output_dict])
+                self._log_verdicts(batch_group[0], [output_dict], debate_mode)
         else:  # Training on subset of sentence (judge or debate training)
             losses = [self.debate_batch_loss(batch, for_training, debate_mode) for batch in batch_group]
             losses = torch.cat([loss.unsqueeze(0) for loss in losses], 0)
