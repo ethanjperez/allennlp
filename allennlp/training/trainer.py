@@ -73,7 +73,8 @@ class Trainer(TrainerBase):
                  num_pred_rounds: int = -1,
                  x_order_prob: float = 0.,
                  require_action: bool = False,
-                 single_shot: bool = False) -> None:
+                 single_shot: bool = False,
+                 debate_log_basename: str = '') -> None:
         """
         A trainer for doing supervised learning. It just takes a labeled dataset
         and a ``DataIterator``, and uses the supplied ``Optimizer`` to learn the weights
@@ -195,6 +196,7 @@ class Trainer(TrainerBase):
         self._x_order_prob = x_order_prob
         self._require_action = require_action
         self._single_shot = single_shot
+        self._debate_log_basename = debate_log_basename
 
         # NOTE: 'Ⅰ', 'Ⅱ', 'Ⅲ', 'Ⅳ' are special unicode chars. Copy and paste to use elsewhere (don't type directly).
         self._oracle_debate_methods = {'A', 'B', 'E', 'L', 'W', 'Ⅰ', 'Ⅱ', 'Ⅲ', 'Ⅳ'}
@@ -436,6 +438,59 @@ class Trainer(TrainerBase):
                 turns_completed += len(debate_mode[round_no])
             j_chose_no_debater_sents = (j_num_debater_sents_chosen == 0).float()
             self._update_trainer_metrics('j_chose_no_debater_sents', j_chose_no_debater_sents.mean())
+        return
+
+    def _log_verdicts(self, batch: TensorDict, ver_dicts: List[TensorDict]):
+        """
+        Neatly prints and logs all judge predictions from a batch. Used for "f" full passage debate mode only.
+        Simplified version of _log_debate.
+        """
+        bsz = batch['passage']['tokens'].size(0)
+        for i in range(bsz):
+            # Set up useful variables
+            qid = batch['metadata'][i]['id']
+            passage = ' '.join(batch['metadata'][i]['passage_tokens'])
+            question = ' '.join(batch['metadata'][i]['question_tokens'])
+
+            # Initialize and store values in debate logs
+            self._debate_logs[qid] = {'passage': passage, 'question': question,
+                                      'sentences_chosen': [], 'stances': [],
+                                      'prob_dist': [ver_dict['prob_dist'][i].tolist() for ver_dict in ver_dicts]}
+            if 'option_logits' in ver_dicts[-1]:
+                self._debate_logs[qid]['option_logits'] = [ver_dict['option_logits'][i].tolist() for ver_dict in ver_dicts]
+
+            # Pretty print initial debate info
+            print('\n**ID**\n', qid)
+            print('\n**Passage**\n', passage)
+            print('\n**Question**\n', question)
+            toks = batch['metadata'][i]['passage_tokens']
+            if 'options' in batch:
+                options = [' '.join(batch['metadata'][i]['options_tokens'][j]) for j in range(len(batch['metadata'][i]['options_tokens']))]
+                self._debate_logs[qid]['options'] = options
+                print('\n**Options**\n', options)
+                true_answer_index = batch['answer_index'][i]
+                self._debate_logs[qid]['answer_index'] = true_answer_index.item()
+                print('\n**True Answer**\n', true_answer_index.item(), ' '.join(batch['metadata'][i]['options_tokens'][true_answer_index]))
+                final_pred_answer_index = ver_dicts[-1]['best_answer_index'][i]
+                self._debate_logs[qid]['final_pred_answer_index'] = final_pred_answer_index.item()
+                print('\n**Final Predicted Answer**\n', final_pred_answer_index.item(), ' '.join(batch['metadata'][i]['options_tokens'][final_pred_answer_index]))
+            else:
+                print('\n**Answers**\n', [answer if isinstance(answer, str) else ' '.join(answer) for answer in batch['metadata'][i]['answer_texts']])
+                if 'best_span' in ver_dicts[-1]:
+                    print(' '.join(toks[ver_dicts[-1]['best_span'][i][0]: ver_dicts[-1]['best_span'][i][1] + 1]))
+
+            # Pretty print each debate round
+            turns_completed = 0
+            for round_no, round_methods in enumerate(len(ver_dicts)):
+                print('\n**J**:')
+                if 'prob_dist' in ver_dicts[round_no]:
+                    print('*PROB DIST*:', ver_dicts[round_no]['prob_dist'][i])
+                for k in ['prob', 'em', 'f1']:
+                    if ver_dicts[round_no].get(k) is not None:
+                        self._debate_logs[qid][k] = ver_dicts[round_no][k][i].item()  # NB: May need to be .tolist() for F1
+                        # print('*' + k.upper() + '*:', round(ver_dicts[round_no][k].item(), 4))
+                turns_completed += len(round_methods)
+        print(self._debate_logs[qid])
         return
 
     def _log_debate(self, batch: TensorDict, sent_idxs: TensorDict, ver_dicts: List[TensorDict],
@@ -1233,6 +1288,8 @@ class Trainer(TrainerBase):
         if debate_mode[0] == "f":  # Full passage training: Normal SL training (always on Judge)
             judge = self.model if self.model.is_judge else self.model.judge
             output_dict = self._forward(batch_group, judge)
+            if (not for_training) and (len(batch_group) == 1):  # len(batch_group) > 1 not tested for logging
+                self._log_verdicts(batch_group[0], [output_dict])
         else:  # Training on subset of sentence (judge or debate training)
             losses = [self.debate_batch_loss(batch, for_training, debate_mode) for batch in batch_group]
             losses = torch.cat([loss.unsqueeze(0) for loss in losses], 0)
@@ -1508,8 +1565,8 @@ class Trainer(TrainerBase):
                         pickle.dump(self._oracle_outputs, f, pickle.HIGHEST_PROTOCOL)
                     logger.info('Saved oracle_outputs to: ' + self._oracle_outputs_path)
                 if self._eval_mode:
-                    dump_metrics(os.path.join(self._serialization_dir, f'metrics_epoch_{epoch}.d=' + '_'.join(self._debate_mode) + '.json'), metrics)
-                    dump_metrics(os.path.join(self._serialization_dir, f'debate_logs.d=' + '_'.join(self._debate_mode) + '.json'), self._debate_logs)
+                    dump_metrics(os.path.join(self._serialization_dir, f'metrics_epoch_{epoch}.{self._debate_log_basename}.d=' + '_'.join(self._debate_mode) + '.json'), metrics)
+                    dump_metrics(os.path.join(self._serialization_dir, f'debate_logs.{self._debate_log_basename}.d=' + '_'.join(self._debate_mode) + '.json'), self._debate_logs)
                 else:
                     dump_metrics(os.path.join(self._serialization_dir, f'metrics_epoch_{epoch}.json'), metrics)
 
