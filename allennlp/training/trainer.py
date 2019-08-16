@@ -1703,7 +1703,8 @@ class Trainer(TrainerBase):
                     num_pred_rounds: int = -1,
                     x_order_prob: float = 0.,
                     require_action: bool = False,
-                    single_shot: bool = False) -> 'Trainer':
+                    single_shot: bool = False,
+                    debate_log_basename: str = '') -> 'Trainer':
 
         # pylint: disable=arguments-differ
         patience = params.pop_int("patience", None)
@@ -1783,7 +1784,8 @@ class Trainer(TrainerBase):
                    num_pred_rounds=num_pred_rounds,
                    x_order_prob=x_order_prob,
                    require_action=require_action,
-                   single_shot=single_shot)
+                   single_shot=single_shot,
+                   debate_log_basename=debate_log_basename)
 
 
 class TrainerPieces(NamedTuple):
