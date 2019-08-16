@@ -480,7 +480,7 @@ class Trainer(TrainerBase):
                     print(' '.join(toks[ver_dicts[-1]['best_span'][i][0]: ver_dicts[-1]['best_span'][i][1] + 1]))
 
             # Pretty print each debate round
-            for round_no in enumerate(len(ver_dicts)):
+            for round_no in range(len(ver_dicts)):
                 print('\n**J**:')
                 if 'prob_dist' in ver_dicts[round_no]:
                     print('*PROB DIST*:', ver_dicts[round_no]['prob_dist'][i])
