@@ -438,7 +438,7 @@ class BiaffineDependencyParser(Model):
                     mask: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Decodes the head and head tag predictions using the Edmonds' Algorithm
-        for finding minimum spanning trees on directed graphs. Nodes in the
+        for finding minimum spanning trees on directed graphs-5-12. Nodes in the
         graph are the words in the sentence, and between each pair of nodes,
         there is an edge in each direction, where the weight of the edge corresponds
         to the most likely dependency label probability for that arc. The MST is

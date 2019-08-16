@@ -63,6 +63,8 @@ allennlp train training_config/race.best.jsonnet -s tmp/race.large.best.f.eval.�
 allennlp train training_config/race.best.jsonnet -s tmp/race.large.best.f.eval.Ⅲ -j tmp/race.large.best.f/model.tar.gz -e -d Ⅲ -c concat -p tmp/race.large.best.f/oracle_outputs.c=concat.d=Ⅲ.test.pkl -o \"{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/test'}\" 2>&1 | tee tmp/race.large.best.f/d=Ⅲ.c=concat.test.txt
 allennlp train training_config/race.best.jsonnet -s tmp/race.large.best.f.eval.Ⅳ -j tmp/race.large.best.f/model.tar.gz -e -d Ⅳ -c concat -p tmp/race.large.best.f/oracle_outputs.c=concat.d=Ⅳ.test.pkl -o \"{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/test'}\" 2>&1 | tee tmp/race.large.best.f/d=Ⅳ.c=concat.test.txt
 
+allennlp train training_config/race.best.jsonnet -s tmp/race.large.best.f.eval.f -j tmp/race.large.best.f/model.tar.gz -e -d f -o \"{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw/test'}\" 2>&1 | tee tmp/race.large.best.f/d=f.c=concat.race.test.txt
+
 # RACE-M
 ### BERT Large Round Robin: NB: Flipped dev/test names here
 allennlp train training_config/race.best.jsonnet -s tmp/race_m.large.best.f.eval.f.ra -j tmp/race_m.large.best.f/model.tar.gz -e -d f -o \"{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw_high/test'}\" 2>&1 | tee tmp/race_m.large.best.f/d=f.ra.c=concat.race_h.dev.txt
