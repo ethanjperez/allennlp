@@ -73,8 +73,7 @@ class Trainer(TrainerBase):
                  num_pred_rounds: int = -1,
                  x_order_prob: float = 0.,
                  require_action: bool = False,
-                 single_shot: bool = False,
-                 debate_log_basename: str = '') -> None:
+                 single_shot: bool = False) -> None:
         """
         A trainer for doing supervised learning. It just takes a labeled dataset
         and a ``DataIterator``, and uses the supplied ``Optimizer`` to learn the weights
@@ -196,7 +195,6 @@ class Trainer(TrainerBase):
         self._x_order_prob = x_order_prob
         self._require_action = require_action
         self._single_shot = single_shot
-        self._debate_log_basename = debate_log_basename
 
         # NOTE: 'Ⅰ', 'Ⅱ', 'Ⅲ', 'Ⅳ' are special unicode chars. Copy and paste to use elsewhere (don't type directly).
         self._oracle_debate_methods = {'A', 'B', 'E', 'L', 'W', 'Ⅰ', 'Ⅱ', 'Ⅲ', 'Ⅳ'}
@@ -1561,8 +1559,8 @@ class Trainer(TrainerBase):
                         pickle.dump(self._oracle_outputs, f, pickle.HIGHEST_PROTOCOL)
                     logger.info('Saved oracle_outputs to: ' + self._oracle_outputs_path)
                 if self._eval_mode:
-                    dump_metrics(os.path.join(self._serialization_dir, f'metrics_epoch_{epoch}.{self._debate_log_basename}.d=' + '_'.join(self._debate_mode) + '.json'), metrics)
-                    dump_metrics(os.path.join(self._serialization_dir, f'debate_logs.{self._debate_log_basename}.d=' + '_'.join(self._debate_mode) + '.json'), self._debate_logs)
+                    dump_metrics(os.path.join(self._serialization_dir, f'metrics_epoch_{epoch}.d=' + '_'.join(self._debate_mode) + '.json'), metrics)
+                    dump_metrics(os.path.join(self._serialization_dir, f'debate_logs.d=' + '_'.join(self._debate_mode) + '.json'), self._debate_logs)
                 else:
                     dump_metrics(os.path.join(self._serialization_dir, f'metrics_epoch_{epoch}.json'), metrics)
 
@@ -1699,8 +1697,7 @@ class Trainer(TrainerBase):
                     num_pred_rounds: int = -1,
                     x_order_prob: float = 0.,
                     require_action: bool = False,
-                    single_shot: bool = False,
-                    debate_log_basename: str = '') -> 'Trainer':
+                    single_shot: bool = False) -> 'Trainer':
 
         # pylint: disable=arguments-differ
         patience = params.pop_int("patience", None)
@@ -1780,8 +1777,7 @@ class Trainer(TrainerBase):
                    num_pred_rounds=num_pred_rounds,
                    x_order_prob=x_order_prob,
                    require_action=require_action,
-                   single_shot=single_shot,
-                   debate_log_basename=debate_log_basename)
+                   single_shot=single_shot)
 
 
 class TrainerPieces(NamedTuple):

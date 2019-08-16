@@ -6,13 +6,45 @@ allennlp train training_config/race.best.jsonnet -s tmp/race.num_sents_leq_12.be
 allennlp train training_config/race.best.jsonnet -s tmp/race.num_sents_leq_12.best.f -e -r -d f -c concat -o \"{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw.num_sents_gt_26.tfidf.o_q/d=Ⅰ-Ⅱ-Ⅰ-Ⅱ-Ⅰ-Ⅱ/test'}\" 2>&1 | tee tmp/race.num_sents_leq_12.best.f/test.num_sents_gt_26.tfidf.o_q.d=Ⅰ-Ⅱ-Ⅰ-Ⅱ-Ⅰ-Ⅱ.txt
 
 # ⅠⅡⅢⅣ
-allennlp train training_config/race.best.jsonnet -s tmp/race.num_sents_leq_12.best.f -e -r -d f -c concat -o \"{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw.num_sents_gt_26.tfidf.o_q.d=Ⅰ-Ⅱ-Ⅰ-Ⅱ-Ⅰ-Ⅱ/test'}\" 2>&1 | tee tmp/race.num_sents_leq_12.best.f/test.num_sents_gt_26.tfidf.o_q.d=Ⅰ-Ⅱ-Ⅰ-Ⅱ-Ⅰ-Ⅱ.txt
-allennlp train training_config/race.best.jsonnet -s tmp/race.num_sents_leq_12.best.f -e -r -d f -c concat -o \"{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw.num_sents_gt_26.tfidf.o_q.d=Ⅰ-Ⅲ-Ⅰ-Ⅲ-Ⅰ-Ⅲ/test'}\" 2>&1 | tee tmp/race.num_sents_leq_12.best.f/test.num_sents_gt_26.tfidf.o_q.d=Ⅰ-Ⅲ-Ⅰ-Ⅲ-Ⅰ-Ⅲ.txt
-allennlp train training_config/race.best.jsonnet -s tmp/race.num_sents_leq_12.best.f -e -r -d f -c concat -o \"{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw.num_sents_gt_26.tfidf.o_q.d=Ⅰ-Ⅳ-Ⅰ-Ⅳ-Ⅰ-Ⅳ/test'}\" 2>&1 | tee tmp/race.num_sents_leq_12.best.f/test.num_sents_gt_26.tfidf.o_q.d=d=Ⅰ-Ⅳ-Ⅰ-Ⅳ-Ⅰ-Ⅳ.txt
-allennlp train training_config/race.best.jsonnet -s tmp/race.num_sents_leq_12.best.f -e -r -d f -c concat -o \"{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw.num_sents_gt_26.tfidf.o_q.d=Ⅱ-Ⅲ-Ⅱ-Ⅲ-Ⅱ-Ⅲ/test'}\" 2>&1 | tee tmp/race.num_sents_leq_12.best.f/test.num_sents_gt_26.tfidf.o_q.d=Ⅱ-Ⅲ-Ⅱ-Ⅲ-Ⅱ-Ⅲ.txt
-allennlp train training_config/race.best.jsonnet -s tmp/race.num_sents_leq_12.best.f -e -r -d f -c concat -o \"{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw.num_sents_gt_26.tfidf.o_q.d=Ⅱ-Ⅳ-Ⅱ-Ⅳ-Ⅱ-Ⅳ/test'}\" 2>&1 | tee tmp/race.num_sents_leq_12.best.f/test.num_sents_gt_26.tfidf.o_q.d=Ⅱ-Ⅳ-Ⅱ-Ⅳ-Ⅱ-Ⅳ.txt
-allennlp train training_config/race.best.jsonnet -s tmp/race.num_sents_leq_12.best.f -e -r -d f -c concat -o \"{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw.num_sents_gt_26.tfidf.o_q.d=Ⅲ-Ⅳ-Ⅲ-Ⅳ-Ⅲ-Ⅳ/test'}\" 2>&1 | tee tmp/race.num_sents_leq_12.best.f/test.num_sents_gt_26.tfidf.o_q.d=Ⅲ-Ⅳ-Ⅲ-Ⅳ-Ⅲ-Ⅳ.txt
+for split in "dev"; do
+    for experiment in "num_sents_gt_26"; do  # "num_sents_leq_12"
+        for method in "fasttext.o"; do  # "tfidf.o" "tfidf.o_q"
+            for debaters in "ⅠⅡ" "ⅠⅢ" "ⅠⅣ" "ⅡⅢ" "ⅡⅣ" "ⅢⅣ"; do
+                for debate_mode in $debaters$debaters$debaters $debaters$debaters$debaters$debaters $debaters$debaters$debaters$debaters$debaters $debaters$debaters$debaters$debaters$debaters$debaters; do
+                    dataset=race_raw.${experiment}.${method}.d=${debate_mode}/${split}
+                    allennlp train training_config/race.best.jsonnet -s tmp/race.num_sents_leq_12.best.f -e -r -d f -c concat -o \"{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/$dataset'}\" 2>&1 | tee tmp/race.num_sents_leq_12.best.f/$dataset.txt
+                done
+            done
+        done
+    done
+done
 
+for split in "dev"; do
+    for experiment in "high" "middle"; do
+        for method in "fasttext.o" "tfidf.o" "tfidf.o_q"; do
+            for debaters in "ⅠⅡ" "ⅠⅢ" "ⅠⅣ" "ⅡⅢ" "ⅡⅣ" "ⅢⅣ"; do
+                for debate_mode in $debaters$debaters$debaters $debaters$debaters$debaters$debaters $debaters$debaters$debaters$debaters$debaters $debaters$debaters$debaters$debaters$debaters$debaters; do
+                    dataset=race_raw.${experiment}.${method}.d=${debate_mode}/${split}
+                    allennlp train training_config/race.best.jsonnet -s tmp/race.num_sents_leq_12.best.f -e -r -d f -c concat -o \"{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/$dataset'}\" 2>&1 | tee tmp/race.num_sents_leq_12.best.f/$dataset.txt
+                done
+            done
+        done
+    done
+done
+
+
+
+
+
+allennlp train training_config/race.best.jsonnet -s tmp/race.num_sents_leq_12.best.f -e -r -d f -c concat -o \"{'train_data_path': 'allennlp/tests/fixtures/data/dream/train.json', 'validation_data_path': 'datasets/race_raw.num_sents_gt_26.tfidf.o_q/d=Ⅰ-Ⅱ-Ⅰ-Ⅱ-Ⅰ-Ⅱ/test', 'dataset_reader': {'type': 'dream-mc'}}\" 2>&1 | tee tmp/race.num_sents_leq_12.best.f/dream.d=f.c=concat.race_very_large.test.txt
+
+
+allennlp train training_config/race.best.jsonnet -s tmp/race.num_sents_leq_12.best.f -e -r -d f -c concat -o \"{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw.num_sents_gt_26.tfidf.o_q.d=ⅠⅡⅠⅡⅠⅡ/dev'}\" 2>&1 | tee tmp/race.num_sents_leq_12.best.f/dev.num_sents_gt_26.tfidf.o_q.d=ⅠⅡⅠⅡⅠⅡ.txt
+allennlp train training_config/race.best.jsonnet -s tmp/race.num_sents_leq_12.best.f -e -r -d f -c concat -o \"{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw.num_sents_gt_26.tfidf.o_q.d=ⅠⅢⅠⅢⅠⅢ/dev'}\" 2>&1 | tee tmp/race.num_sents_leq_12.best.f/dev.num_sents_gt_26.tfidf.o_q.d=ⅠⅢⅠⅢⅠⅢ.txt
+allennlp train training_config/race.best.jsonnet -s tmp/race.num_sents_leq_12.best.f -e -r -d f -c concat -o \"{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw.num_sents_gt_26.tfidf.o_q.d=ⅠⅣⅠⅣⅠⅣ/dev'}\" 2>&1 | tee tmp/race.num_sents_leq_12.best.f/dev.num_sents_gt_26.tfidf.o_q.d=ⅠⅣⅠⅣⅠⅣ.txt
+allennlp train training_config/race.best.jsonnet -s tmp/race.num_sents_leq_12.best.f -e -r -d f -c concat -o \"{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw.num_sents_gt_26.tfidf.o_q.d=ⅡⅢⅡⅢⅡⅢ/dev'}\" 2>&1 | tee tmp/race.num_sents_leq_12.best.f/dev.num_sents_gt_26.tfidf.o_q.d=ⅡⅢⅡⅢⅡⅢ.txt
+allennlp train training_config/race.best.jsonnet -s tmp/race.num_sents_leq_12.best.f -e -r -d f -c concat -o \"{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw.num_sents_gt_26.tfidf.o_q.d=ⅡⅣⅡⅣⅡⅣ/dev'}\" 2>&1 | tee tmp/race.num_sents_leq_12.best.f/dev.num_sents_gt_26.tfidf.o_q.d=ⅡⅣⅡⅣⅡⅣ.txt
+allennlp train training_config/race.best.jsonnet -s tmp/race.num_sents_leq_12.best.f -e -r -d f -c concat -o \"{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/race_raw.num_sents_gt_26.tfidf.o_q.d=ⅢⅣⅢⅣⅢⅣ/dev'}\" 2>&1 | tee tmp/race.num_sents_leq_12.best.f/dev.num_sents_gt_26.tfidf.o_q.d=ⅢⅣⅢⅣⅢⅣ.txt
 
 # DREAM
 allennlp train training_config/dream.best.jsonnet -s tmp/dream.best.f -e -r -d f -o "{'train_data_path': 'allennlp/tests/fixtures/data/dream/train.json', 'validation_data_path': 'datasets/dream/test.json'}" 2>&1 | tee tmp/dream.best.f/dream.d=f.test.txt

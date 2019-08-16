@@ -17,6 +17,25 @@ for COMMAND in "${COMMANDS[@]}"; do
     echo -e "\n${CYAN}${SERIALIZATION_DIR}/train.log\n"
 done
 
+for split in "dev"; do
+    for experiment in "num_sents_gt_26"; do  # "num_sents_leq_12"
+        for method in "fasttext.o"; do  # "tfidf.o" "tfidf.o_q"
+            for debaters in "ⅠⅡ" "ⅠⅢ" "ⅠⅣ" "ⅡⅢ" "ⅡⅣ" "ⅢⅣ"; do
+                for debate_mode in $debaters$debaters$debaters $debaters$debaters$debaters$debaters $debaters$debaters$debaters$debaters$debaters $debaters$debaters$debaters$debaters$debaters$debaters; do
+                    dataset=race_raw.${experiment}.${method}.d=${debate_mode}/${split}
+                    export SERIALIZATION_DIR=tmp/race.num_sents_leq_12.best.f.$experiment.$method.d=$debate_mode.$split
+                    sbatch --job-name SERIALIZATION_DIR --mem=20000 -t 1-23:58 --gres=gpu:1080ti:1 --open-mode append --requeue --wrap "allennlp train training_config/race.best.jsonnet -s $SERIALIZATION_DIR -j tmp/race.num_sents_leq_12.best.f/model.tar.gz -e -d f -p tmp/race_m.best.bsz=12.f/oracle_outputs.c=concat.$experiment.$method.d=$debate_mode.$split.pkl -c concat -o \"{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/$dataset'}\" 2>&1 | tee $SERIALIZATION_DIR/out.txt"
+                    echo SERIALIZATION_DIR
+                done
+            done
+        done
+    done
+done
+
+
+allennlp train training_config/race.best.jsonnet -s tmp/race.num_sents_leq_12.best.f -e -r -d f -c concat -o \"{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/$dataset'}\" 2>&1 | tee tmp/race.num_sents_leq_12.best.f/$outfile.txt
+
+
 # TODO: Check on this!
 "allennlp train training_config/bert_mc_gpt.race.lr=5e-6.bsz=1.jsonnet -s tmp/race.num_sents_gt_26.bert_mc_gpt.bsz=12.lr=5e-6.a=12.f.dream.test.num_sents_gt_26 -j tmp/race.num_sents_gt_26.bert_mc_gpt.bsz=12.lr=5e-6.a=12.f/model.tar.gz -d f -a 12 -o \"{'train_data_path': 'allennlp/tests/fixtures/data/dream/train.json', 'validation_data_path': 'datasets/dream/test.num_sents_gt_26.json', 'dataset_reader': {'type': 'dream-mc'}}\" -e 2>&1 | tee tmp/race.num_sents_gt_26.bert_mc_gpt.bsz=12.lr=5e-6.a=12.f.dream.test.num_sents_gt_26/dream.d=f.test.num_sents_gt_26.txt"
 
