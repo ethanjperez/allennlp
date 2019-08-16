@@ -17,7 +17,6 @@ for COMMAND in "${COMMANDS[@]}"; do
     echo -e "\n${CYAN}${SERIALIZATION_DIR}/train.log\n"
 done
 
-
 # TODO: Check on this!
 "allennlp train training_config/bert_mc_gpt.race.lr=5e-6.bsz=1.jsonnet -s tmp/race.num_sents_gt_26.bert_mc_gpt.bsz=12.lr=5e-6.a=12.f.dream.test.num_sents_gt_26 -j tmp/race.num_sents_gt_26.bert_mc_gpt.bsz=12.lr=5e-6.a=12.f/model.tar.gz -d f -a 12 -o \"{'train_data_path': 'allennlp/tests/fixtures/data/dream/train.json', 'validation_data_path': 'datasets/dream/test.num_sents_gt_26.json', 'dataset_reader': {'type': 'dream-mc'}}\" -e 2>&1 | tee tmp/race.num_sents_gt_26.bert_mc_gpt.bsz=12.lr=5e-6.a=12.f.dream.test.num_sents_gt_26/dream.d=f.test.num_sents_gt_26.txt"
 
