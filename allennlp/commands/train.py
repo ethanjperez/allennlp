@@ -468,7 +468,7 @@ def train_model(params: Params,
                 x_order_prob=x_order_prob,
                 require_action=require_action,
                 single_shot=single_shot,
-                debate_log_base=debate_log_basename)
+                debate_log_basename=debate_log_basename)
         evaluation_iterator = pieces.validation_iterator or pieces.iterator
         evaluation_dataset = pieces.test_dataset
         # TODO: Check you're not modifying variables important for later on, in TrainerPieces
