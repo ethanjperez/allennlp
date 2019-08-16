@@ -1,0 +1,18 @@
+{
+  "answers": [
+    "C"
+  ],
+  "options": [
+    [
+      "we needn't carry a map for travel.",
+      "There are not many landmarks in the American Midwest.",
+      "There are different ways to give directions in different parts of the world.",
+      "Americans and Japanese have different body languages when you ask for directions."
+    ]
+  ],
+  "questions": [
+    "What does the passage mainly talk about?"
+  ],
+  "article": "\" In the countryside of the American Midwest , usually there are not many landmarks . There are no mountains , so the land is very flat . In many places there are no towns or buildings within miles . Instead of landmarks , people will tell you directions and distance . \" People in Los Angeles , California , have no idea of distance on the map : the measure distance by means of time , not miles . \" They don ' t know . Sometimes a person doesn ' t know the answer to your question . What happen in this situation ?",
+  "id": "test/middle/3619.txt/0"
+}

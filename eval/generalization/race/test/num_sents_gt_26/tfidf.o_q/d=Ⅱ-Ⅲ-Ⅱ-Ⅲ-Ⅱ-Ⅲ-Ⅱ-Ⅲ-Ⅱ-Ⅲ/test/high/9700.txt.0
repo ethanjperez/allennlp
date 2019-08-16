@@ -1,0 +1,18 @@
+{
+  "answers": [
+    "C"
+  ],
+  "options": [
+    [
+      "He woke up too late for his breakfast.",
+      "There was an empty place at the table.",
+      "He was the only guest on that day.",
+      "Her daughter wanted to talk with him."
+    ]
+  ],
+  "questions": [
+    "Why did Mrs. Smith invite Johnson to have breakfast with her family?"
+  ],
+  "article": "Mrs . Johnson went downstairs for breakfast . Smith invited him to have breakfast with her family . Smith went to the kitchen to prepare breakfast . Johnson noticed there were four places at the table and asked Catherine if there was another guest . Catherine told him that it was an empty place . Looking at the empty chair , Johnson was more puzzled . He ' s a guest from London .",
+  "id": "test/high/9700.txt/0"
+}

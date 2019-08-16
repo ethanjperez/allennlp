@@ -1,0 +1,18 @@
+{
+  "answers": [
+    "A"
+  ],
+  "options": [
+    [
+      "The author didn't like the man's foolish questions",
+      "They talked with each other all night",
+      "They got angry about the window",
+      "The author didn't understand the man's words"
+    ]
+  ],
+  "questions": [
+    "What do we know about the author and the man sitting next to him?"
+  ],
+  "article": "The man sitting next to me started to ask all kinds of questions : \" Where do you work ? How much do you have in the bank ? It was shut all night , as usual . What could I do ?",
+  "id": "test/high/9265.txt/0"
+}

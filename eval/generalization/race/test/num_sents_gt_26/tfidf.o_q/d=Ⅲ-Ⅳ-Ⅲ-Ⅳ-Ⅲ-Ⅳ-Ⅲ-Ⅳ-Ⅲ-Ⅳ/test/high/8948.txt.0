@@ -1,0 +1,18 @@
+{
+  "answers": [
+    "C"
+  ],
+  "options": [
+    [
+      "We may only have the ability to remember 5 numbers.",
+      "It's hard to find the number from the contacts list.",
+      "We might lose all our phone numbers accidentally.",
+      "Our device is more easily damaged or stolen."
+    ]
+  ],
+  "questions": [
+    "What's the disadvantage by adding all numbers to the contacts list?"
+  ],
+  "article": "Memorizing phone numbers It was annoying to remember numbers . Now we simply add them to our contacts list . That usually works well unless our device is lost , stolen , or damaged . No one can be expected to remember all their contact numbers . What we can do is memorize 5 of our most important contact numbers . If you ' re really ambitious you can memorize 5 contacts for each category .",
+  "id": "test/high/8948.txt/0"
+}

@@ -1,0 +1,18 @@
+{
+  "answers": [
+    "C"
+  ],
+  "options": [
+    [
+      "The mirror.",
+      "The counter.",
+      "The shirt itself.",
+      "The medicine."
+    ]
+  ],
+  "questions": [
+    "What changes the color of your shirt?"
+  ],
+  "article": "Your shirt changes from sky blue to deep red . Tiny preprogrammed electronics are rearranged in your shirt to change its color . \" A list of possible foods appear on the counter as kitchen checks its food supplies . Your car checks your fingerprints and unlocks the doors . Your car drives itself down the road and moves smoothly into traffic on the highway .",
+  "id": "test/high/3753.txt/0"
+}

@@ -1,0 +1,18 @@
+{
+  "answers": [
+    "A"
+  ],
+  "options": [
+    [
+      "fast",
+      "slow",
+      "away",
+      "out"
+    ]
+  ],
+  "questions": [
+    "Kyle walked into Ernie's Pet World and he walked   _   to the front counter ."
+  ],
+  "article": "When Kyle walked into Ernie ' s Pet World , he looked very worried . He walked quickly to the front counter . At Ernie ' s Pet World , we have the best kinds .",
+  "id": "test/middle/1696.txt/0"
+}

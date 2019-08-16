@@ -1,0 +1,18 @@
+{
+  "answers": [
+    "C"
+  ],
+  "options": [
+    [
+      "left high school",
+      "joined the Navy",
+      "performed in a show for the sailors",
+      "left the Navy for Broadway"
+    ]
+  ],
+  "questions": [
+    "Benny was determined to be a comedian after he   _  ."
+  ],
+  "article": "Jack Benny was one of the most famous names in show business . Benny was a quiet boy . As a child , Benny learned to play the violin . After finishing his school , he joined the Navy . That experience made him believe that his future job was a comedian . In 1963 Benny returned to Broadway for the first time since 1931 . Benny continued to perform .",
+  "id": "test/high/6222.txt/0"
+}

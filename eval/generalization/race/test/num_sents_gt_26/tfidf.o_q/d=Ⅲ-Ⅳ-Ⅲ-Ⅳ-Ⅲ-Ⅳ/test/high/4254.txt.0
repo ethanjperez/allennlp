@@ -1,0 +1,18 @@
+{
+  "answers": [
+    "D"
+  ],
+  "options": [
+    [
+      "five individuals made speeches",
+      "the boss's speech was best thought of",
+      "everyone was crying out loudly",
+      "the writer was astonished by the scene"
+    ]
+  ],
+  "questions": [
+    "At the funeral,  _  ."
+  ],
+  "article": "The next day was the funeral . At the end of the service I walked away from the funeral parlor stunned at the outpouring of emotion . There was no mention of the funeral or our poor colleague .",
+  "id": "test/high/4254.txt/0"
+}

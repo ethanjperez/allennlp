@@ -1,0 +1,18 @@
+{
+  "answers": [
+    "C"
+  ],
+  "options": [
+    [
+      "the author and his brother had done well in school",
+      "the author had been very concerned about his school work",
+      "the author had spent much time watching TV after school",
+      "the author had realized how important schooling was"
+    ]
+  ],
+  "questions": [
+    "We can learn from the beginning of the passage that   _  ."
+  ],
+  "article": "It was 1961 and I was in the fifth grade . Our mother had only been able to get through third grade . \" We moaned ( , ) and complained about how unfair it was . But she explained that we would go where the books were : \" I ' ll drive you to the library . It didn ' t dawn on me at the time , but the experience was quite different from watching TV . Sometimes I still can ' t believe my life ' s journey , from a failing and indifferent student in a Detroit public school to this position , which takes me all over the world to teach and perform critical surgery .",
+  "id": "test/high/1006.txt/0"
+}

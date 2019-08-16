@@ -1,0 +1,18 @@
+{
+  "answers": [
+    "B"
+  ],
+  "options": [
+    [
+      "To find free medical treatment for his friend.",
+      "To have his friend admitted into the hospital.",
+      "To pay the expenses of treatment for his friend.",
+      "To keep him company during the operation."
+    ]
+  ],
+  "questions": [
+    "Why did the author go to the hospital with his friend?"
+  ],
+  "article": "But our friend could not afford the surgery . So I went to the hospital with him . I talked to the surgeon , asking him to do the surgery for him and promising to pay the expenses the next day ( As if I had that money ) . All I knew was that I needed to help my friend ! I told him that I had a friend who was really in need . As soon as I had the money I ran to the hospital and paid all the bills .",
+  "id": "test/high/18364.txt/0"
+}

@@ -1,0 +1,18 @@
+{
+  "answers": [
+    "A"
+  ],
+  "options": [
+    [
+      "Halifax Playhouse.",
+      "City Varieties.",
+      "Grand Theatre.",
+      "York Theatre Royal."
+    ]
+  ],
+  "questions": [
+    "Which theatre offers the cheapest seat?"
+  ],
+  "article": "City Varieties The Headrow , Leeds . York Theatre Royal prefix = st1 / St Leonard ' s Place , York . Best known for her Adrian Mole Diaries , Townsend now writes about an evening class , which two men and a woman attend . Halifax Playhouse King ' s Cross Street , Halifax . Mon : 2 seats for the price of one . Grand Theatre Oxford Street , Leeds .",
+  "id": "test/high/23496.txt/0"
+}

@@ -1,0 +1,18 @@
+{
+  "answers": [
+    "C"
+  ],
+  "options": [
+    [
+      "born to a wealthy family",
+      "a famous singer",
+      "a man with a great dream",
+      "was in love with music when he was a baby"
+    ]
+  ],
+  "questions": [
+    "When he was very young, Artie Shaw was    _   ."
+  ],
+  "article": "Artie Shaw was born in New York City in 1910 . Artie Shaw was always trying something new , something different . Artie Shaw did not care .",
+  "id": "test/high/16439.txt/0"
+}

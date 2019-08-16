@@ -1,0 +1,18 @@
+{
+  "answers": [
+    "A"
+  ],
+  "options": [
+    [
+      "On a beach at night",
+      "In a house near the dunes.",
+      "On a front porch in the evening.",
+      "In the shallow water of the ocean."
+    ]
+  ],
+  "questions": [
+    "Where did the story happen?"
+  ],
+  "article": "One warm September night , Mira had come down to the beach to enjoy the night air . \" Sea turtles bury their eggs on the beach every year in April and in September . They reached the beach just in time to see the tiny turtles slipping silently into the waves . Mira watched as the last turtle entered the water .",
+  "id": "test/high/144.txt/0"
+}

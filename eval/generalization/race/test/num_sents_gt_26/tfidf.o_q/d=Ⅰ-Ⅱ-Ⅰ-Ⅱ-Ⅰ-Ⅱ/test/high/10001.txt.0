@@ -1,0 +1,18 @@
+{
+  "answers": [
+    "D"
+  ],
+  "options": [
+    [
+      "harmful",
+      "easy",
+      "interesting",
+      "common"
+    ]
+  ],
+  "questions": [
+    "From Para.1 we learn that lying is very   _  ."
+  ],
+  "article": "Truth about lying : lying ' s a cooperative act . Not all lies are harmful . Lying is complex . Why is it so easy to learn ?",
+  "id": "test/high/10001.txt/0"
+}

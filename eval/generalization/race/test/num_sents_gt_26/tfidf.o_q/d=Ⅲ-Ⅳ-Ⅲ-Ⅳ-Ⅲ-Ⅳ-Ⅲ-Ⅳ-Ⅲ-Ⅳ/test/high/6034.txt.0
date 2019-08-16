@@ -1,0 +1,18 @@
+{
+  "answers": [
+    "C"
+  ],
+  "options": [
+    [
+      "They lived in the same city.",
+      "They were both interested in literature.",
+      "John knew Hollis's name from a library book.",
+      "John came across Hollis in a Florida library."
+    ]
+  ],
+  "questions": [
+    "How did John Blanchard get to know Miss Hollis Maynell?"
+  ],
+  "article": "John Blanchard stood up from the bench , straightened his Army uniform , and studied the crowd of people making their way through Grand Central Station . His interest in her had begun thirteen months before in a Florida library . In the front of the book , he discovered the previous owner ' s name , Miss Hollis Maynell . Almost uncontrollably I made one step closer to her , and then I saw Hollis Maynell . \" I ' m Lieutenant John Blanchard , and you must be Miss Maynell . \" It ' s not difficult to understand and admire Miss Maynell ' s wisdom .",
+  "id": "test/high/6034.txt/0"
+}

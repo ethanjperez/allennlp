@@ -1,0 +1,18 @@
+{
+  "answers": [
+    "A"
+  ],
+  "options": [
+    [
+      "It rejected one of its founders when he turned 30.",
+      "It once fell apart due to different visions of the future.",
+      "NeXT became its parent company and made a great comeback.",
+      "It has survived after it had a destructive blow."
+    ]
+  ],
+  "questions": [
+    "Which of the following is TRUE about Apple?"
+  ],
+  "article": "But then our visions of the future began to diverge ( to be different ) and eventually we had _ . The turn of events at Apple had not changed that one bit . I had been rejected , but I was still in love . I didn ' t see it then , but it turned out that getting fired from Apple was the best thing that could have ever happened to me . In a remarkable turn of events , Apple bought NeXT , I returned to Apple , and the technology we developed at NeXT is at the heart of Apple ' s current renaissance .",
+  "id": "test/high/10276.txt/0"
+}

@@ -1,0 +1,18 @@
+{
+  "answers": [
+    "C"
+  ],
+  "options": [
+    [
+      "is very popular",
+      "has a high temperature",
+      "is very difficult to deal with",
+      "can't be held in your hand"
+    ]
+  ],
+  "questions": [
+    "If you describe something as a hot potato, it   _  ."
+  ],
+  "article": "Take the phrase \" hot potato \" for example . The potato is a popular vegetable in the United States . Imagine trying to carry a hot , baked potato in your hand . One such hot potato is taxes .",
+  "id": "test/high/20187.txt/0"
+}

@@ -1,0 +1,18 @@
+{
+  "answers": [
+    "C"
+  ],
+  "options": [
+    [
+      "he was thinking about the words",
+      "he didn't understand the words",
+      "he wanted to talk to his dog",
+      "he liked talking to himself"
+    ]
+  ],
+  "questions": [
+    "The boy repeated the words \"Thank you, dear! You are a nice little boy!\" because  _  ."
+  ],
+  "article": "\" Thank you , dear ! You are a nice little boy ! You are a nice little boy \" he repeated the woman ' s words . Then in a low voice he said to his dog , \" You are a nice little dog ! He saw a clean nice boy .",
+  "id": "test/middle/2387.txt/0"
+}

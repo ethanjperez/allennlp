@@ -1,0 +1,18 @@
+{
+  "answers": [
+    "C"
+  ],
+  "options": [
+    [
+      "His mother.",
+      "His father.",
+      "His sister.",
+      "The writer."
+    ]
+  ],
+  "questions": [
+    "Who did the boy buy the gift for?"
+  ],
+  "article": "The boy continued to hold the doll . I asked the boy who the doll was for . \" I asked him where his sister was . \" The boy lowered his head .",
+  "id": "test/middle/3997.txt/0"
+}

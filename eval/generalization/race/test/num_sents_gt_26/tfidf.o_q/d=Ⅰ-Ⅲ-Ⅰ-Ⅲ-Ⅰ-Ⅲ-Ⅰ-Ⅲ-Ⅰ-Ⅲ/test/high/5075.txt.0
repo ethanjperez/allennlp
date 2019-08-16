@@ -1,0 +1,18 @@
+{
+  "answers": [
+    "A"
+  ],
+  "options": [
+    [
+      "kids lacked energy to study attentively",
+      "many kids dropped out of school",
+      "kids made more efforts to study hard",
+      "many kids had to go back home for lunch"
+    ]
+  ],
+  "questions": [
+    "Because there was no midday meal in school,   _  ."
+  ],
+  "article": "There was no running water or electricity in the hospital . Kids can die from it easily , and adults get very sick . Many kids in Sauri didn ' t attend school because their parents couldn ' t afford school fees . It was hard for them to concentrate , though , as there ' s no midday meal . There are no school fees , and the school now serves midday meals for the students .",
+  "id": "test/high/5075.txt/0"
+}

@@ -1,0 +1,18 @@
+{
+  "answers": [
+    "D"
+  ],
+  "options": [
+    [
+      "Students buy the time of their showers.",
+      "The clock times the student's bathing except when the bather pauses for soap.",
+      "If money runs out, there will be no water.",
+      "Having finished bathing, the student has to pay for it."
+    ]
+  ],
+  "questions": [
+    "According to the passage, which of the following is NOT true?"
+  ],
+  "article": "Before entering the bathhouse , students pay for the amount of time they want in the shower with cash or their student ID card . It pauses when a button is pressed for soap . The benefits of the new system can be seen with the old system , which charged 1 Yuan for each person regardless of time in the shower . Some students say it is bad because bathing had become a sort of race . Many people using it for the first time are not sure how long they need to shower . They have to ask the bathhouse worker to help them buy extra time . The university is also considering some students ' suggestions that they be allowed to pay after they ' ve finished the shower . Without the time limits , most students tended to shower for 30 to an hour in the bathhouse . The bathing fee there is 0 .",
+  "id": "test/high/5407.txt/0"
+}

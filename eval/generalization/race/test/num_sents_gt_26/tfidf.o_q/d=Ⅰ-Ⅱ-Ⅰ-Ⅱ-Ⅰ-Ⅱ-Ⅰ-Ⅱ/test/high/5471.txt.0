@@ -1,0 +1,18 @@
+{
+  "answers": [
+    "A"
+  ],
+  "options": [
+    [
+      "didn't speak to",
+      "were friendly to",
+      "often fought with",
+      "never had bitter words with"
+    ]
+  ],
+  "questions": [
+    "Just before the carpenter came, John and Bob  _  each other."
+  ],
+  "article": "Farmer John and Farmer Bob were neighbors . \" It must be Bob , \" John thought . \" Farmer John helped the carpenter get the materials ready and then he was off for the day . We should be good to each other , \" said Farmer Bob . Then they turned to see the carpenter , who was ready to go .",
+  "id": "test/high/5471.txt/0"
+}

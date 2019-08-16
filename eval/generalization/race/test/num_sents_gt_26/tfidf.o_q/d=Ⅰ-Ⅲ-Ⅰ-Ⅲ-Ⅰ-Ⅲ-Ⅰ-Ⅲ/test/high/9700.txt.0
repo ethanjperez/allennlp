@@ -1,0 +1,18 @@
+{
+  "answers": [
+    "C"
+  ],
+  "options": [
+    [
+      "He woke up too late for his breakfast.",
+      "There was an empty place at the table.",
+      "He was the only guest on that day.",
+      "Her daughter wanted to talk with him."
+    ]
+  ],
+  "questions": [
+    "Why did Mrs. Smith invite Johnson to have breakfast with her family?"
+  ],
+  "article": "Johnson went downstairs for breakfast . Smith invited him to have breakfast with her family . Smith went to the kitchen to prepare breakfast . Her mother always kept that place for him and made his breakfast every morning . He ' s a guest from London .",
+  "id": "test/high/9700.txt/0"
+}

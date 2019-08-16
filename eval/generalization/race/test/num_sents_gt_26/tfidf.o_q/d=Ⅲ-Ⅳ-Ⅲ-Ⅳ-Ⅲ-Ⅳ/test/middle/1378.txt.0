@@ -1,0 +1,18 @@
+{
+  "answers": [
+    "B"
+  ],
+  "options": [
+    [
+      "England",
+      "America",
+      "Canada",
+      "France"
+    ]
+  ],
+  "questions": [
+    "Where did the traveler come from?"
+  ],
+  "article": "A traveler came out of the airport . The next day the taxi driver took the traveler everywhere again . Where do you come from ?",
+  "id": "test/middle/1378.txt/0"
+}

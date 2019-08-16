@@ -1,0 +1,18 @@
+{
+  "answers": [
+    "B"
+  ],
+  "options": [
+    [
+      "The US soldiers used the chocolate bars as bath soap.",
+      "The US army produced more chocolate bars than necessary for its soldiers.",
+      "The US soldiers did not have enough food during World War II.",
+      "European people regretted eating chocolate bars from the US soldiers."
+    ]
+  ],
+  "questions": [
+    "Which of the following is TRUE according to the passage?"
+  ],
+  "article": "Chocolate soap is supposed to be good for the skin . Unfortunately for the US soldiers of World War II , the chocolate bars the army gave them tasted like they were intended for use in the bath . Samuel Hinkle , the chemist who created the chocolate bars , pointed out that the number of bars made were far greater than the army needed . \" It soon became obvious that the generous American soldiers were sharing their valued possessions with their foreign friends , whether soldiers of other countries or local citizens . \" Other Europeans did not see chocolate until well after the war ended . Before the British , we saw only German soldiers . But chocolate ?",
+  "id": "test/high/8787.txt/0"
+}
