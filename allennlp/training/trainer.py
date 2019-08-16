@@ -480,8 +480,7 @@ class Trainer(TrainerBase):
                     print(' '.join(toks[ver_dicts[-1]['best_span'][i][0]: ver_dicts[-1]['best_span'][i][1] + 1]))
 
             # Pretty print each debate round
-            turns_completed = 0
-            for round_no, round_methods in enumerate(len(ver_dicts)):
+            for round_no in enumerate(len(ver_dicts)):
                 print('\n**J**:')
                 if 'prob_dist' in ver_dicts[round_no]:
                     print('*PROB DIST*:', ver_dicts[round_no]['prob_dist'][i])
@@ -489,7 +488,6 @@ class Trainer(TrainerBase):
                     if ver_dicts[round_no].get(k) is not None:
                         self._debate_logs[qid][k] = ver_dicts[round_no][k][i].item()  # NB: May need to be .tolist() for F1
                         # print('*' + k.upper() + '*:', round(ver_dicts[round_no][k].item(), 4))
-                turns_completed += len(round_methods)
         print(self._debate_logs[qid])
         return
 
