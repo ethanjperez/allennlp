@@ -22,7 +22,7 @@ class FiLM(torch.nn.Module):
     'FiLM: Visual Reasoning with a General Conditioning Layer'
     """
     def forward(self, x, gammas, betas):
-        gammas = gammas.unsqueeze(1)  # NB: Make -2? Consistent with bert_mc. Add to general utils.
+        gammas = gammas.unsqueeze(1)
         betas = betas.unsqueeze(1)
         return (gammas * x) + betas
 
@@ -101,7 +101,7 @@ class BidirectionalAttentionFlow(Model):
         self._detach_value_head = detach_value_head
         self._qa_loss_weight = qa_loss_weight
         self.influence_reward = influence_reward
-        self.answer_type = 'mc' if dataset_name == 'race' else 'span'  # NB: Field will be incorrect for previously trained RACE bidaf models, but we're not using those anyways
+        self.answer_type = 'mc' if dataset_name == 'race' else 'span'
         self.output_type = 'span'  # The actual way the output is given (here it's as a pointer to input)
         self._text_field_embedder = text_field_embedder
         self._highway_layer = TimeDistributed(Highway(text_field_embedder.get_output_dim(),
@@ -118,7 +118,7 @@ class BidirectionalAttentionFlow(Model):
         modeling_dim = modeling_layer.get_output_dim()
         span_start_input_dim = encoding_dim * 4 + modeling_dim
         if not self.is_judge:
-            self._value_head = TimeDistributed(torch.nn.Linear(span_start_input_dim, 1))  # NB: Can make MLP
+            self._value_head = TimeDistributed(torch.nn.Linear(span_start_input_dim, 1))  # Can make MLP
         self._span_start_predictor = TimeDistributed(torch.nn.Linear(span_start_input_dim, 1))
 
         span_end_encoding_dim = span_end_encoder.get_output_dim()
@@ -268,7 +268,8 @@ class BidirectionalAttentionFlow(Model):
             turn_film_params = self._turn_film_gen(stance.to(final_merged_passage).unsqueeze(1))
             turn_gammas, turn_betas = torch.split(turn_film_params, self._modeling_layer.get_input_dim(), dim=-1)
             final_merged_passage_mask = (final_merged_passage != 0).float()  # NOTE: Using heuristic to get mask
-            final_merged_passage = self._film(final_merged_passage, 1. + turn_gammas, turn_betas) * final_merged_passage_mask
+            final_merged_passage = self._film(
+                final_merged_passage, 1. + turn_gammas, turn_betas) * final_merged_passage_mask
         modeled_passage = self._dropout(self._modeling_layer(final_merged_passage, passage_lstm_mask))
         modeling_dim = modeled_passage.size(-1)
 
@@ -318,7 +319,9 @@ class BidirectionalAttentionFlow(Model):
                 "span_end_probs": span_end_probs,
                 "best_span": best_span,
                 "value": value if not self.is_judge else None,
-                "prob": torch.tensor([span_start_probs[i, span_start[i]] if span_start[i] < span_start_probs.size(1) else 0. for i in range(batch_size)]) if self.is_judge else None,  # prob(true ans)
+                "prob": torch.tensor([
+                    span_start_probs[i, span_start[i]] if span_start[i] < span_start_probs.size(1) else 0.
+                    for i in range(batch_size)]) if self.is_judge else None,  # prob(true answer)
                 "prob_dist": span_start_probs,
                 }
 
@@ -339,7 +342,8 @@ class BidirectionalAttentionFlow(Model):
                 output_dict["loss"] = nll_loss(util.masked_log_softmax(span_start_logits, valid_output_mask), sent_targets.squeeze(-1))
                 if store_metrics:
                     self._span_start_accuracy(span_start_logits, sent_targets.squeeze(-1))
-            elif self.reward_method.startswith('sl-sents'):  # sent_targets should be a matrix of target values (non-zero only in EOS indices)
+            elif self.reward_method.startswith('sl-sents'):
+                # sent_targets should be a matrix of target values (non-zero only in EOS indices)
                 sent_targets = util.replace_masked_values(sent_targets, valid_output_mask, -1e7)
                 output_dict["loss"] = util.masked_mean(((span_start_logits - sent_targets) ** 2), valid_output_mask, 1)
                 if store_metrics:

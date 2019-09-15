@@ -34,13 +34,18 @@ which to write the results.
                             additional packages to include
 
    debate arguments:
-     -d, --debate_mode     List of debate turns (e.g. aa, ar, rr, Ar) => capital implies oracle agent
+     -d, --debate_mode     List of debate turns (e.g. aa, ar, rr, Ar) => capital implies search agent
      -j, --judge_filename  Path to judge config or pre-trained judge model. If config, judge trained during debate
      -u, --update_judge    Boolean whether or not to update Judge model during debate training
-     -m, --reward_method   Choice of Debate Reward function - [em (exact match), f1, ssp (start span prob), sl, sl-ssp]
+     -m, --reward_method   Choice of Debate Reward function - [em (exact match), f1,
+                               prob (judge probability on an answer option),
+                               sl (Supervised Learning to predict search-chosen sentence),
+                               sl-sents (SL to predict Judge answer prob if each sentence had been chosen,
+                               sl-sents-influence (Like above, but predicting the change in Judge prob (not raw prob),
+                               sl-random (Random Baseline: Use SL setup but with uniform random sentence selection]
      -v, --detach_val...   Boolean whether or not to detach value function from policy network to isolate gradients
      -b, --breakpoint...   Debugging option to set sensitivity of breakpoints
-     -p, --oracle_outputs_path... Path to file with oracle predictions for supervised learning
+     -p, --search_outputs_path... Path to file with search predictions for supervised learning
      -a, --accumulation... Number of steps to accumulate gradient for before taking an optimizer step
      -e, --eval_mode       Boolean whether or not to run in eval-only mode, on test data
      -g, --multi-gpu       Boolean whether or not to load in model-parallel multi-gpu mode (allocation in config file)
@@ -125,7 +130,7 @@ class Train(Subcommand):
 
         subparser.add_argument('-m', '--reward_method',
                                type=str,
-                               choices=['em', 'f1', 'prob',  # Exact Match, F1, (Span Start) Probability
+                               choices=['em', 'f1', 'prob',  # Exact Match, F1, Probability
                                         'sl',  # Supervised Learning (Oracle Prob)
                                         'sl-sents',  # SL on change in probabilities
                                         'sl-random'],  # SL but with random policy (baseline)
@@ -143,10 +148,10 @@ class Train(Subcommand):
                                default=0,
                                help='Debugging option: Increase to run with more breakpoints. 0 for no breakpoints.')
 
-        subparser.add_argument('-p', '--oracle_outputs_path',
+        subparser.add_argument('-p', '--search_outputs_path',
                                type=str,
                                default=None,
-                               help='Name file containing oracle predictions to do Supervised Learning on.')
+                               help='Name file containing search predictions to do Supervised Learning on.')
 
         subparser.add_argument('-a', '--accumulation_steps',
                                type=int,
@@ -166,7 +171,7 @@ class Train(Subcommand):
         subparser.add_argument('-c', '--choice_mode',
                                type=str,
                                choices=['delete', 'reveal', 'concat'],
-                               default=None,  # if None, set automatically in Trainer by dataset type
+                               default='concat',
                                help='type of action debating agents take')
 
         subparser.add_argument('-q', '--qa_loss_weight',
@@ -187,7 +192,7 @@ class Train(Subcommand):
         subparser.add_argument('-n', '--num_pred_rounds',
                                type=int,
                                default=-1,
-                               help='Number of rounds debaters make predictions while training (vs. using oracle).'
+                               help='Number of rounds debaters make predictions while training (vs. using search).'
                                     'If <1, debaters make prediction every round.')
 
         subparser.add_argument('-x', '--x_order_prob',
@@ -228,7 +233,7 @@ def train_model_from_args(args: argparse.Namespace):
                           args.reward_method,
                           args.detach_value_head,
                           args.breakpoint_level,
-                          args.oracle_outputs_path,
+                          args.search_outputs_path,
                           args.accumulation_steps,
                           args.multi_gpu,
                           args.choice_mode,
@@ -253,7 +258,7 @@ def train_model_from_file(parameter_filename: str,
                           reward_method: str = None,
                           detach_value_head: bool = False,
                           breakpoint_level: int = 0,
-                          oracle_outputs_path: str = None,
+                          search_outputs_path: str = None,
                           accumulation_steps: int = 1,
                           multi_gpu: bool = False,
                           choice_mode: str = None,
@@ -275,7 +280,7 @@ def train_model_from_file(parameter_filename: str,
         The directory in which to save results and logs. We just pass this along to
         :func:`train_model`.
     debate_mode : ``List[str]``
-        List of debate turns (e.g. aa, ar, rr, Ar) => capitalization implies oracle agent
+        List of debate turns (e.g. aa, ar, rr, Ar) => capitalization implies search agent
     overrides : ``str``
         A JSON string that we will use to override values in the input parameter file.
     file_friendly_logging : ``bool``, optional (default=False)
@@ -302,8 +307,8 @@ def train_model_from_file(parameter_filename: str,
         value function gradients from affecting policy network parameters.
     breakpoint_level : ``int`` optional (default=0)
         Debugging option to set breakpoint sensitivity (0 - no breakpoints).
-    id_to_oracle_filename : ``str`` optional (default=None)
-        Path to file with oracle predictions for each agent - necessary for supervised training
+    id_to_search_filename : ``str`` optional (default=None)
+        Path to file with search predictions for each agent - necessary for supervised training
     accumulation_steps : ``int`` (default=1)
         Number of gradient steps to accumulate over before performing an update. Poor-man's batching for instances where
         number of examples per batch is small (limited GPU memory)
@@ -316,7 +321,7 @@ def train_model_from_file(parameter_filename: str,
     params = Params.from_file(parameter_filename, overrides)
     return train_model(params, serialization_dir, file_friendly_logging, recover, force, debate_mode, judge_filename,
                        update_judge, eval_mode, reward_method, detach_value_head, breakpoint_level,
-                       oracle_outputs_path, accumulation_steps, multi_gpu, choice_mode, qa_loss_weight,
+                       search_outputs_path, accumulation_steps, multi_gpu, choice_mode, qa_loss_weight,
                        influence_reward, theory_of_mind, num_pred_rounds, x_order_prob, require_action, single_shot)
 
 
@@ -332,7 +337,7 @@ def train_model(params: Params,
                 reward_method: str = None,
                 detach_value_head: bool = False,
                 breakpoint_level: int = 0,
-                oracle_outputs_path: str = None,
+                search_outputs_path: str = None,
                 accumulation_steps: int = 1,
                 multi_gpu: bool = False,
                 choice_mode: str = None,
@@ -354,7 +359,7 @@ def train_model(params: Params,
     serialization_dir : ``str``
         The directory in which to save results and logs.
     debate_mode : ``List[str]``
-        List of debate turns (e.g. aa, ar, rr, Ar) => capitalization implies oracle agent
+        List of debate turns (e.g. aa, ar, rr, Ar) => capitalization implies search agent
     file_friendly_logging : ``bool``, optional (default=False)
         If ``True``, we add newlines to tqdm output, even on an interactive terminal, and we slow
         down tqdm's output to only once every 10 seconds.
@@ -379,8 +384,8 @@ def train_model(params: Params,
         value function gradients from affecting policy network parameters.
     breakpoint_level : ``int`` optional (default=0)
         Debugging option to set breakpoint sensitivity (0 - no breakpoints).
-    id_to_oracle_filename : ``str`` optional (default=None)
-        Path to file with oracle predictions for each agent - necessary for supervised training
+    id_to_search_filename : ``str`` optional (default=None)
+        Path to file with search predictions for each agent - necessary for supervised training
     accumulation_steps : ``int`` (default=1)
         Number of gradient steps to accumulate over before performing an update. Poor-man's batching for instances where
         number of examples per batch is small (limited GPU memory)
@@ -458,7 +463,7 @@ def train_model(params: Params,
                 validation_iterator=pieces.validation_iterator,
                 eval_mode=eval_mode,
                 breakpoint_level=breakpoint_level,
-                oracle_outputs_path=oracle_outputs_path,
+                search_outputs_path=search_outputs_path,
                 accumulation_steps=accumulation_steps,
                 allocation_dict=allocation_dict,
                 choice_mode=choice_mode,

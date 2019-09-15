@@ -66,7 +66,7 @@ class Trainer(TrainerBase):
                  log_batch_size_period: Optional[int] = None,
                  eval_mode: bool = False,
                  breakpoint_level: int = 0,
-                 oracle_outputs_path: str = None,
+                 search_outputs_path: str = None,
                  accumulation_steps: int = 1,
                  allocation_dict: Dict[str, int] = None,
                  choice_mode: str = None,
@@ -175,8 +175,6 @@ class Trainer(TrainerBase):
         # I am not calling move_to_gpu here, because if the model is
         # not already on the GPU then the optimizer is going to be wrong.
         self.model = model
-        self._mc = (self.model.answer_type == 'mc')
-
         self.iterator = iterator
         self._debate_mode = debate_mode
         self._validation_iterator = validation_iterator
@@ -186,51 +184,44 @@ class Trainer(TrainerBase):
         self._validation_data = validation_dataset
         self._eval_mode = eval_mode
         self._breakpoint_level = breakpoint_level
-        self._oracle_outputs_path = oracle_outputs_path
+        self._search_outputs_path = search_outputs_path
         self._accumulation_steps = accumulation_steps
         self.choice_mode = choice_mode
-        if self.choice_mode is None:
-            self.choice_mode = 'concat' if self._mc else 'reveal'
         self._num_pred_rounds = num_pred_rounds
         self._x_order_prob = x_order_prob
         self._require_action = require_action
         self._single_shot = single_shot
 
         # NOTE: 'Ⅰ', 'Ⅱ', 'Ⅲ', 'Ⅳ' are special unicode chars. Copy and paste to use elsewhere (don't type directly).
-        self._oracle_debate_methods = {'A', 'B', 'E', 'L', 'W', 'Ⅰ', 'Ⅱ', 'Ⅲ', 'Ⅳ'}
-        self._learning_debate_methods = {method.lower() for method in self._oracle_debate_methods}
+        self._search_debate_methods = {'A', 'B', 'E', 'L', 'W', 'Ⅰ', 'Ⅱ', 'Ⅲ', 'Ⅳ'}
+        self._learning_debate_methods = {method.lower() for method in self._search_debate_methods}
         self._method_to_stance_idx = {'Ⅰ': 0, 'Ⅱ': 1, 'Ⅲ': 2, 'Ⅳ': 3}
         self._method_to_stance_idx.update({method.lower(): self._method_to_stance_idx[method]
-                                           for method in self._oracle_debate_methods
+                                           for method in self._search_debate_methods
                                            if method in self._method_to_stance_idx.keys()})
 
         self._single_shot_debater_output_dict_by_method = {}
-        self._using_bert = hasattr(self.model, '_text_field_embedder') and \
-                   hasattr(self.model._text_field_embedder, 'token_embedder_tokens') and \
-                   'bert_token_embedder' in str(type(self.model._text_field_embedder.token_embedder_tokens))
-        self._span_model = (self.model.output_type == 'span')
-        self._answer_id_tokens = ['1st', '2nd', '3rd', '4th'] if (self._mc and self._span_model) else None
 
-        self._mask_token = '[MASK]' if self._using_bert else '.'
+        self._mask_token = '[MASK]'
         self._eos_tokens = {'.', '?', '!'}
-        self._using_oracle = ((self.model.reward_method is not None) and (self.model.reward_method.startswith('sl'))
-                              ) or (len(self._oracle_debate_methods.intersection(''.join(self._debate_mode))) > 0)
+        self._using_search = ((self.model.reward_method is not None) and (self.model.reward_method.startswith('sl'))
+                              ) or (len(self._search_debate_methods.intersection(''.join(self._debate_mode))) > 0)
 
-        self._oracle_outputs_is_complete = (self._oracle_outputs_path is not None)
-        if self._oracle_outputs_path is None:
-            self._oracle_outputs_path = os.path.join(serialization_dir, 'model_oracle_outputs.pkl')
+        self._search_outputs_is_complete = (self._search_outputs_path is not None)
+        if self._search_outputs_path is None:
+            self._search_outputs_path = os.path.join(serialization_dir, 'model_oracle_outputs.pkl')
         try:
-            logger.info('Loading oracle_outputs from filepath: ' + self._oracle_outputs_path)
-            with open(self._oracle_outputs_path, 'rb') as f:
-                self._oracle_outputs = pickle.load(f)
-            self._oracle_outputs_is_complete = True
-            logger.info('Loaded oracle_outputs from filepath: ' + self._oracle_outputs_path)
+            logger.info('Loading search_outputs from filepath: ' + self._search_outputs_path)
+            with open(self._search_outputs_path, 'rb') as f:
+                self._search_outputs = pickle.load(f)
+            self._search_outputs_is_complete = True
+            logger.info('Loaded search_outputs from filepath: ' + self._search_outputs_path)
         except:
-            self._oracle_outputs = {}
-            self._oracle_outputs_is_complete = False
-            if self._using_oracle:
-                logger.info('No oracle_outputs at filepath: ' + self._oracle_outputs_path)
-                logger.info('Will save oracle_outputs to: ' + self._oracle_outputs_path)
+            self._search_outputs = {}
+            self._search_outputs_is_complete = False
+            if self._using_search:
+                logger.info('No search_outputs at filepath: ' + self._search_outputs_path)
+                logger.info('Will save search_outputs to: ' + self._search_outputs_path)
 
         self._debate_logs = {}
 
@@ -375,9 +366,6 @@ class Trainer(TrainerBase):
         has_chars = 'token_characters' in batch['passage'].keys()
         bsz = batch['passage']['tokens'].size(0)
         if self.choice_mode in {'delete', 'concat'}:
-            if not self._mc:
-                raise NotImplementedError(self.choice_mode + ' sentences for span-based datasets not yet supported. ' +
-                                          'Requires modifying span_end, span_start, and metadata.')
             new_maxlen = -1
             post_delete_toks = torch.zeros_like(batch['passage']['tokens'])
             if has_chars:
@@ -409,34 +397,6 @@ class Trainer(TrainerBase):
         else:
             raise NotImplementedError('Modifying passages via choice_mode ' + self.choice_mode + ' not supported.')
         return batch
-
-    def _add_debate_metrics(self, output_dict: TensorDict, sent_idxs: TensorDict, sent_choice_idxs: List[torch.Tensor],
-                            debate_mode: List[str]) -> None:
-        """
-        Add various metrics related to the batch's debate (excluding losses).
-        Add stats on if J chosen a sentence from A or B.
-        """
-        if not self._mc:
-            # NB: May be incorrect for SQuAD deletion setting
-            j_span_start_sent = sent_idxs['output'].gather(
-                1, output_dict['best_span'][:, :1].to(sent_idxs['output'].device))
-            j_span_end_sent = sent_idxs['output'].gather(
-                1, output_dict['best_span'][:, 1:].to(sent_idxs['output'].device))
-            j_num_debater_sents_chosen = torch.zeros_like(j_span_start_sent).float()
-            turns_completed = 0
-            for round_no in len(debate_mode):
-                for round_turn_no, method in enumerate(debate_mode[round_no]):
-                    turn_no = turns_completed + round_turn_no
-                    turn_str = "_turn_" + str(turn_no) + "_agent_" + method
-
-                    j_sent_chosen = ((j_span_start_sent <= sent_choice_idxs[turn_no]) *
-                                     (sent_choice_idxs[turn_no] <= j_span_end_sent)).float()
-                    self._update_trainer_metrics('j_sent_chosen' + turn_str, j_sent_chosen.mean())
-                    j_num_debater_sents_chosen += j_sent_chosen
-                turns_completed += len(debate_mode[round_no])
-            j_chose_no_debater_sents = (j_num_debater_sents_chosen == 0).float()
-            self._update_trainer_metrics('j_chose_no_debater_sents', j_chose_no_debater_sents.mean())
-        return
 
     def _log_verdicts(self, batch: TensorDict, ver_dicts: List[TensorDict], debate_mode: List[str]):
         """
@@ -479,8 +439,6 @@ class Trainer(TrainerBase):
             else:
                 print('\n**Answers**\n', [answer if isinstance(answer, str) else ' '.join(answer)
                                           for answer in batch['metadata'][i]['answer_texts']])
-                if 'best_span' in ver_dicts[-1]:
-                    print(' '.join(toks[ver_dicts[-1]['best_span'][i][0]: ver_dicts[-1]['best_span'][i][1] + 1]))
 
             # Pretty print each debate round
             for round_no in range(len(ver_dicts)):
@@ -540,8 +498,6 @@ class Trainer(TrainerBase):
             else:
                 print('\n**Answers**\n', [answer if isinstance(answer, str) else ' '.join(answer)
                                           for answer in batch['metadata'][i]['answer_texts']])
-                if 'best_span' in ver_dicts[-1]:
-                    print(' '.join(toks[ver_dicts[-1]['best_span'][i][0]: ver_dicts[-1]['best_span'][i][1] + 1]))
 
             # Pretty print prior (if applicable)
             if ver_dict_prior is not None:
@@ -579,25 +535,7 @@ class Trainer(TrainerBase):
         """
         Prints BERT wordpiece tokens from token indices.
         """
-        if self._using_bert:
-            print(' '.join([self.get_index_token(tok.item()) for tok in tokens]))
-        else:
-            pass
-        return
-
-    def _print_input_span(self, batch: TensorDict, sample_no: int, input_span: Tuple[int, int]) -> None:
-        """
-        Prints the token strings of the given span defined on the input level (e.g. word or wordpiece level).
-        """
-        self._print_tokens(batch['passage']['tokens'][sample_no, input_span[0]: input_span[1] + 1])
-        return
-
-    @staticmethod
-    def _print_output_span(batch: TensorDict, sample_no: int, output_span: Tuple[int, int]) -> None:
-        """
-        Prints the token strings of the given span defined on the output level (word level).
-        """
-        print(' '.join(batch['metadata'][sample_no]['passage_tokens'][output_span[0]: output_span[1] + 1]))
+        print(' '.join([self.get_index_token(tok.item()) for tok in tokens]))
         return
 
     @staticmethod
@@ -626,102 +564,83 @@ class Trainer(TrainerBase):
         else:
             return output_idx
 
-    @staticmethod
-    def _output_to_input_span(batch: TensorDict, sample_no: int, output_span: Tuple[int, int]) -> Tuple[int, int]:
-        """
-        Converts a span over the output (always word-level) to one over the input (often sub-word level, shifted, etc.)
-        """
-        offsets = batch['passage']['tokens-offsets'][sample_no]
-        return offsets[output_span[0]].item(), offsets[output_span[1]].item()
-
     def get_index_token(self, index):
         """
         Returns the token corresponding to a vocab index for this model.
         Within Training, this should always be used to get the index (i.e., instead of the model directly)
         """
-        if self._using_bert:
-            return self.model.vocab._index_to_token['bert'][index]
-        else:
-            raise NotImplementedError('Non-BERT models do not currently support get_index_token()')
+        return self.model.vocab._index_to_token['bert'][index]
 
     def get_token_index(self, token: str):
         """
         Returns the index of a token, regardless of the text field embedder.
         Within Training, this should always be used to get the index (i.e., instead of the model directly)
         """
-        if self._using_bert:
-            return self.model.vocab._token_to_index['bert'][token]
-        else:
-            return self.model.vocab.get_token_index(token)
+        return self.model.vocab._token_to_index['bert'][token]
 
-    def _get_oracle_output_dict(self, batch: TensorDict, sent_idxs: TensorDict, judge_answer_mask: TensorDict,
+    def _get_search_output_dict(self, batch: TensorDict, sent_idxs: TensorDict, judge_answer_mask: TensorDict,
                                 required_text_mask: TensorDict, past_sent_choice_idxs: List[torch.Tensor],
                                 num_sents: torch.Tensor, sample_no: int, debate_mode: List[str], round_no: int) -> TensorDict:
         """
-        Returns the output dict from running all possible decisions on the Judge. Used to get oracle decisions.
+        Returns the output dict from running all possible decisions on the Judge. Used to get search decisions.
         Batches together all possible next outcomes for one sample.
         """
         sample_id = batch['metadata'][sample_no]['id']
         prev_turns_str = '_'.join(debate_mode[:round_no])
 
-        if sample_id in self._oracle_outputs:
-            if prev_turns_str in self._oracle_outputs[sample_id]:  # New save format
+        if sample_id in self._search_outputs:
+            if prev_turns_str in self._search_outputs[sample_id]:  # New save format
                 # NB: For multi-gpu, fix cuda device
-                return nn_util.move_to_device(self._oracle_outputs[sample_id][prev_turns_str], self._cuda_devices[0])
-        elif self._oracle_outputs_is_complete:
-            raise Exception('Recalculating Oracle despite _oracle_outputs_is_complete = True ! For sample_id:',
+                return nn_util.move_to_device(self._search_outputs[sample_id][prev_turns_str], self._cuda_devices[0])
+        elif self._search_outputs_is_complete:
+            raise Exception('Recalculating Oracle despite _search_outputs_is_complete = True ! For sample_id:',
                             sample_id)
 
         judge = self.model if self.model.is_judge else self.model.judge
         bsz = batch['passage']['tokens'].size(0)
         num_sent_options = num_sents[sample_no]
-        oracle_batch = self._create_batch_from_idx(batch, sample_no, num_sent_options)
-        oracle_batch['store_metrics'] = False  # Do not update judge metrics
-        oracle_sent_choice_idxs = torch.arange(num_sent_options).unsqueeze(1)
+        search_batch = self._create_batch_from_idx(batch, sample_no, num_sent_options)
+        search_batch['store_metrics'] = False  # Do not update judge metrics
+        search_sent_choice_idxs = torch.arange(num_sent_options).unsqueeze(1)
         if (past_sent_choice_idxs is not None) and (len(past_sent_choice_idxs) > 0):
             past_idxs_repeat = past_sent_choice_idxs[sample_no].repeat(num_sent_options, 1)
-            oracle_sent_choice_idxs = torch.cat([past_idxs_repeat, oracle_sent_choice_idxs], 1)
+            search_sent_choice_idxs = torch.cat([past_idxs_repeat, search_sent_choice_idxs], 1)
 
         # Modify Judge's input
         sample_required_text_mask = {k: v[sample_no].unsqueeze(0).expand(num_sent_options, -1)
                                      for k, v in required_text_mask.items()}
-        oracle_sent_choice_input_masks = [sent_idxs['input'][sample_no].unsqueeze(0).expand(num_sent_options, -1) ==
-                                          oracle_sent_choice_idxs[:, i].unsqueeze(1)
-                                          for i in range(oracle_sent_choice_idxs.size(1))]
-        oracle_all_sent_choice_input_mask = torch.stack(oracle_sent_choice_input_masks).sum(0).clamp(max=1)
-        oracle_batch = self._modify_input_passage(
-            oracle_batch, sample_required_text_mask, oracle_all_sent_choice_input_mask)
+        search_sent_choice_input_masks = [sent_idxs['input'][sample_no].unsqueeze(0).expand(num_sent_options, -1) ==
+                                          search_sent_choice_idxs[:, i].unsqueeze(1)
+                                          for i in range(search_sent_choice_idxs.size(1))]
+        search_all_sent_choice_input_mask = torch.stack(search_sent_choice_input_masks).sum(0).clamp(max=1)
+        search_batch = self._modify_input_passage(
+            search_batch, sample_required_text_mask, search_all_sent_choice_input_mask)
 
         # Get judge results (May require multiple batches)
-        if self._span_model:
-            oracle_batch['valid_output_mask'] = judge_answer_mask['output'][sample_no].unsqueeze(0).expand(
-                num_sent_options, -1)
         # Slice batch based on batch_size. Do several separate forward passes.
-        num_oracle_batch_slices = math.ceil(num_sent_options.item() / float(bsz))
-        oracle_output_dict = None
-        for oracle_batch_slice_num in range(num_oracle_batch_slices):
-            feed_slice = slice(oracle_batch_slice_num * bsz, (oracle_batch_slice_num + 1) * bsz)
-            oracle_batch_slice = self._slice_or_copy_batch(oracle_batch, idxs=feed_slice)
-            oracle_batch_slice_output_dict = self._forward([oracle_batch_slice], judge)
+        num_search_batch_slices = math.ceil(num_sent_options.item() / float(bsz))
+        search_output_dict = None
+        for search_batch_slice_num in range(num_search_batch_slices):
+            feed_slice = slice(search_batch_slice_num * bsz, (search_batch_slice_num + 1) * bsz)
+            search_batch_slice = self._slice_or_copy_batch(search_batch, idxs=feed_slice)
+            search_batch_slice_output_dict = self._forward([search_batch_slice], judge)
             # Add results to overall results dictionary
-            if oracle_output_dict is None:
-                oracle_output_dict = oracle_batch_slice_output_dict
+            if search_output_dict is None:
+                search_output_dict = search_batch_slice_output_dict
             else:
-                for k, v in oracle_batch_slice_output_dict.items():
+                for k, v in search_batch_slice_output_dict.items():
                     if isinstance(v, torch.Tensor) and v.dim() > 0:
-                        oracle_output_dict[k] = torch.cat(
-                            [oracle_output_dict[k], oracle_batch_slice_output_dict[k]], dim=0)
+                        search_output_dict[k] = torch.cat(
+                            [search_output_dict[k], search_batch_slice_output_dict[k]], dim=0)
                     else:
-                        if k in oracle_output_dict.keys():
-                            oracle_output_dict.pop(k)
-        if self._span_model:
-            oracle_batch.pop('valid_output_mask')
+                        if k in search_output_dict.keys():
+                            search_output_dict.pop(k)
         # Cache for later use and saving to file
-        self._oracle_outputs[sample_id] = self._oracle_outputs.get(sample_id, {})
-        self._oracle_outputs[sample_id][prev_turns_str] = {k: v.detach().cpu() if isinstance(v, torch.Tensor) else v
-                                                           for k, v in oracle_output_dict.items()}
+        self._search_outputs[sample_id] = self._search_outputs.get(sample_id, {})
+        self._search_outputs[sample_id][prev_turns_str] = {k: v.detach().cpu() if isinstance(v, torch.Tensor) else v
+                                                           for k, v in search_output_dict.items()}
 
-        return oracle_output_dict
+        return search_output_dict
 
     @staticmethod
     def _get_sent_choice_prob_from_dist(batch: TensorDict, sent_idxs: TensorDict, sent_choice_idx: torch.Tensor,
@@ -766,8 +685,8 @@ class Trainer(TrainerBase):
             assert sent_answer_idx is not None, 'No "Ground Truth" answer-supporting sentences provided.'
             sent_choice_idx = sent_answer_idx
             sent_choice_prob = torch.ones(bsz)
-        elif method in self._oracle_debate_methods:
-            # NOTE: Set below to None to make oracle selection simultaneous with other selections
+        elif method in self._search_debate_methods:
+            # NOTE: Set below to None to make search selection simultaneous with other selections
             past_sent_choice_idxs = torch.cat(past_sent_choice_idxs, 1) if len(past_sent_choice_idxs) > 0 else None
             opt_sent_idxs = []
             advantage = []
@@ -776,24 +695,24 @@ class Trainer(TrainerBase):
             judge_was_training = judge.training
             judge.eval()
             for sample_no in range(bsz):
-                oracle_output_dict = self._get_oracle_output_dict(batch, sent_idxs, judge_answer_mask,
+                search_output_dict = self._get_search_output_dict(batch, sent_idxs, judge_answer_mask,
                     required_text_mask, past_sent_choice_idxs, num_sents, sample_no, debate_mode, round_no)
-                oracle_metrics = self._get_reward(oracle_output_dict, stance[sample_no].unsqueeze(0), method, 'prob')
+                search_metrics = self._get_reward(search_output_dict, stance[sample_no].unsqueeze(0), method, 'prob')
                 if self._require_action and (past_sent_choice_idxs is not None):
-                    oracle_metrics_for_valid_actions = oracle_metrics.clone()
-                    oracle_metrics_for_valid_actions[past_sent_choice_idxs[sample_no]] = float('-inf')
-                    oracle_metrics_for_valid_actions = oracle_metrics_for_valid_actions.tolist()
-                    oracle_metrics = oracle_metrics.tolist()
-                    opt_reward = float(max(oracle_metrics_for_valid_actions))
+                    search_metrics_for_valid_actions = search_metrics.clone()
+                    search_metrics_for_valid_actions[past_sent_choice_idxs[sample_no]] = float('-inf')
+                    search_metrics_for_valid_actions = search_metrics_for_valid_actions.tolist()
+                    search_metrics = search_metrics.tolist()
+                    opt_reward = float(max(search_metrics_for_valid_actions))
                     if opt_reward == float('-inf'):  # Full passage revealed, so just give no-action reward
-                        opt_reward = float(max(oracle_metrics))
+                        opt_reward = float(max(search_metrics))
                 else:
-                    oracle_metrics = oracle_metrics.tolist()
-                    opt_reward = float(max(oracle_metrics))
-                baseline_reward = sum(oracle_metrics) / len(oracle_metrics)
-                opt_sent_idxs.append(oracle_metrics.index(opt_reward))
+                    search_metrics = search_metrics.tolist()
+                    opt_reward = float(max(search_metrics))
+                baseline_reward = sum(search_metrics) / len(search_metrics)
+                opt_sent_idxs.append(search_metrics.index(opt_reward))
                 advantage.append(opt_reward - baseline_reward)
-                all_values.append(oracle_metrics)
+                all_values.append(search_metrics)
                 value.append(opt_reward)
             if judge_was_training:
                 judge.train()
@@ -816,20 +735,20 @@ class Trainer(TrainerBase):
             batch['all_past_sent_choice_mask'] = self._get_all_sent_choice_input_mask(sent_idxs, past_sent_choice_idxs)
 
             if debater.reward_method.startswith('sl'):
-                oracle_round_no = round_no
+                search_round_no = round_no
                 if self._single_shot and (round_no > 0):
-                    oracle_round_no = 0
+                    search_round_no = 0
                 # Get Oracle results
-                oracle_sent_choice_idx, _, _, _, oracle_advantage, all_values = self._get_sent_choice_prob_value(
+                search_sent_choice_idx, _, _, _, search_advantage, all_values = self._get_sent_choice_prob_value(
                     batch, sent_idxs, judge_answer_mask, debate_choice_mask, required_text_mask, past_sent_choice_idxs,
-                    stance, sent_answer_idx, num_sents, turn_str, for_training, method.upper(), debate_mode, oracle_round_no)
+                    stance, sent_answer_idx, num_sents, turn_str, for_training, method.upper(), debate_mode, search_round_no)
                 if debater.reward_method == 'sl':
-                    answer_token_mask_input = ((oracle_sent_choice_idx == sent_idxs['input']).long() *
+                    answer_token_mask_input = ((search_sent_choice_idx == sent_idxs['input']).long() *
                                                batch['valid_output_mask'])
                     batch['sent_targets'] = answer_token_mask_input.nonzero()[:, 1].unsqueeze(-1)
                 elif debater.reward_method.startswith('sl-sents'):
                     # Place all_values in appropriate EOS indices
-                    oracle_token_values = sent_idxs['input'].clone().detach().float()
+                    search_token_values = sent_idxs['input'].clone().detach().float()
                     for i in range(bsz):
                         if num_sents[i].item() != len(all_values[i]):
                             logger.warning('Discrepancy in loaded Oracle num_sents ' + str(num_sents[i].item()) +
@@ -838,11 +757,11 @@ class Trainer(TrainerBase):
                         target_shift = (sum(all_values[i]) / float(len(all_values[i]))) \
                             if debater.influence_reward else 0.
                         for sent_no in range(num_sents[i]):
-                            oracle_token_values[i] = oracle_token_values[i].masked_fill(
+                            search_token_values[i] = search_token_values[i].masked_fill(
                                 sent_idxs['input'][i] == sent_no, all_values[i][sent_no] - target_shift)
-                    oracle_token_values = nn_util.replace_masked_values(
-                        oracle_token_values, batch['valid_output_mask'], -1e7)
-                    batch['sent_targets'] = oracle_token_values
+                    search_token_values = nn_util.replace_masked_values(
+                        search_token_values, batch['valid_output_mask'], -1e7)
+                    batch['sent_targets'] = search_token_values
 
             if self._single_shot and (round_no > 0):
                 # Use initial round's predictions
@@ -878,26 +797,26 @@ class Trainer(TrainerBase):
                 sent_choice_prob = self._get_sent_choice_prob_from_dist(  # Not required but good for logging/debugging
                     batch, sent_idxs, sent_choice_idx, debater_output_dict['prob_dist'])
                 # Log statistics comparing SL to Oracle
-                sl_acc = (oracle_sent_choice_idx == sent_choice_idx).float()
+                sl_acc = (search_sent_choice_idx == sent_choice_idx).float()
                 self._update_trainer_metrics('sl_acc' + turn_str, sl_acc.mean())
                 self._update_trainer_metrics('sl_first_sent_acc' + turn_str,
-                                             (oracle_sent_choice_idx == 0).float().mean())
+                                             (search_sent_choice_idx == 0).float().mean())
                 self._update_trainer_metrics('sl_first_sent_preds' + turn_str, (sent_choice_idx == 0).float().mean())
                 last_sent_idxs = sent_idxs['input'].max(dim=-1)[0]
                 self._update_trainer_metrics('sl_last_sent_acc' + turn_str,
-                                             (oracle_sent_choice_idx == last_sent_idxs).float().mean())
+                                             (search_sent_choice_idx == last_sent_idxs).float().mean())
                 self._update_trainer_metrics('sl_last_sent_preds' + turn_str,
                                              (sent_choice_idx == last_sent_idxs).float().mean())
                 for i in range(-1, 10):
                     thres_start = i / 10.
                     thres_end = (i + 1) / 10.
-                    thres_start_mask = (oracle_advantage.abs() > thres_start).float()
-                    thres_end_mask = (thres_end >= oracle_advantage.abs()).float()
-                    oracle_sc_diff_in_thres_idxs = (thres_start_mask * thres_end_mask).nonzero()
+                    thres_start_mask = (search_advantage.abs() > thres_start).float()
+                    thres_end_mask = (thres_end >= search_advantage.abs()).float()
+                    search_sc_diff_in_thres_idxs = (thres_start_mask * thres_end_mask).nonzero()
                     self._update_trainer_metrics('sl_num_per_batch_MaxScoreDrop_in_' + str(thres_end) + '_' +
                                                  str(thres_start) + turn_str,
-                                                 torch.tensor(float(len(oracle_sc_diff_in_thres_idxs))))
-                    for idx in oracle_sc_diff_in_thres_idxs:
+                                                 torch.tensor(float(len(search_sc_diff_in_thres_idxs))))
+                    for idx in search_sc_diff_in_thres_idxs:
                         self._update_trainer_metrics('sl_acc_where_MaxScoreDrop_in_' + str(thres_end) + '_' +
                                                      str(thres_start) + turn_str, sl_acc[idx])
             else:  # RL: Add predictions and value (no loss calculated yet)
@@ -932,15 +851,6 @@ class Trainer(TrainerBase):
             'input': torch.zeros(bsz, input_dim, dtype=torch.long),
             'output': torch.zeros(bsz, output_dim, dtype=torch.long)
         }
-        if self._span_model and (batch['metadata'][0].get('question_span', None) is not None):
-            for i in range(bsz):
-                question_output_span = batch['metadata'][i]['question_span']
-                question_mask['output'][i, question_output_span[0]: question_output_span[1]+1] = 1.
-                question_input_span = self._output_to_input_span(batch, i, question_output_span)
-                question_mask['input'][i, question_input_span[0]: question_input_span[1]+1] = 1.
-                if self._breakpoint_level >= 1:
-                    self._print_output_span(batch, i, question_output_span)
-                    self._print_input_span(batch, i, question_input_span)
         required_text_mask = {
             'output': question_mask['output'],
             'input': question_mask['input']
@@ -949,38 +859,16 @@ class Trainer(TrainerBase):
         # Ensure Judge receives answers. Limit where Judge can answer (if applicable)
         passage_mask = {'output': nn_util.get_text_field_mask(batch['passage'], 0)}
         judge_answer_mask = {'output': (passage_mask['output'] - question_mask['output']).clamp(min=0)}
-        if self._mc and self._span_model and ('answer_choice_spans' in batch['metadata'][0]):
-            judge_answer_mask['output'] = torch.zeros(bsz, output_dim, dtype=torch.long)
-            pos_answer_mask = {
-                'output': torch.zeros(bsz, output_dim, dtype=torch.long),
-                'input': torch.zeros(bsz, input_dim, dtype=torch.long)
-            }
-            for i in range(bsz):
-                answer_choice_output_spans = batch['metadata'][i]['answer_choice_spans']
-                answer_choice_input_spans = [self._output_to_input_span(batch, i, out_span)
-                                             for out_span in answer_choice_output_spans]
-                assert len(answer_choice_output_spans) == len(self._answer_id_tokens), \
-                    'Must give ' + str(len(self._answer_id_tokens)) + ' answer indices in metadata:' + \
-                    batch['metadata'][i]
-                for answer_choice_output_span, answer_choice_input_span in zip(
-                        answer_choice_output_spans, answer_choice_input_spans):
-                    # Judge target is always span end for MC
-                    judge_answer_mask['output'][i, answer_choice_output_span[1]] = 1.
-                    pos_answer_mask['output'][i, answer_choice_output_span[0]: answer_choice_output_span[1]+1] = 1.
-                    pos_answer_mask['input'][i, answer_choice_input_span[0]: answer_choice_input_span[1]+1] = 1.
-            required_text_mask['output'] += pos_answer_mask['output']  # Prevent debaters from selecting answers
-            required_text_mask['input'] += pos_answer_mask['input']  # Prevent debaters from selecting answers
-        if self._using_bert:
-            required_bert_tokens = {'[CLS]', '[SEP]'}
-            for i in range(bsz):
-                last_output_token_idx = self._get_last_output_token_idx(batch, i)
-                for output_idx, output_token in enumerate(batch['metadata'][i]['passage_tokens']):
-                    if (output_token in required_bert_tokens) and (output_idx <= last_output_token_idx):
-                        # NOTE: Mask will change after deletion (for final [SEP]).
-                        required_text_mask['output'][i, output_idx] = 1.
-            for required_bert_tok in required_bert_tokens:
-                required_text_mask['input'] += (batch['passage']['tokens'] ==
-                                                self.get_token_index(required_bert_tok)).long()
+        required_bert_tokens = {'[CLS]', '[SEP]'}
+        for i in range(bsz):
+            last_output_token_idx = self._get_last_output_token_idx(batch, i)
+            for output_idx, output_token in enumerate(batch['metadata'][i]['passage_tokens']):
+                if (output_token in required_bert_tokens) and (output_idx <= last_output_token_idx):
+                    # NOTE: Mask will change after deletion (for final [SEP]).
+                    required_text_mask['output'][i, output_idx] = 1.
+        for required_bert_tok in required_bert_tokens:
+            required_text_mask['input'] += (batch['passage']['tokens'] ==
+                                            self.get_token_index(required_bert_tok)).long()
         # Clamp in case of double-counting (which shouldn't happen)
         required_text_mask['output'] = required_text_mask['output'].clamp(max=1)
         required_text_mask['input'] = required_text_mask['input'].clamp(max=1)
@@ -1070,7 +958,6 @@ class Trainer(TrainerBase):
         if method in {'a', 'b'}:
             return torch.tensor([method == 'a'] * bsz).to(batch['passage']['tokens'])
         elif method in {'e'}:
-            assert self._mc, 'Only Multiple Choice datasets support debate_mode ' + method
             stance = torch.zeros_like(batch['options']['tokens'][:, :, 0])
             for i in range(bsz):
                 sample_debate_mode = batch['metadata'][i]['debate_mode']
@@ -1079,7 +966,6 @@ class Trainer(TrainerBase):
                 stance[i, self._method_to_stance_idx[sample_debate_mode[0][0]]] = 1
             return stance
         elif method in {'l', 'w'}:
-            assert self._mc, 'Only Multiple Choice datasets support debate_mode ' + method
             possible_stances = torch.ones_like(batch['options']['tokens'][:, :, 0])
             if method == 'w':  # Don't support correct option
                 for i in range(bsz):
@@ -1090,7 +976,6 @@ class Trainer(TrainerBase):
                 stance[i, stance_idx[i]] = 1
             return stance
         elif method in {'ⅰ', 'ⅱ', 'ⅲ', 'ⅳ'}:
-            assert self._mc, 'Only Multiple Choice datasets support debate_mode ' + method
             stance = torch.zeros_like(batch['options']['tokens'][:, :, 0])
             stance[:, self._method_to_stance_idx[method]] = 1
             return stance
@@ -1122,23 +1007,18 @@ class Trainer(TrainerBase):
         output_dim = self._get_output_dim(batch)
 
         # Add token info to batch for BERT
-        if self._using_bert:
-            for i in range(bsz):
-                batch['metadata'][i]['[SEP]'] = self.get_token_index('[SEP]')
+        for i in range(bsz):
+            batch['metadata'][i]['[SEP]'] = self.get_token_index('[SEP]')
 
         # Precomputation for all rounds
-        required_text_mask, judge_answer_mask = self._judge_text_masks(batch)  # NB: Verify for span-based, span-based with Q in P
-        debate_choice_mask = self._debater_text_masks(batch, required_text_mask)  # NB: Verify for span-based, span-based with Q in P
+        required_text_mask, judge_answer_mask = self._judge_text_masks(batch)
+        debate_choice_mask = self._debater_text_masks(batch, required_text_mask)
         num_sents = self._get_num_sents(debate_choice_mask)
         sent_idxs = {
             'output': self._get_sent_idxs(required_text_mask, debate_choice_mask, num_sents, 'output'),
             'input': self._get_sent_idxs(required_text_mask, debate_choice_mask, num_sents, 'input')
         }
         sent_answer_idx = None
-        if not self._mc:  # NOTE: Issue that BiDAF RACE model has self._mc == True here?
-            span_start = batch['span_start'].to(sent_idxs['output'].device)
-            sent_answer_idx = sent_idxs['output'].gather(1, span_start.clamp(max=(output_dim-1)))
-            sent_answer_idx[span_start >= output_dim] = -100  # Dummy negative value, can't be -1 (used for padding)
 
         # Get Judge baseline opinion
         prev_round_ver_dict = None
@@ -1150,15 +1030,11 @@ class Trainer(TrainerBase):
             no_rounds_batch = self._modify_input_passage(no_rounds_batch, required_text_mask, no_sent_choice_input_mask)
 
             # Judge forward pass
-            if self._span_model:
-                no_rounds_batch['valid_output_mask'] = judge_answer_mask['output']
             choice_start_time = time.time()
             ver_dict_prior = self._forward([no_rounds_batch], judge)
             prev_round_ver_dict = ver_dict_prior
             self._update_trainer_metrics('time_j_baseline', torch.Tensor([time.time() - choice_start_time]))
             # NOTE: Optional: if self.model.update_judge: loss += prev_round_ver_dict['loss']
-            if self._span_model:
-                no_rounds_batch['valid_output_mask'] = None
 
         if (torch.rand([1]) < self._x_order_prob).item():
             debate_mode.reverse()
@@ -1201,14 +1077,10 @@ class Trainer(TrainerBase):
             judge_batch = self._modify_input_passage(judge_batch, required_text_mask, all_sent_choice_input_mask)
 
             # Judge forward pass
-            if self._span_model:
-                judge_batch['valid_output_mask'] = judge_answer_mask['output']
             choice_start_time = time.time()
             ver_dict = self._forward([judge_batch], judge)
             ver_dicts.append(ver_dict)
             self._update_trainer_metrics('time_j', torch.Tensor([time.time() - choice_start_time]))
-            if self._span_model:
-                judge_batch['valid_output_mask'] = None
 
             # Add Loss: Judge
             if (debater is None) or self.model.update_judge:
@@ -1300,7 +1172,6 @@ class Trainer(TrainerBase):
             self._log_debate(batch, sent_idxs, ver_dicts, sent_choice_idxs, debate_mode, stances, num_sents, advantage,
                              ver_dict_prior)
 
-        self._add_debate_metrics(ver_dict, sent_idxs, sent_choice_idxs, debate_mode)
         return loss.cpu()
 
     def batch_loss(self, batch_group: List[TensorDict], for_training: bool, debate_mode: List[str] = None
@@ -1318,24 +1189,6 @@ class Trainer(TrainerBase):
             for batch in batch_group:
                 for i in range(batch['passage']['tokens'].size(0)):
                     print('ID:', batch['metadata'][i]['id'], '...')
-
-        # Optional debugging sanity check
-        if self._span_model and (self._breakpoint_level >= 1) and for_training:
-            for batch in batch_group:
-                for i in range(batch['passage']['tokens'].size(0)):
-                    char_span_start = batch['metadata'][i]['token_offsets'][batch['span_start'][i]][0]
-                    char_span_end = batch['metadata'][i]['token_offsets'][batch['span_end'][i]][1]
-                    answer_text = batch['metadata'][i]['answer_texts'][0]
-                    post_processing_answer_text = batch['metadata'][i]['original_passage'][char_span_start:
-                                                                                           char_span_end]
-                    answer_processing_error = not (answer_text in post_processing_answer_text)
-                    if self._mc:
-                        answer_processing_error = (answer_text != post_processing_answer_text) or \
-                                                  (answer_text not in self._answer_id_tokens)
-                    if answer_processing_error:  # Print: unexpected mismatch with true answer
-                        self._print_tokens(batch['passage']['tokens'][i, :])
-                        print('answer_text =', answer_text)
-                        print('post_processing_answer_text =', post_processing_answer_text)
 
         # Set output_dict['loss'] to do gradient descent on.
         if debate_mode[0] == "f":  # Full passage training: Normal SL training (always on Judge)
@@ -1608,12 +1461,12 @@ class Trainer(TrainerBase):
                     metrics["best_validation_" + key] = value
 
             if self._serialization_dir:
-                # Save oracle_outputs mapping if it's newly computed
-                if (not self._oracle_outputs_is_complete) and self._using_oracle:
-                    self._oracle_outputs_is_complete = True
-                    with open(self._oracle_outputs_path, 'wb') as f:
-                        pickle.dump(self._oracle_outputs, f, pickle.HIGHEST_PROTOCOL)
-                    logger.info('Saved oracle_outputs to: ' + self._oracle_outputs_path)
+                # Save search_outputs mapping if it's newly computed
+                if (not self._search_outputs_is_complete) and self._using_search:
+                    self._search_outputs_is_complete = True
+                    with open(self._search_outputs_path, 'wb') as f:
+                        pickle.dump(self._search_outputs, f, pickle.HIGHEST_PROTOCOL)
+                    logger.info('Saved search_outputs to: ' + self._search_outputs_path)
                 if self._eval_mode:
                     dump_metrics(os.path.join(self._serialization_dir,
                                               f'metrics_epoch_{epoch}.d=' + '_'.join(self._debate_mode) + '.json'),
@@ -1750,7 +1603,7 @@ class Trainer(TrainerBase):
                     validation_iterator: DataIterator = None,
                     eval_mode: bool = False,
                     breakpoint_level: int = 0,
-                    oracle_outputs_path: str = None,
+                    search_outputs_path: str = None,
                     accumulation_steps: int = 1,
                     allocation_dict: Dict[str, int] = None,
                     choice_mode: str = None,
@@ -1830,7 +1683,7 @@ class Trainer(TrainerBase):
                    log_batch_size_period=log_batch_size_period,
                    eval_mode=eval_mode,
                    breakpoint_level=breakpoint_level,
-                   oracle_outputs_path=oracle_outputs_path,
+                   search_outputs_path=search_outputs_path,
                    accumulation_steps=accumulation_steps,
                    allocation_dict=allocation_dict,
                    choice_mode=choice_mode,

@@ -43,9 +43,6 @@ class RaceReader(DatasetReader):
         super().__init__(lazy)
         self._tokenizer = tokenizer or WordTokenizer()
         self._token_indexers = token_indexers or {'tokens': SingleIdTokenIndexer()}
-        self._using_bert = hasattr(self._token_indexers['tokens'], '_namespace') and self._token_indexers['tokens']._namespace == 'bert'
-        if self._using_bert:
-            print('BERT!')
 
     @overrides
     def _read(self, file_path: str):
@@ -67,44 +64,34 @@ class RaceReader(DatasetReader):
                     answer_texts = [answer['text'] for answer in question_answer['answers']]
                     span_starts = [answer['answer_start'] for answer in question_answer['answers']]
                     span_ends = [start + len(answer) for start, answer in zip(span_starts, answer_texts)]
-                    if self._using_bert:
-                        # TODO: Add [SEP] cleanly with nlp.tokenizer.add_special_case('[SEP]', [{ORTH: '[SEP]', LEMMA: '[SEP]', POS: 'PUNCT'}]). Facilitates moving around Q/P/A
-                        # Add Q to passage with a [SEP] token
-                        char_question_span = (0, len(question_text))
-                        tokenized_question = self._tokenizer.tokenize(question_text)
-                        sep_str = '[SEP]'
-                        prepend_text = question_text + ' ' + sep_str + ' '
+                    # Can add [SEP] cleanly with nlp.tokenizer.add_special_case('[SEP]', [{ORTH: '[SEP]', LEMMA: '[SEP]', POS: 'PUNCT'}]). Facilitates moving around Q/P/A
+                    # Add Q to passage with a [SEP] token
+                    char_question_span = (0, len(question_text))
+                    tokenized_question = self._tokenizer.tokenize(question_text)
+                    sep_str = '[SEP]'
+                    prepend_text = question_text + ' ' + sep_str + ' '
 
-                        # Adjust spans indices appropriately
-                        span_starts = [len(prepend_text) + span_start for span_start in span_starts]
-                        span_ends = [len(prepend_text) + span_end for span_end in span_ends]
-                        char_answer_choice_spans = [(len(prepend_text) + char_answer_choice_span[0], len(prepend_text) + char_answer_choice_span[1])
-                                                    for char_answer_choice_span in question_answer['char_answer_choice_spans']]
+                    # Adjust spans indices appropriately
+                    span_starts = [len(prepend_text) + span_start for span_start in span_starts]
+                    span_ends = [len(prepend_text) + span_end for span_end in span_ends]
+                    char_answer_choice_spans = [(len(prepend_text) + char_answer_choice_span[0], len(prepend_text) + char_answer_choice_span[1])
+                                                for char_answer_choice_span in question_answer['char_answer_choice_spans']]
 
-                        # Adjust passage token indices due to text added to passage
-                        tokenized_question_paragraph = tokenized_question
-                        tokenized_question_paragraph.append(Token(sep_str, len(question_text + ' ')))
-                        for token in tokenized_paragraph:
-                            new_token = Token(text=token.text, idx=token.idx+len(prepend_text), lemma=token.lemma,
-                                              pos=token.pos, tag=token.tag, dep=token.dep, ent_type=token.ent_type)
-                            tokenized_question_paragraph.append(new_token)
-                        instance = self.text_to_instance(question_text,  # usually not used in this case but still given
-                                                         prepend_text + paragraph,
-                                                         zip(span_starts, span_ends),
-                                                         answer_texts,
-                                                         tokenized_question_paragraph,
-                                                         question_answer['id'],
-                                                         char_answer_choice_spans,
-                                                         char_question_span)
-                    else:
-                        instance = self.text_to_instance(question_text,
-                                                         paragraph,
-                                                         zip(span_starts, span_ends),
-                                                         answer_texts,
-                                                         tokenized_paragraph,
-                                                         question_answer['id'],
-                                                         question_answer['char_answer_choice_spans'])
-                    yield instance
+                    # Adjust passage token indices due to text added to passage
+                    tokenized_question_paragraph = tokenized_question
+                    tokenized_question_paragraph.append(Token(sep_str, len(question_text + ' ')))
+                    for token in tokenized_paragraph:
+                        new_token = Token(text=token.text, idx=token.idx+len(prepend_text), lemma=token.lemma,
+                                          pos=token.pos, tag=token.tag, dep=token.dep, ent_type=token.ent_type)
+                        tokenized_question_paragraph.append(new_token)
+                    yield self.text_to_instance(question_text,  # usually not used in this case but still given
+                                                prepend_text + paragraph,
+                                                zip(span_starts, span_ends),
+                                                answer_texts,
+                                                tokenized_question_paragraph,
+                                                question_answer['id'],
+                                                char_answer_choice_spans,
+                                                char_question_span)
 
     @overrides
     def text_to_instance(self,  # type: ignore

@@ -143,7 +143,12 @@ Download the Judge models from our paper [here](https://drive.google.com/open?id
 
 ## Implementation Notes
 
-- We adapted span-based QA code and models for multiple-choice.
+- Some parts of the implementation are BERT-specific (i.e., using [CLS], [SEP], or [MASK] tokens)
+- 'Ⅰ', 'Ⅱ', 'Ⅲ', 'Ⅳ' are special unicode chars. Copy and paste to use elsewhere (don't type directly).
+- TODO: Debate modes
+- TODO: Reward Methods
+- TODO: Explain ToM option
+- TODO: Explain RL option
 
 ## Citing
 
@@ -160,3 +165,9 @@ If you found our code useful, please consider citing our paper:
     publisher = "Association for Computational Linguistics",
 }
 ```
+
+Remove variables:
+- [Optional] Model.output_type
+- [Optional] model.answer_type
+- [Optional] bidaf.py
+- race.py (span-based reader)
