@@ -62,64 +62,64 @@ We use the ```--debate-mode``` flag to indicate what answer an evidence agent ai
 We represent each turn as a single character:
 <table>
 <tr>
-    <td><b> Learned Agent </b></td>
     <td><b> Search Agent </b></td>
-    <td><b> Finds evidence... </b></td>
+    <td><b> Learned Agent </b></td>
+    <td><b> Evidence Found </b></td>
 </tr>
 <tr>
-    <td> ⅰ </td>
     <td> Ⅰ </td>
-    <td> For option <b>1</b> </td>
+    <td> ⅰ </td>
+    <td> For option 1 </td>
 </tr>
 <tr>
-    <td> ⅱ </td>
     <td> Ⅱ </td>
-    <td> For option <b>2</b> </td>
+    <td> ⅱ </td>
+    <td> For option 2 </td>
 </tr>
 <tr>
-    <td> ⅲ </td>
     <td> Ⅲ </td>
-    <td> For option <b>3<\b> </td>
+    <td> ⅲ </td>
+    <td> For option 3 </td>
 </tr>
 <tr>
-    <td> ⅳ </td>
     <td> Ⅳ </td>
-    <td> For option <b>4<\b> (RACE-only) </td>
+    <td> ⅳ </td>
+    <td> For option 4 (RACE-only) </td>
 </tr>
 <tr>
-    <td> e </td>
     <td> E </td>
-    <td> For <b>E<\b>very answer option per question </td>
+    <td> e </td>
+    <td> For Every answer option per question </td>
 </tr>
 <tr>
-    <td> l </td>
     <td> L </td>
-    <td> For one random answer per question ("<b>L<\b>awyer" - worse than "e" which ensures we train with every answer option) </td>
+    <td> l </td>
+    <td> For one random answer per question ("Lawyer" - worse than "e" which ensures we train with every answer option) </td>
 </tr>
 <tr>
-    <td> w </td>
     <td> W </td>
-    <td> For one random <b>W<\b>rong answer per question </td>
+    <td> w </td>
+    <td> For one random Wrong answer per question </td>
 </tr>
 <tr>
-    <td> a </td>
     <td> A </td>
-    <td> For the correct answer ("<b>A<\b>lice") </td>
+    <td> a </td>
+    <td> For the correct answer ("Alice") </td>
 </tr>
 <tr>
-    <td> b </td>
     <td> B </td>
-    <td> Against the correct answer ("<b>B<\b>ob") </td>
+    <td> b </td>
+    <td> Against the correct answer ("Bob") </td>
 </tr>
 <tr>
-    <td> f </td>
     <td> N/A </td>
-    <td> Trains a <b>Judge Model<\b> via supervised learning </td>
+    <td> f </td>
+    <td> Trains a Judge Model via supervised learning </td>
 </tr>
 </table>
 
 Note that "ⅰ/Ⅰ," "ⅱ/Ⅱ," "ⅲ/Ⅲ," and "ⅳ/Ⅳ," are each one *roman numeral character*; when using these options, just copy and paste the appropriate characters rather than typing "i/I", "ii/II," "iii/III", or "iv/IV."
-For the final paper, we did not use options "l/L," "w/W," "a/A," or "b/B," but they are implemented and may be useful for others.
+For our final results, we did not use options "l/L," "w/W," "a/A," or "b/B," but they are implemented and may be useful for others.
 
 To have evidence agents take multiple turns, simply use one character per turn, stringing them together with spaces (when turns are sequential) or without spaces (when turns are simultaneous).
 For example, ```--debate-mode ⅰⅱ ⅢⅣ``` first will have learned agents supporting options 1 and 2 choose a sentence each (simultaneously) and then will have search agents supporting options 3 and 4 choose a sentence each (simultaneously).
@@ -131,9 +131,7 @@ TODO: Add other necessary requirements from your allennlp env.
 
 #### Setting up a virtual environment
 
-[Conda](https://conda.io/) can be used set up a virtual environment with the
-version of Python required for AllenNLP.  If you already have a Python 3.6 or 3.7
-environment you want to use, you can skip to the 'installing via pip' section.
+[Conda](https://conda.io/) can be used set up a virtual environment (Python 3.6 or 3.7):
 
 1.  [Download and install Conda](https://conda.io/docs/download.html).
 
@@ -143,10 +141,10 @@ environment you want to use, you can skip to the 'installing via pip' section.
     conda create -n convince python=3.6
     ```
 
-3.  Activate the Conda environment. You will need to activate the Conda environment in each terminal in which you want to use AllenNLP.
+3.  Activate the Conda environment
 
     ```bash
-    source activate convince
+    conda activate convince
     ```
 
 #### Installing the library and dependencies
