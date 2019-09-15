@@ -176,7 +176,7 @@ class Train(Subcommand):
         subparser.add_argument('-q', '--qa-loss-weight',
                                type=float,
                                default=0.,
-                               help='Weight of auxiliary QA supervised loss to give RL agents.')
+                               help='Weight of auxiliary QA supervised loss to give agents.')
 
         subparser.add_argument('-i', '--influence-reward',
                                action='store_true',
