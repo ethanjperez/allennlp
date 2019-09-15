@@ -18,11 +18,11 @@ Our paper's core code involves changes/additions to AllenNLP in the below files 
     <td> Command line flags and initial setup to train BERT Judge Models and Evidence Agents </td>
 </tr>
 <tr>
-    <td><b> allennlp/data/dataset_readers/reading_comprehension/{race,dream}_mc.py </b></td>
+    <td><b> allennlp/data/dataset_readers/ reading_comprehension/{race,dream}_mc.py </b></td>
     <td> Code to read RACE and DREAM datasets </td>
 </tr>
 <tr>
-    <td><b> allennlp/models/reading_comprehension/bert_mc.py </b></td>
+    <td><b> allennlp/models/ reading_comprehension/bert_mc.py </b></td>
     <td> Code for BERT QA Models </td>
 </tr>
 <tr>
