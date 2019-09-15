@@ -108,12 +108,12 @@ class Train(Subcommand):
                                help='outputs tqdm status on separate lines and slows tqdm refresh rate')
 
         # Debate options below
-        subparser.add_argument('-d', '--debate_mode',
+        subparser.add_argument('-d', '--debate-mode',
                                default=['f'],
                                nargs='+',
                                help='how to select sentences shown to judge')
 
-        subparser.add_argument('-j', '--judge_filename',
+        subparser.add_argument('-j', '--judge-filename',
                                type=str,
                                default=None,
                                help='path to parameter file describing the judge to be trained or'
@@ -122,12 +122,12 @@ class Train(Subcommand):
                                     'If updating pre-trained judge, pass in archived *.tar.gz file.'
                                     'If training judge from scratch, pass in *.jsonnet config file.')
 
-        subparser.add_argument('-u', '--update_judge',
+        subparser.add_argument('-u', '--update-judge',
                                action='store_true',
                                default=False,
                                help='update judge while training debate agents')
 
-        subparser.add_argument('-m', '--reward_method',
+        subparser.add_argument('-m', '--reward-method',
                                type=str,
                                choices=['prob',  # Judge probability on answer
                                         'sl',  # Supervised Learning (Oracle Prob)
@@ -136,28 +136,28 @@ class Train(Subcommand):
                                default='prob',
                                help='how to reward debate agents')
 
-        subparser.add_argument('-v', '--detach_value_head',
+        subparser.add_argument('-v', '--detach-value-head',
                                action='store_true',
                                default=False,
                                help='Detach value head prediction network from main policy network,'
                                     'to prevent gradients to value function from overpowering gradients to policy')
 
-        subparser.add_argument('-b', '--breakpoint_level',
+        subparser.add_argument('-b', '--breakpoint-level',
                                type=int,
                                default=0,
                                help='Debugging option: Increase to run with more breakpoints. 0 for no breakpoints.')
 
-        subparser.add_argument('-p', '--search_outputs_path',
+        subparser.add_argument('-p', '--search-outputs-path',
                                type=str,
                                default=None,
                                help='Name file containing search predictions to do Supervised Learning on.')
 
-        subparser.add_argument('-a', '--accumulation_steps',
+        subparser.add_argument('-a', '--accumulation-steps',
                                type=int,
                                default=1,
                                help='Number of steps to accumulate gradient for before taking an optimizer step.')
 
-        subparser.add_argument('-e', '--eval_mode',
+        subparser.add_argument('-e', '--eval-mode',
                                action='store_true',
                                default=False,
                                help='run in evaluation-only mode on test_data_path (validation if no test given)')
@@ -167,44 +167,44 @@ class Train(Subcommand):
                                default=False,
                                help='Run in model-parallel multiple GPU mode (gpu allocation in config file)')
 
-        subparser.add_argument('-c', '--choice_mode',
+        subparser.add_argument('-c', '--choice-mode',
                                type=str,
                                choices=['delete', 'reveal', 'concat'],
                                default='concat',
                                help='type of action debating agents take')
 
-        subparser.add_argument('-q', '--qa_loss_weight',
+        subparser.add_argument('-q', '--qa-loss-weight',
                                type=float,
                                default=0.,
                                help='Weight of auxiliary QA supervised loss to give RL agents.')
 
-        subparser.add_argument('-i', '--influence_reward',
+        subparser.add_argument('-i', '--influence-reward',
                                action='store_true',
                                default=False,
                                help='Whether or not to use delta in judge opinion (vs. raw reward).')
 
-        subparser.add_argument('-t', '--theory_of_mind',
+        subparser.add_argument('-t', '--theory-of-mind',
                                action='store_true',
                                default=False,
                                help='Whether or not debaters use judge activations.')
 
-        subparser.add_argument('-n', '--num_pred_rounds',
+        subparser.add_argument('-n', '--num-pred-rounds',
                                type=int,
                                default=-1,
                                help='Number of rounds debaters make predictions while training (vs. using search).'
                                     'If <1, debaters make prediction every round.')
 
-        subparser.add_argument('-x', '--x_order_prob',
+        subparser.add_argument('-x', '--x-order-prob',
                                type=float,
                                default=0.,
                                help='Probability of reversing the debate agent ordering.')
 
-        subparser.add_argument('-ra', '--require_action',
+        subparser.add_argument('-ra', '--require-action',
                                action='store_true',
                                default=False,
                                help='Whether or not debaters are required to choose a new sentence each turn.')
 
-        subparser.add_argument('-ss', '--single_shot',
+        subparser.add_argument('-ss', '--single-shot',
                                action='store_true',
                                default=False,
                                help='Debaters predict all turns\' sentence choices in a single shot.'

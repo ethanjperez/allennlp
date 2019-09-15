@@ -11,7 +11,7 @@ Our paper's core code involves changes/additions to AllenNLP in the below files 
 <table>
 <tr>
     <td><b> allennlp/training/trainer.py </b></td>
-    <td> The main training logic for Judge Models and Evidence Agents </td>
+    <td> The main training logic for BERT Judge Models and Evidence Agents </td>
 </tr>
 <tr>
     <td><b> allennlp/commands/train.py </b></td>
@@ -28,10 +28,6 @@ Our paper's core code involves changes/additions to AllenNLP in the below files 
 <tr>
     <td><b> allennlp/tests/fixtures/data/ </b></td>
     <td> Mini datasets files for debugging </td>
-</tr>
-<tr>
-    <td><b> datasets/ </b></td>
-    <td> Folder for datasets </td>
 </tr>
 <tr>
     <td><b> eval/ </b></td>
@@ -53,16 +49,80 @@ Our paper's core code involves changes/additions to AllenNLP in the below files 
     <td><b> training_config/ </b></td>
     <td> Config files for training models with various hyperparameters </td>
 </tr>
-<tr>
-    <td><b> tmp/ </b></td>
-    <td> Folder for trained models </td>
-</tr>
 </table>
 
 TODO: Rename folders in eval/ to match paper
 TODO: Add code links for above
 
+## Key arguments
+
 In the code, we refer to the Judge Model as "judge" and Evidence Agents as "debaters," following [Irving et al. 2018](https://arxiv.org/abs/1805.00899).
+All trained models trained with the ```allennlp train``` command use a BERT architecture.
+We use the ```--debate-mode``` flag to indicate what answer an evidence agent aims to support (during training or inference).
+We represent each turn as a single character:
+<table>
+<tr>
+    <td><b> Learned Agent </b></td>
+    <td><b> Search Agent </b></td>
+    <td><b> Finds evidence... </b></td>
+</tr>
+<tr>
+    <td> ⅰ </td>
+    <td> Ⅰ </td>
+    <td> For option <b>1</b> </td>
+</tr>
+<tr>
+    <td> ⅱ </td>
+    <td> Ⅱ </td>
+    <td> For option <b>2</b> </td>
+</tr>
+<tr>
+    <td> ⅲ </td>
+    <td> Ⅲ </td>
+    <td> For option <b>3<\b> </td>
+</tr>
+<tr>
+    <td> ⅳ </td>
+    <td> Ⅳ </td>
+    <td> For option <b>4<\b> (RACE-only) </td>
+</tr>
+<tr>
+    <td> e </td>
+    <td> E </td>
+    <td> For <b>E<\b>very answer option per question </td>
+</tr>
+<tr>
+    <td> l </td>
+    <td> L </td>
+    <td> For one random answer per question ("<b>L<\b>awyer" - worse than "e" which ensures we train with every answer option) </td>
+</tr>
+<tr>
+    <td> w </td>
+    <td> W </td>
+    <td> For one random <b>W<\b>rong answer per question </td>
+</tr>
+<tr>
+    <td> a </td>
+    <td> A </td>
+    <td> For the correct answer ("<b>A<\b>lice") </td>
+</tr>
+<tr>
+    <td> b </td>
+    <td> B </td>
+    <td> Against the correct answer ("<b>B<\b>ob") </td>
+</tr>
+<tr>
+    <td> f </td>
+    <td> N/A </td>
+    <td> Trains a <b>Judge Model<\b> via supervised learning </td>
+</tr>
+</table>
+
+Note that "ⅰ/Ⅰ," "ⅱ/Ⅱ," "ⅲ/Ⅲ," and "ⅳ/Ⅳ," are each one *roman numeral character*; when using these options, just copy and paste the appropriate characters rather than typing "i/I", "ii/II," "iii/III", or "iv/IV."
+For the final paper, we did not use options "l/L," "w/W," "a/A," or "b/B," but they are implemented and may be useful for others.
+
+To have evidence agents take multiple turns, simply use one character per turn, stringing them together with spaces (when turns are sequential) or without spaces (when turns are simultaneous).
+For example, ```--debate-mode ⅰⅱ ⅢⅣ``` first will have learned agents supporting options 1 and 2 choose a sentence each (simultaneously) and then will have search agents supporting options 3 and 4 choose a sentence each (simultaneously).
 
 ## Installation
 
@@ -80,13 +140,13 @@ environment you want to use, you can skip to the 'installing via pip' section.
 2.  Create a Conda environment with Python 3.6
 
     ```bash
-    conda create -n allennlp python=3.6
+    conda create -n convince python=3.6
     ```
 
 3.  Activate the Conda environment. You will need to activate the Conda environment in each terminal in which you want to use AllenNLP.
 
     ```bash
-    source activate allennlp
+    source activate convince
     ```
 
 #### Installing the library and dependencies
@@ -101,7 +161,7 @@ Installing the library and dependencies is simple using `pip`.
 
 TODO: Add instructions with appropriate names
 
-From the base directory (convince/allennlp), make a folder to store datasets:
+From the base directory (```convince/allennlp/```), make a folder to store datasets:
 
    ```bash
    mkdir datasets
@@ -114,6 +174,9 @@ You'll immediately receive an email with a link to the dataset, which you can do
    wget [link] -O datasets/race_raw.tar.gz
    tar -xvzf race_raw.tar.gz
    ```
+   
+TODO: Add DREAM and RACE subsets
+TODO: Add script to split RACE into middle and high school datasets
 
 Download DREAM:
 
@@ -126,23 +189,58 @@ Download DREAM:
 
 ## Training a BERT Judge Model
 
-The below command gave us a BERT QA model with 66.32% validation accuracy at epoch 5:
+The below command gave us a BERT Base QA model (available [here](https://drive.google.com/open?id=1ymA_MziGDYonY3Ck6Wbhss7lSD7AtzX0)) with 66.32% dev accuracy at epoch 5:
 
    ```bash
-   allennlp train training_config/race.best.jsonnet -s tmp/race.best.f --debate_mode f --accumulation_steps 32
+   allennlp train training_config/race.best.jsonnet --serialization-dir tmp/race.best.f --debate-mode f --accumulation-steps 32
    ```
 
-#### Pre-trained Judge Models
+TODO: Add BERT Large command and model
 
-TODO: Zip all models into single file and change link.
-Download the Judge models from our paper [here](https://drive.google.com/open?id=1vJPhOlIAXpYhRjYNEH0B6tqi2KCEKqRu). 
+## Using Search Agents
 
-## Training Evidence Agents
+The below command will load the judge model as part of an evidence agent (with dummy weights). The agent tries each possible sentence to choose a sentence:
+   ```bash
+   for DM in Ⅰ Ⅱ Ⅲ Ⅳ; do
+     allennlp train training_config/race.best.jsonnet --serialization-dir tmp/race.best.f.dm=$DM --judge-filename tmp/race.best.f/model.tar.gz --eval-mode --debate-mode $DM --search-outputs-path tmp/race.best.f.dm=$DM/search_outputs.pkl
+   done
+   ```
 
+The above command runs inference over every example in RACE's validation set to find the strongest evidence sentence for each answer.
+You can also change the evaluation dataset.
+For example to evaluate on RACE's test set, just override the default validation data path by adding ```--overrides "{'validation_data_path': 'datasets/race_raw/test'}"```.
 
+To show a more complicated example, here's how you can run round-robin evidence selections with multiple turns (6 per agent):
+   ```bash
+   for DM in ⅠⅡ ⅠⅢ ⅠⅣ ⅡⅢ ⅡⅣ ⅢⅣ; do
+     allennlp train training_config/race.best.jsonnet --serialization-dir tmp/race.best.f.dm=${DM}_${DM}_${DM}_${DM}_${DM}_${DM} --judge-filename tmp/race.best.f/model.tar.gz --eval-mode --debate-mode $DM $DM $DM $DM $DM $DM --search-outputs-path tmp/race.best.f.dm=${DM}_${DM}_${DM}_${DM}_${DM}_${DM}/search_outputs.pkl
+   done
+   ```
 
-#### Pre-trained Evidence Agents
+## Training Learning Agents
 
+With the below commands, you can train a learned agent to predict the search-chosen sentence:
+   ```bash
+   # Learn to predict search-chosen sentence
+   # We got 56.8% accuracy at Epoch 6
+   allennlp train training_config/race.best.debate.sl.lr=5e-6.jsonnet --judge-filename tmp/race.best.f/model.tar.gz --debate-mode e --search-outputs-path tmp/race.best.f/search_outputs.pkl --accumulation-steps 12 --reward-method sl --serialization-dir tmp/race.e.c=concat.bsz=12.lr=5e-6.m=sl
+
+   # Learn to predict the Judge Model's probability given each sentence
+   # We got 55.1% accuracy at predicting the search-chosen sentence at Epoch 5
+   allennlp train training_config/race.best.debate.sl.lr=1e-5.jsonnet --judge-filename tmp/race.best.f/model.tar.gz --debate-mode e --search-outputs-path tmp/race.best.f/search_outputs.pkl --accumulation-steps 12 --reward-method sl-sents --serialization-dir tmp/race.e.c=concat.bsz=12.lr=1e-5.m=sl-sents
+
+   # Learn to predict the Judge Model's change in probability given each sentence
+   # We got 54.3% accuracy at predicting the search-chosen sentence at Epoch 4
+   allennlp train training_config/race.best.debate.sl.lr=1e-5.jsonnet --judge-filename tmp/race.best.f/model.tar.gz --debate-mode e --search-outputs-path tmp/race.best.f/search_outputs.pkl --accumulation-steps 12 --reward-method sl-sents --influence --serialization-dir tmp/race.e.c=concat.bsz=12.lr=1e-5.m=sl-sents.i
+   ```
+   
+Training to convergence takes roughly 1 week on a v100 (16GB).
+During the first epoch, we run a search agent to find the judge predictions given each sentence.
+We then cache the judge predictions to the file specified after ```--search-outputs-path```.
+The cached predictions are used throughout the rest of the training (i.e., epochs after the first are faster).
+If you've already train a supervised model, you can save time by training other models simply using the cached predictions from training that model (as in the commands above).  
+
+TODO: Add pre-trained supervised learning models.
 TODO: Zip all models into single file and change link.
 Download the Judge models from our paper [here](https://drive.google.com/open?id=1vJPhOlIAXpYhRjYNEH0B6tqi2KCEKqRu).
 
