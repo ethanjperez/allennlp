@@ -445,7 +445,7 @@ class Trainer(TrainerBase):
                 print('\n**J**:')
                 if 'prob_dist' in ver_dicts[round_no]:
                     print('*PROB DIST*:', ver_dicts[round_no]['prob_dist'][i])
-                for k in ['prob', 'em', 'f1']:
+                for k in ['prob', 'em']:
                     if ver_dicts[round_no].get(k) is not None:
                         self._debate_logs[qid][k] = ver_dicts[round_no][k][i].item()
         return
@@ -525,7 +525,7 @@ class Trainer(TrainerBase):
                     print('*ADVANTAGE*:', round(float(advantage[i]), 4))
                 if 'prob_dist' in ver_dicts[round_no]:
                     print('*PROB DIST*:', ver_dicts[round_no]['prob_dist'][i])
-                for k in ['prob', 'em', 'f1']:
+                for k in ['prob', 'em']:
                     if ver_dicts[round_no].get(k) is not None:
                         self._debate_logs[qid][k] = ver_dicts[round_no][k][i].item()
                 turns_completed += len(round_methods)
@@ -961,7 +961,7 @@ class Trainer(TrainerBase):
             stance = torch.zeros_like(batch['options']['tokens'][:, :, 0])
             for i in range(bsz):
                 sample_debate_mode = batch['metadata'][i]['debate_mode']
-                # NB: Multi-turn debate_mode not yet supported here
+                # NOTE: Multi-turn debate_mode not yet supported here
                 assert (len(sample_debate_mode) == 1) and (len(sample_debate_mode[0]) == 1)
                 stance[i, self._method_to_stance_idx[sample_debate_mode[0][0]]] = 1
             return stance

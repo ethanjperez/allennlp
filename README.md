@@ -1,66 +1,73 @@
+# Finding Generalizable Evidence by Learning to Convince Q&A Models
+
+TODO: Replace below with paper GIF.
+
 <p align="center"><img width="40%" src="doc/static/allennlp-logo-dark.png" /></p>
 
-[![Build Status](http://build.allennlp.org/app/rest/builds/buildType:(id:AllenNLP_AllenNLPCommits)/statusIcon)](http://build.allennlp.org/viewType.html?buildTypeId=AllenNLP_AllenNLPCommits&guest=1)
-[![codecov](https://codecov.io/gh/allenai/allennlp/branch/master/graph/badge.svg)](https://codecov.io/gh/allenai/allennlp)
+## Code Overview
 
-An [Apache 2.0](https://github.com/allenai/allennlp/blob/master/LICENSE) NLP research library, built on PyTorch,
-for developing state-of-the-art deep learning models on a wide variety of linguistic tasks.
-
-## Quick Links
-
-* [Website](http://www.allennlp.org/)
-* [Tutorial](https://allennlp.org/tutorials)
-* [Documentation](https://allenai.github.io/allennlp-docs/)
-* [Contributing Guidelines](CONTRIBUTING.md)
-* [Model List](MODELS.md)
-* [Continuous Build](http://build.allennlp.org/)
-
-## Package Overview
-
+Our code was forked from AllenNLP ([Jan 18, 2019 commit](https://github.com/allenai/allennlp/blob/11d8327890bf3665fe687b1284f280a2a3974931)).
+Our paper's core code involves changes/additions to AllenNLP in the below files and folders:
 <table>
 <tr>
-    <td><b> allennlp </b></td>
-    <td> an open-source NLP research library, built on PyTorch </td>
+    <td><b> allennlp/training/trainer.py </b></td>
+    <td> The main training logic for Judge Models and Evidence Agents </td>
 </tr>
 <tr>
-    <td><b> allennlp.commands </b></td>
-    <td> functionality for a CLI and web service </td>
+    <td><b> allennlp/commands/train.py </b></td>
+    <td> Command line flags and initial setup to train BERT Judge Models and Evidence Agents </td>
 </tr>
 <tr>
-    <td><b> allennlp.data </b></td>
-    <td> a data processing module for loading datasets and encoding strings as integers for representation in matrices </td>
+    <td><b> allennlp/data/dataset_readers/reading_comprehension/{race,dream}_mc.py </b></td>
+    <td> Code to read RACE and DREAM datasets </td>
 </tr>
 <tr>
-    <td><b> allennlp.models </b></td>
-    <td> a collection of state-of-the-art models </td>
+    <td><b> allennlp/models/reading_comprehension/bert_mc.py </b></td>
+    <td> Code for BERT QA Models </td>
 </tr>
 <tr>
-    <td><b> allennlp.modules </b></td>
-    <td> a collection of PyTorch modules for use with text </td>
+    <td><b> allennlp/tests/fixtures/data/ </b></td>
+    <td> Mini datasets files for debugging </td>
 </tr>
 <tr>
-    <td><b> allennlp.nn </b></td>
-    <td> tensor utility functions, such as initializers and activation functions </td>
+    <td><b> datasets/ </b></td>
+    <td> Folder for datasets </td>
 </tr>
 <tr>
-    <td><b> allennlp.service </b></td>
-    <td> a web server to that can serve demos for your models </td>
+    <td><b> eval/ </b></td>
+    <td> Evidence Agent sentence selections, which we used for human evaluation (eval/mturk/) and testing for improved Judge generalization (eval/generalization/) </td>
 </tr>
 <tr>
-    <td><b> allennlp.training </b></td>
-    <td> functionality for training models </td>
+    <td><b> fasttext/ </b></td>
+    <td> Code for training FastText Judge Models and Search-based Evidence Agents </td>
+</tr>
+<tr>
+    <td><b> scripts/ </b></td>
+    <td> TODO </td>
+</tr>
+<tr>
+    <td><b> tf_idf/ </b></td>
+    <td> Code for training TF-IDF Judge Models and Search-based Evidence Agents </td>
+</tr>
+<tr>
+    <td><b> training_config/ </b></td>
+    <td> Config files for training models with various hyperparameters </td>
+</tr>
+<tr>
+    <td><b> tmp/ </b></td>
+    <td> Folder for trained models </td>
 </tr>
 </table>
 
+TODO: Rename folders in eval/ to match paper
+TODO: Add code links for above
+
+In the code, we refer to the Judge Model as "judge" and Evidence Agents as "debaters," following [Irving et al. 2018](https://arxiv.org/abs/1805.00899).
+
 ## Installation
 
-AllenNLP requires Python 3.6.1 or later. The preferred way to install AllenNLP is via `pip`.  Just run `pip install allennlp` in your Python environment and you're good to go!
-
-If you need pointers on setting up an appropriate Python environment or would like to install AllenNLP using a different method, see below.
-
-Windows is currently not officially supported, although we try to fix issues when they are easily addressed.
-
-### Installing via pip
+TODO: Fix/verify the below commands
+TODO: Add other necessary requirements from your allennlp env.
 
 #### Setting up a virtual environment
 
@@ -90,147 +97,82 @@ Installing the library and dependencies is simple using `pip`.
    pip install allennlp
    ```
 
-That's it! You're now ready to build and train AllenNLP models.
-AllenNLP installs a script when you install the python package, meaning you can run allennlp commands just by typing `allennlp` into a terminal.
+## Downloading Data
 
-You can now test your installation with `allennlp test-install`.
+TODO: Add instructions with appropriate names
 
-_`pip` currently installs Pytorch for CUDA 9 only (or no GPU). If you require an older version,
-please visit http://pytorch.org/ and install the relevant pytorch binary._
-
-### Installing using Docker
-
-Docker provides a virtual machine with everything set up to run AllenNLP--
-whether you will leverage a GPU or just run on a CPU.  Docker provides more
-isolation and consistency, and also makes it easy to distribute your
-environment to a compute cluster.
-
-Once you have [installed Docker](https://docs.docker.com/engine/installation/)
-just run the following command to get an environment that will run on either the cpu or gpu.
+From the base directory (convince/allennlp), make a folder to store datasets:
 
    ```bash
-   docker run -it -p 8000:8000 --rm allennlp/allennlp:v0.8.1
+   mkdir datasets
    ```
 
-You can test the Docker environment with `docker run -it -p 8000:8000 --rm allennlp/allennlp:v0.8.1 test-install`.
+Download RACE using the Google form linked on [this page](http://www.cs.cmu.edu/~glai1/data/race/).
+You'll immediately receive an email with a link to the dataset, which you can download with:
 
-### Installing from source
+   ```bash
+   wget [link] -O datasets/race_raw.tar.gz
+   tar -xvzf race_raw.tar.gz
+   ```
 
-You can also install AllenNLP by cloning our git repository:
+Download DREAM:
 
-  ```bash
-  git clone https://github.com/allenai/allennlp.git
-  ```
+   ```bash
+   mkdir datasets/dream
+   for SPLIT in train dev test; do
+     wget https://github.com/nlpdata/dream/blob/master/data/$SPLIT.json -O datasets/dream/$SPLIT.json
+   done
+   ```
 
-Create a Python 3.6 virtual environment, and install the necessary requirements by running:
+## Training a BERT Judge Model
 
-  ```bash
-  INSTALL_TEST_REQUIREMENTS=true scripts/install_requirements.sh
-  ```
+The below command gave us a BERT QA model with 66.32% validation accuracy at epoch 5:
 
-Changing the flag to false if you don't want to be able to run
-tests. Once the requirements have been installed, run:
+   ```bash
+   allennlp train training_config/race.best.jsonnet -s tmp/race.best.f --debate_mode f --accumulation_steps 32
+   ```
 
-  ```bash
-  pip install --editable .
-  ```
+#### Pre-trained Judge Models
 
-To install the AllenNLP library in `editable` mode into your
-environment.  This will make `allennlp` available on your
-system but it will use the sources from the local clone you
-made of the source repository.
+TODO: Zip all models into single file and change link.
+Download the Judge models from our paper [here](https://drive.google.com/open?id=1vJPhOlIAXpYhRjYNEH0B6tqi2KCEKqRu). 
 
-You can test your installation with `bin/allennlp test-install`.
-The full development environment also requires the JVM and `perl`,
-which must be installed separately.  `./scripts/verify.py` will run
-the full suite of tests used by our continuous build environment.
+## Training Evidence Agents
 
-## Running AllenNLP
 
-Once you've installed AllenNLP, you can run the command-line interface either
-with the `allennlp` command (if you installed via `pip`) or `bin/allennlp` (if you installed via source).
 
-```bash
-$ allennlp
-Run AllenNLP
+#### Pre-trained Evidence Agents
 
-optional arguments:
-  -h, --help    show this help message and exit
-  --version     show program's version number and exit
+TODO: Zip all models into single file and change link.
+Download the Judge models from our paper [here](https://drive.google.com/open?id=1vJPhOlIAXpYhRjYNEH0B6tqi2KCEKqRu).
 
-Commands:
+## Implementation Notes
 
-    configure   Generate configuration stubs.
-    train       Train a model
-    evaluate    Evaluate the specified model + dataset
-    predict     Use a trained model to make predictions.
-    make-vocab  Create a vocabulary
-    elmo        Create word vectors using a pretrained ELMo model.
-    fine-tune   Continue training a model on a new dataset
-    dry-run     Create a vocabulary, compute dataset statistics and other
-                training utilities.
-    test-install
-                Run the unit tests.
-```
-
-## Docker images
-
-AllenNLP releases Docker images to [Docker Hub](https://hub.docker.com/r/allennlp/) for each release.  For information on how to run these releases, see [Installing using Docker](#installing-using-docker).
-
-### Building a Docker image
-
-For various reasons you may need to create your own AllenNLP Docker image.
-The same image can be used either with a CPU or a GPU.
-
-First, you need to [install Docker](https://www.docker.com/get-started).
-Then run the following command
-(it will take some time, as it completely builds the
-environment needed to run AllenNLP.)
-
-```bash
-docker build -f Dockerfile.pip --tag allennlp/allennlp:latest .
-```
-
-You should now be able to see this image listed by running `docker images allennlp`.
-
-```
-REPOSITORY          TAG                 IMAGE ID            CREATED             SIZE
-allennlp/allennlp            latest              b66aee6cb593        5 minutes ago       2.38GB
-```
-
-### Running the Docker image
-
-You can run the image with `docker run --rm -it allennlp/allennlp:latest`.  The `--rm` flag cleans up the image on exit and the `-it` flags make the session interactive so you can use the bash shell the Docker image starts.
-
-You can test your installation by running  `allennlp test-install`.
-
-## Issues
-
-Everyone is welcome to file issues with either feature requests, bug reports, or general questions.  As a small team with our own internal goals, we may ask for contributions if a prompt fix doesn't fit into our roadmap.  We allow users a two week window to follow up on questions, after which we will close issues.  They can be re-opened if there is further discussion.
-
-## Contributions
-
-The AllenNLP team at AI2 (@allenai) welcomes contributions from the greater AllenNLP community, and, if you would like to get a change into the library, this is likely the fastest approach.  If you would like to contribute a larger feature, we recommend first creating an issue with a proposed design for discussion.  This will prevent you from spending significant time on an implementation which has a technical limitation someone could have pointed out early on.  Small contributions can be made directly in a pull request.
-
-Pull requests (PRs) must have one approving review and no requested changes before they are merged.  As AllenNLP is primarily driven by AI2 (@allenai) we reserve the right to reject or revert contributions that we don't think are good additions.
+- Some parts of the implementation are BERT-specific (i.e., using [CLS], [SEP], or [MASK] tokens)
+- 'Ⅰ', 'Ⅱ', 'Ⅲ', 'Ⅳ' are special unicode chars. Copy and paste to use elsewhere (don't type directly).
+- TODO: Debate modes
+- TODO: Reward Methods
+- TODO: Explain ToM option
+- TODO: Explain RL option
 
 ## Citing
 
-If you use AllenNLP in your research, please cite [AllenNLP: A Deep Semantic Natural Language Processing Platform](https://www.semanticscholar.org/paper/AllenNLP%3A-A-Deep-Semantic-Natural-Language-Platform-Gardner-Grus/a5502187140cdd98d76ae711973dbcdaf1fef46d).
+If you found our code useful, please consider citing our paper:
 
 ```
-@inproceedings{Gardner2017AllenNLP,
-  title={AllenNLP: A Deep Semantic Natural Language Processing Platform},
-  author={Matt Gardner and Joel Grus and Mark Neumann and Oyvind Tafjord
-    and Pradeep Dasigi and Nelson F. Liu and Matthew Peters and
-    Michael Schmitz and Luke S. Zettlemoyer},
-  year={2017},
-  Eprint = {arXiv:1803.07640},
+@inproceedings{perez-etal-2019-finding,
+    title = "Finding Generalizable Evidence by Learning to Convince Q\&A Models",
+    author = "Perez, Ethan and Karamcheti, Siddharth and Fergus, Rob and Weston, Jason and Kiela, Douwe and Cho, Kyunghyun",
+    booktitle = "Proceedings of the 2019 Conference on Empirical Methods in Natural Language Processing",
+    month = nov,
+    year = "2019",
+    address = "Hong Kong, China",
+    publisher = "Association for Computational Linguistics",
 }
 ```
 
-## Team
-
-AllenNLP is an open-source project backed by [the Allen Institute for Artificial Intelligence (AI2)](http://www.allenai.org).
-AI2 is a non-profit institute with the mission to contribute to humanity through high-impact AI research and engineering.
-To learn more about who specifically contributed to this codebase, see [our contributors](https://github.com/allenai/allennlp/graphs/contributors) page.
+Remove variables:
+- [Optional] Model.output_type
+- [Optional] model.answer_type
+- [Optional] bidaf.py
+- race.py (span-based reader)

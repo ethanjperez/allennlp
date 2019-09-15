@@ -6,7 +6,6 @@ These submodules contain models for things that are predominantly focused on rea
 """
 
 from allennlp.models.reading_comprehension.bert_mc import BertMC
-from allennlp.models.reading_comprehension.bert_qa import BertQA
 from allennlp.models.reading_comprehension.bidaf import BidirectionalAttentionFlow
 from allennlp.models.reading_comprehension.bidaf_ensemble import BidafEnsemble
 from allennlp.models.reading_comprehension.dialog_qa import DialogQA

@@ -37,8 +37,7 @@ which to write the results.
      -d, --debate_mode     List of debate turns (e.g. aa, ar, rr, Ar) => capital implies search agent
      -j, --judge_filename  Path to judge config or pre-trained judge model. If config, judge trained during debate
      -u, --update_judge    Boolean whether or not to update Judge model during debate training
-     -m, --reward_method   Choice of Debate Reward function - [em (exact match), f1,
-                               prob (judge probability on an answer option),
+     -m, --reward_method   Choice of Debate Reward function - [prob (judge probability on an answer option),
                                sl (Supervised Learning to predict search-chosen sentence),
                                sl-sents (SL to predict Judge answer prob if each sentence had been chosen,
                                sl-sents-influence (Like above, but predicting the change in Judge prob (not raw prob),
@@ -130,7 +129,7 @@ class Train(Subcommand):
 
         subparser.add_argument('-m', '--reward_method',
                                type=str,
-                               choices=['em', 'f1', 'prob',  # Exact Match, F1, Probability
+                               choices=['prob',  # Judge probability on answer
                                         'sl',  # Supervised Learning (Oracle Prob)
                                         'sl-sents',  # SL on change in probabilities
                                         'sl-random'],  # SL but with random policy (baseline)
@@ -300,8 +299,7 @@ def train_model_from_file(parameter_filename: str,
     eval_mode : ``bool``, optional (default=False)
         Boolean whether or not to run in eval-only mode, on test data. Does not update/train any of the models.
     reward_method : ``str``, optional (default=False)
-        Choice of Debate Reward function for rewarding debaters. Choices include: [em (exact match), f1,
-        ssp (start span prob), sl (supervised learning), sl-ssp (supervised learning w/ start span probs]
+        Choice of reward function (RL) or loss function (Supervised Learning) for training debate agents
     detach_value_head : ``bool``, optional (default=False)
         Boolean whether or not to detatch value function gradient updates from the policy network. This prevents
         value function gradients from affecting policy network parameters.
@@ -314,8 +312,7 @@ def train_model_from_file(parameter_filename: str,
         number of examples per batch is small (limited GPU memory)
     multi_gpu : ``bool`` (default=False)
         Boolean whether or not to run models/training in model parallel mode. Requires specifying GPU allocations for
-        trainer, judge, and debaters in the training config file (see training_config/bidaf.race.size=0.5.gpu=2.jsonnet
-        for example usage).
+        trainer, judge, and debaters in the training config file.
     """
     # Load the experiment config from a file and pass it to ``train_model``.
     params = Params.from_file(parameter_filename, overrides)
@@ -377,8 +374,7 @@ def train_model(params: Params,
     eval_mode : ``bool``, optional (default=False)
         Boolean whether or not to run in eval-only mode, on test data. Does not update/train any of the models.
     reward_method : ``str``, optional (default=False)
-        Choice of Debate Reward function for rewarding debaters. Choices include: [em (exact match), f1,
-        ssp (start span prob), sl (supervised learning), sl-ssp (supervised learning w/ start span probs]
+        Choice of reward function (RL) or loss function (Supervised Learning) for training debate agents
     detach_value_head : ``bool``, optional (default=False)
         Boolean whether or not to detatch value function gradient updates from the policy network. This prevents
         value function gradients from affecting policy network parameters.
