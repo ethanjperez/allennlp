@@ -45,9 +45,6 @@ Our paper's core code involves changes/additions to AllenNLP in the below files 
 </tr>
 </table>
 
-TODO: Rename folders in eval/ to match paper
-TODO: Add code links for above
-
 ## Key arguments
 
 In the code, we refer to the Judge Model as "judge" and Evidence Agents as "debaters," following [Irving et al. 2018](https://arxiv.org/abs/1805.00899).
