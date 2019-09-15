@@ -153,13 +153,11 @@ class Train(Subcommand):
                                default=1,
                                help='Number of steps to accumulate gradient for before taking an optimizer step.')
 
-        # NB: --evaluate does not expand vocab based on test data
         subparser.add_argument('-e', '--eval_mode',
                                action='store_true',
                                default=False,
                                help='run in evaluation-only mode on test_data_path (validation if no test given)')
 
-        # NB: --per-gpu model/loader allocation goes in Configuration File (e.g. bidaf.race.size=0.5.gpu=2.jsonnet)
         subparser.add_argument('-g', '--multi-gpu',
                                action='store_true',
                                default=False,
@@ -397,7 +395,8 @@ def train_model(params: Params,
         The model with the best epoch weights.
     """
     assert (not single_shot) or eval_mode, 'Using single shot prediction outside eval_mode not yet supported.'
-    assert (not single_shot) or (num_pred_rounds == -1), 'Using single shot prediction for a specific number of rounds is not yet supported.'
+    assert (not single_shot) or (num_pred_rounds == -1), \
+        'Using single shot prediction for a specific number of rounds is not yet supported.'
     # Get number of debate turns, and assert that not performing judge-only training
     num_no_qa_turns = sum([(('l' in debate_turn) or ('w' in debate_turn)) for debate_turn in debate_mode])
     if (qa_loss_weight > 0) and (num_no_qa_turns == 0):
@@ -469,11 +468,9 @@ def train_model(params: Params,
                 single_shot=single_shot)
         evaluation_iterator = pieces.validation_iterator or pieces.iterator
         evaluation_dataset = pieces.test_dataset
-        # TODO: Check you're not modifying variables important for later on, in TrainerPieces
     else:
         assert (len(debate_mode) == 1) and (debate_mode[0] == 'f'), 'TrainerBase untested for debate training.'
         trainer = TrainerBase.from_params(params, serialization_dir, recover)
-        # TODO(joelgrus): handle evaluation in the general case
         evaluation_iterator = evaluation_dataset = None
 
     params.assert_empty('base train command')
@@ -493,7 +490,6 @@ def train_model(params: Params,
         logger.info("The model will be evaluated using the best epoch weights.")
         test_metrics = evaluate(trainer.model, evaluation_dataset, evaluation_iterator,
                                 cuda_device=trainer._cuda_devices[0], # pylint: disable=protected-access,
-                                # TODO(brendanr): Pass in an arg following Joel's trainer refactor.
                                 batch_weight_key="")
 
         for key, value in test_metrics.items():
@@ -508,7 +504,8 @@ def train_model(params: Params,
         archive_model(serialization_dir, files_to_archive=params.files_to_archive)
         dump_metrics(os.path.join(serialization_dir, "metrics.json"), metrics, log=True)
     else:
-        dump_metrics(os.path.join(serialization_dir, "metrics.eval.d=" + '-'.join(debate_mode) + ".json"), metrics, log=True)
+        dump_metrics(os.path.join(serialization_dir, "metrics.eval.d=" + '-'.join(debate_mode) + ".json"), metrics,
+                     log=True)
 
     # We count on the trainer to have the model with best weights
     return trainer.model

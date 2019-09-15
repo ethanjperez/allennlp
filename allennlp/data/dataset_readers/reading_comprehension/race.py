@@ -45,7 +45,7 @@ class RaceReader(DatasetReader):
         self._token_indexers = token_indexers or {'tokens': SingleIdTokenIndexer()}
         self._using_bert = hasattr(self._token_indexers['tokens'], '_namespace') and self._token_indexers['tokens']._namespace == 'bert'
         if self._using_bert:
-            print('BEEEEEEEEEEEEEEEEEEEERT!')
+            print('BERT!')
 
     @overrides
     def _read(self, file_path: str):

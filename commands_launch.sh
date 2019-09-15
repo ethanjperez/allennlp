@@ -17,15 +17,34 @@ for COMMAND in "${COMMANDS[@]}"; do
     echo -e "\n${CYAN}${SERIALIZATION_DIR}/train.log\n"
 done
 
-for split in "dev"; do
-    for experiment in "num_sents_gt_26"; do  # "num_sents_leq_12"
-        for method in "fasttext.o"; do  # "tfidf.o" "tfidf.o_q"
+# RACE Short -> Long Generalization
+for split in "dev" "test"; do
+    for experiment in "num_sents_gt_26" "num_sents_leq_12"; do
+        for method in "fasttext.o" "tfidf.o" "tfidf.o_q"; do
             for debaters in "ⅠⅡ" "ⅠⅢ" "ⅠⅣ" "ⅡⅢ" "ⅡⅣ" "ⅢⅣ"; do
-                for debate_mode in $debaters$debaters$debaters $debaters$debaters$debaters$debaters $debaters$debaters$debaters$debaters$debaters $debaters$debaters$debaters$debaters$debaters$debaters; do
-                    dataset=race_raw.${experiment}.${method}.d=${debate_mode}/${split}
-                    export SERIALIZATION_DIR=tmp/race.num_sents_leq_12.best.f.$experiment.$method.d=$debate_mode.$split
-                    sbatch --job-name SERIALIZATION_DIR --mem=20000 -t 1-23:58 --gres=gpu:1080ti:1 --open-mode append --requeue --wrap "allennlp train training_config/race.best.jsonnet -s $SERIALIZATION_DIR -j tmp/race.num_sents_leq_12.best.f/model.tar.gz -e -d f -p tmp/race_m.best.bsz=12.f/oracle_outputs.c=concat.$experiment.$method.d=$debate_mode.$split.pkl -c concat -o \"{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/$dataset'}\" 2>&1 | tee $SERIALIZATION_DIR/out.txt"
-                    echo SERIALIZATION_DIR
+                for debate_mode in $debaters$debaters$debaters$debaters$debaters$debaters $debaters$debaters$debaters$debaters$debaters $debaters$debaters$debaters$debaters $debaters$debaters$debaters; do
+                    export judge_dir=tmp/race.num_sents_leq_12.best.f
+                    export SERIALIZATION_DIR=$judge_dir.$experiment.$method.d=$debate_mode.$split
+                    export dataset=race_raw.${experiment}.${method}.d=${debate_mode}/${split}
+                    sbatch --job-name $SERIALIZATION_DIR --mem=20000 -t 1-23:58 --gres=gpu:1080ti:1 --open-mode append --requeue --wrap "allennlp train training_config/race.best.jsonnet -s $SERIALIZATION_DIR -j $judge_dir/model.tar.gz -e -d f -p $judge_dir/oracle_outputs.c=concat.$experiment.$method.d=$debate_mode.$split.pkl -c concat -o \"{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/$dataset'}\" 2>&1 | tee $SERIALIZATION_DIR/out.txt"
+                    echo $SERIALIZATION_DIR
+                done
+            done
+        done
+    done
+done
+
+# DREAM Short -> Long Generalization
+for split in "test" "dev"; do
+    for experiment in "num_sents_gt_26"; do
+        for method in "tfidf.o" "tfidf.o_q"; do  #  "fasttext.o"
+            for debaters in "ⅠⅡ" "ⅠⅢ" "ⅡⅢ"; do
+                for debate_mode in $debaters$debaters$debaters$debaters$debaters$debaters $debaters$debaters$debaters$debaters$debaters $debaters$debaters$debaters$debaters $debaters$debaters$debaters; do
+                    export judge_dir=tmp/race.num_sents_leq_12.best.f
+                    export SERIALIZATION_DIR=$judge_dir.dream.$experiment.$method.d=$debate_mode.$split
+                    export dataset=dream/$split.$experiment.$method.d=$debate_mode.json
+                    sbatch --job-name $SERIALIZATION_DIR --mem=20000 -t 1-23:58 --gres=gpu:1080ti:1 --open-mode append --requeue --wrap "allennlp train training_config/race.best.jsonnet -s $SERIALIZATION_DIR -j $judge_dir/model.tar.gz -e -d f -p $judge_dir/oracle_outputs.dream.c=concat.$experiment.$method.d=$debate_mode.$split.pkl -c concat -o \"{'train_data_path': 'allennlp/tests/fixtures/data/dream/train.json', 'validation_data_path': 'datasets/$dataset', 'dataset_reader': {'type': 'dream-mc'}}\" 2>&1 | tee $SERIALIZATION_DIR/out.txt"
+                    echo $SERIALIZATION_DIR
                 done
             done
         done
@@ -33,7 +52,22 @@ for split in "dev"; do
 done
 
 
-allennlp train training_config/race.best.jsonnet -s tmp/race.num_sents_leq_12.best.f -e -r -d f -c concat -o \"{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/$dataset'}\" 2>&1 | tee tmp/race.num_sents_leq_12.best.f/$outfile.txt
+# RACE Middle -> High Generalization
+for split in "dev" "test"; do
+    for experiment in "high" "middle"; do
+        for method in "fasttext.o" "tfidf.o" "tfidf.o_q"; do
+            for debaters in "ⅠⅡ" "ⅠⅢ" "ⅠⅣ" "ⅡⅢ" "ⅡⅣ" "ⅢⅣ"; do
+                for debate_mode in $debaters$debaters$debaters$debaters$debaters$debaters $debaters$debaters$debaters$debaters$debaters $debaters$debaters$debaters$debaters $debaters$debaters$debaters; do
+                    export judge_dir=tmp/race_m.best.bsz=12.f
+                    export SERIALIZATION_DIR=$judge_dir.$experiment.$method.d=$debate_mode.$split
+                    export dataset=race_raw.${experiment}.${method}.d=${debate_mode}/${split}
+                    sbatch --job-name $SERIALIZATION_DIR --mem=20000 -t 1-23:58 --gres=gpu:1080ti:1 --open-mode append --requeue --wrap "allennlp train training_config/race.best.jsonnet -s $SERIALIZATION_DIR -j $judge_dir/model.tar.gz -e -d f -p $judge_dir/oracle_outputs.c=concat.$experiment.$method.d=$debate_mode.$split.pkl -c concat -o \"{'train_data_path': 'allennlp/tests/fixtures/data/race_raw/train', 'validation_data_path': 'datasets/$dataset'}\" 2>&1 | tee $SERIALIZATION_DIR/out.txt"
+                    echo $SERIALIZATION_DIR
+                done
+            done
+        done
+    done
+done
 
 
 # TODO: Check on this!
