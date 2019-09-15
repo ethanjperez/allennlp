@@ -6,7 +6,7 @@ TODO: Replace below with paper GIF.
 
 ## Code Overview
 
-Our code was forked from AllenNLP ([Jan 18, 2019 commit](https://github.com/allenai/allennlp/blob/11d8327890bf3665fe687b1284f280a2a3974931)).
+Our code was forked from AllenNLP ([Jan 18, 2019 commit](https://github.com/allenai/allennlp/tree/11d8327890bf3665fe687b1284f280a2a3974931)).
 Our paper's core code involves changes/additions to AllenNLP in the below files and folders:
 <table>
 <tr>
@@ -149,10 +149,16 @@ TODO: Add other necessary requirements from your allennlp env.
 
 #### Installing the library and dependencies
 
-Installing the library and dependencies is simple using `pip`.
+Clone this repo and move to ```convince/allennlp/``` (where all commands should be run from):
+   ```bash
+   git clone https://github.com/ethanjperez/convince.git
+   cd convince/allennlp
+   ```
+
+Install dependencies using `pip`.
 
    ```bash
-   pip install allennlp
+   pip install -r requirements.txt
    ```
 
 ## Downloading Data
@@ -170,11 +176,17 @@ You'll immediately receive an email with a link to the dataset, which you can do
 
    ```bash
    wget [link] -O datasets/race_raw.tar.gz
-   tar -xvzf race_raw.tar.gz
+   tar -xvzf datasets/race_raw.tar.gz
    ```
-   
-TODO: Add DREAM and RACE subsets
-TODO: Add script to split RACE into middle and high school datasets
+
+Here are the RACE dataset subsets we used for [short](https://drive.google.com/open?id=1NtHubMpsz9CUy5_0ZMXdoU6jbJ2BHR18) and [long](https://drive.google.com/open?id=1Hjgs6XMWcSh8AAReLFbaaOy0SBHhw2dQ) passages (place these in ```datasets/```). 
+You can split RACE into middle (```race_raw_middle```) and high school (```race_raw_high````) subsets via:
+   ```bash
+   cp -r datasets/race_raw datasets/race_raw_high
+   rm -r datasets/race_raw_high/*/middle
+   cp -r datasets/race_raw datasets/race_raw_middle
+   rm -r datasets/race_raw_middle/*/high
+   ```
 
 Download DREAM:
 
@@ -183,6 +195,19 @@ Download DREAM:
    for SPLIT in train dev test; do
      wget https://github.com/nlpdata/dream/blob/master/data/$SPLIT.json -O datasets/dream/$SPLIT.json
    done
+   ```
+
+Here is the long passage DREAM subset we used for [dev](https://drive.google.com/open?id=15c1B0LRv_RMrtmycrYV1T8zK_n0jlkES) and [test](https://drive.google.com/open?id=174l4d_oz5Qjyp0W8zUUK6JRxgdGqDIlf) (place these in ```datasets/dream```).
+
+Download BERT:
+   ```bash
+   mkdir -p datasets/bert
+   cd datasets/bert
+   wget https://storage.googleapis.com/bert_models/2018_10_18/uncased_L-12_H-768_A-12.zip
+   unzip uncased_L-12_H-768_A-12.zip
+   wget https://storage.googleapis.com/bert_models/2018_10_18/uncased_L-24_H-1024_A-16.zip
+   unzip uncased_L-24_H-1024_A-16.zip
+   cd ../..
    ```
 
 ## Training a BERT Judge Model
