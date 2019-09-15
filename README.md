@@ -258,12 +258,12 @@ To train a BERT Large Judge (we needed a GPU with 32GB of memory):
 
 The below command will load the judge model as part of an evidence agent (with dummy weights). The agent tries each possible sentence to choose a sentence:
    ```bash
-   for DM in Ⅰ Ⅱ Ⅲ Ⅳ; do
-     allennlp train training_config/race.best.jsonnet --serialization-dir tmp/race.best.f.dm=$DM --judge-filename tmp/race.best.f/model.tar.gz --eval-mode --debate-mode $DM --search-outputs-path tmp/race.best.f.dm=$DM/search_outputs.pkl
-   done
+   DM=Ⅰ  # Replace with Ⅱ Ⅲ Ⅳ to get evidence for other answers
+   allennlp train training_config/race.best.jsonnet --serialization-dir tmp/race.best.f.dm=$DM --judge-filename tmp/race.best.f/model.tar.gz --eval-mode --debate-mode $DM --search-outputs-path tmp/race.best.f.dm=$DM/search_outputs.pkl
    ```
 
-The above command runs inference over every example in RACE's validation set to find the strongest evidence sentence for each answer.
+The above command will pretty print the single best search-chosen evidence for the first answer option in every RACE validation example.
+The results will be saved to a json file starting with `debate_log` in the serialization directory `tmp/race.best.f.dm=$DM`.
 You can also change the evaluation dataset by copying `training_config/race.best.jsonnet` into a new config file and changing `validation_data_path: datasets/race_raw/dev` to `validation_data_path: datasets/race_raw/test`.
 You can change the training dataset in a similar way; if you're just running inference/evaluation (as you are for search agents), you can save the time to load RACE's training set by changing `train_data_path: datasets/race_raw/train` to `train_data_path: allennlp/tests/fixtures/data/race_raw/train` (tiny slice of the dataset).
 
