@@ -1,8 +1,6 @@
 # Finding Generalizable Evidence by Learning to Convince Q&A Models
 
-TODO: Replace below with paper GIF.
-
-<p align="center"><img width="40%" src="doc/static/allennlp-logo-dark.png" /></p>
+<p align="center"><img width="40%" src="doc/static/Learning-to-Convince-Figure.png" /></p>
 
 ## Code Overview
 
