@@ -245,7 +245,7 @@ You can download this model from Google Drive [here](https://drive.google.com/op
    ```bash
    gdrive_download 1ymA_MziGDYonY3Ck6Wbhss7lSD7AtzX0 race.best.f.zip
    unzip race.best.f.zip
-   mv race.best.f.zip tmp/
+   mv race.best.f tmp/
    rm race.best.f.zip
    ```
 
