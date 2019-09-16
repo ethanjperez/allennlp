@@ -13,39 +13,39 @@ Our code was forked from AllenNLP ([Jan 18, 2019 commit](https://github.com/alle
 Our paper's core code involves changes/additions to AllenNLP in the below files and folders:
 <table>
 <tr>
-    <td><b> allennlp/training/trainer.py </b></td>
+    <td> [allennlp/training/trainer.py](https://github.com/ethanjperez/convince/blob/master/allennlp/allennlp/training/trainer.py) </td>
     <td> The main training logic for BERT Judge Models and Evidence Agents </td>
 </tr>
 <tr>
-    <td><b> allennlp/commands/train.py </b></td>
+    <td> [allennlp/commands/train.py](https://github.com/ethanjperez/convince/blob/master/allennlp/allennlp/commands/train.py) </td>
     <td> Command line flags and initial setup to train BERT Judge Models and Evidence Agents </td>
 </tr>
 <tr>
-    <td><b> allennlp/data/dataset_readers/ reading_comprehension/{race,dream}_mc.py </b></td>
+    <td><b> allennlp/data/dataset_readers/ reading_comprehension/{[race](https://github.com/ethanjperez/convince/blob/master/allennlp/allennlp/data/dataset_readers/reading_comprehension/race_mc.py),[dream](https://github.com/ethanjperez/convince/blob/master/allennlp/allennlp/data/dataset_readers/reading_comprehension/dream_mc.py)}_mc.py </b></td>
     <td> Code to read RACE and DREAM datasets </td>
 </tr>
 <tr>
-    <td><b> allennlp/models/ reading_comprehension/bert_mc.py </b></td>
+    <td><b> [allennlp/models/ reading_comprehension/bert_mc.py](https://github.com/ethanjperez/convince/blob/master/allennlp/allennlp/models/reading_comprehension/bert_mc.py) </b></td>
     <td> Code for BERT QA Models </td>
 </tr>
 <tr>
-    <td><b> allennlp/tests/fixtures/data/ </b></td>
+    <td><b> [allennlp/tests/fixtures/data/](https://github.com/ethanjperez/convince/tree/master/allennlp/allennlp/tests/fixtures/data) </b></td>
     <td> Mini datasets files for debugging </td>
 </tr>
 <tr>
-    <td><b> eval/ </b></td>
-    <td> Evidence Agent sentence selections, which we used for human evaluation (eval/mturk/) and testing for improved Judge generalization (eval/generalization/) </td>
+    <td><b> [eval/](https://github.com/ethanjperez/convince/tree/master/allennlp/eval) </b></td>
+    <td> Evidence Agent sentence selections, which we used for human evaluation ([eval/mturk/](https://github.com/ethanjperez/convince/tree/master/allennlp/eval/mturk)) and testing for improved Judge generalization ([eval/generalization/](https://github.com/ethanjperez/convince/tree/master/allennlp/eval/generalization)) </td>
 </tr>
 <tr>
-    <td><b> fasttext/ </b></td>
+    <td><b> [fasttext/](https://github.com/ethanjperez/convince/tree/master/allennlp/fasttext) </b></td>
     <td> Code for training FastText Judge Models and Search-based Evidence Agents </td>
 </tr>
 <tr>
-    <td><b> tf_idf/ </b></td>
+    <td><b> [tf_idf/](https://github.com/ethanjperez/convince/tree/master/allennlp/tf_idf) </b></td>
     <td> Code for training TF-IDF Judge Models and Search-based Evidence Agents </td>
 </tr>
 <tr>
-    <td><b> training_config/ </b></td>
+    <td><b> [training_config/](https://github.com/ethanjperez/convince/tree/master/allennlp/training_config) </b></td>
     <td> Config files for training models with various hyperparameters </td>
 </tr>
 </table>
