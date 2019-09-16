@@ -21,7 +21,7 @@ Our paper's core code involves changes/additions to AllenNLP in the below files 
     <td> Command line flags and initial setup to train BERT Judge Models and Evidence Agents </td>
 </tr>
 <tr>
-    <td> <a href="https://github.com/ethanjperez/convince/blob/master/allennlp/allennlp/data/dataset_readers/reading_comprehension/race_mc.py">allennlp/data/dataset_readers/ reading_comprehension/race_mc.py</a> and <a href="https://github.com/ethanjperez/convince/blob/master/allennlp/allennlp/data/dataset_readers/reading_comprehension/dream_mc.py">dream_mc.py</a>} </td>
+    <td> <a href="https://github.com/ethanjperez/convince/blob/master/allennlp/allennlp/data/dataset_readers/reading_comprehension/race_mc.py">allennlp/data/dataset_readers/ reading_comprehension/race_mc.py</a> and <a href="https://github.com/ethanjperez/convince/blob/master/allennlp/allennlp/data/dataset_readers/reading_comprehension/dream_mc.py">dream_mc.py</a> </td>
     <td> Code to read RACE and DREAM datasets </td>
 </tr>
 <tr>
